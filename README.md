@@ -2,6 +2,7 @@
 
 iPhone Safari 專用行車儀表板：台灣固定式測速照相提醒 + 原創 3D 車模。純 ES modules、無 bundler、無後端。
 
+- 線上：https://songrujhan-sketch.github.io/DriveHud/ （主畫面）、https://songrujhan-sketch.github.io/DriveHud/sim.html （模擬）
 - 主畫面：`index.html`（需 HTTPS 與定位權限）
 - 模擬測試：`sim.html`（不需 GPS，五條情境重播）
 - 車模展示：`src/car/demo.html`

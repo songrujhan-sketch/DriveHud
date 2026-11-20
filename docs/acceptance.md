@@ -77,7 +77,7 @@ E2E 指令：`npm run e2e`（webkit；無法安裝時 `E2E_BROWSER=chromium E2E_
 | 項目 | 內容 | 驗證方式 | 狀態 |
 |---|---|---|---|
 | 6-1 | 原始碼完整、純 ES modules、無 bundler | README | 已驗證 |
-| 6-2 | 啟動方式（`python3 -m http.server`）、GitHub Pages 連結 | README + 部署確認 | 部分：程式碼已推上 main、部署工作流程已就緒；Pages 需在 repo Settings → Pages 將 Source 設為「GitHub Actions」一次（API 與 Actions token 皆無權建立站台） |
+| 6-2 | 啟動方式（`python3 -m http.server`）、GitHub Pages 連結 | README + 部署確認 | 已驗證：https://songrujhan-sketch.github.io/DriveHud/ （Pages Source = GitHub Actions，每次 push main 自動部署；sim.html 線上載入正常） |
 | 6-3 | 驗收表已填寫、待 iPhone 實測清單 | 本文件 + prompts §9 | 已驗證 |
 | 6-4 | 主畫面與 sim.html 載入無 console error | e2e | 已驗證（Chromium iPhone 15 模擬） |
 
