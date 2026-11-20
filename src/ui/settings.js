@@ -14,6 +14,7 @@ export const CAR_COLORS = [
   { hex: '#f2b705', name: '亮黃' },
   { hex: '#2e9e5b', name: '森綠' },
   { hex: '#7a3fd1', name: '紫' },
+  { hex: '#15171a', name: '曜黑' },
 ];
 export const CAR_VIEWS = [
   { id: 'front', name: '前 45°' },

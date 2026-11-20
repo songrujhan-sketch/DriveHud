@@ -1,7 +1,7 @@
 // 女武神（valkyrie）— 原創低趴中置引擎 hypercar：
 // 淚滴座艙、前葉子板高於引擎蓋的稜線、門後大型側進氣、長尾擴散器、鵝頸大尾翼。
 // 全部為原創幾何，不參考任何既有車款造型或標誌。
-import { bodyLoft, cabinLoft, regionHelpers, curve, smooth } from './kit.js';
+import { bodyLoft, cabinLoft, loftDoors, regionHelpers, curve, smooth } from './kit.js';
 import { band } from './loft.js';
 import { makeMaterials, multiMesh, placeWheels, makeMirror, makeHeadSpot, roundBox, extrudeX, shapeOf, mesh, mirrored, merge } from './parts.js';
 
@@ -47,7 +47,7 @@ export function build(THREE, { color = '#c8102e' } = {}) {
   });
   const R = regionHelpers(body);
   const isIntake = (q) => q.zr < -0.3 && q.zr > -0.9 && q.y > 0.3 && q.y < 0.57 && R.isSide(q);
-  const bodyMesh = multiMesh(THREE, body.geometry((q) => {
+  const bodyKey = (q) => {
     if (q.cap) return 'paint';
     if (q.tag === 'under') return 'under';
     if (q.tag === 'well') return 'under';
@@ -64,7 +64,8 @@ export function build(THREE, { color = '#c8102e' } = {}) {
     if (q.zr > 1.84 && q.zr < 2.12 && xf > 0.62 && xf < 0.97) return 'housing'; // 頭燈座
     if (q.zr < -1.3 && q.zr > -1.88 && xf < 0.5) { const i = Math.floor((q.zr + 1.88) / 0.05); return i % 2 ? 'gblack' : 'paint'; } // 引擎蓋百葉
     return 'paint';
-  }, ['paint', 'under', 'gap', 'grille', 'housing', 'gblack', 'carbon']), M);
+  };
+  const bodyMesh = multiMesh(THREE, body.geometry(bodyKey, ['paint', 'under', 'gap', 'grille', 'housing', 'gblack', 'carbon']), M);
   group.add(bodyMesh);
 
   // ── 頭燈：燈座內的發光條 + 透明燈罩 ──
@@ -88,7 +89,7 @@ export function build(THREE, { color = '#c8102e' } = {}) {
     slant: (z) => -0.45 * smooth((z - 0.2) / 0.5) + 0.5 * smooth((-0.5 - z) / 0.4),
   });
   const zS0 = 0.82, zS1 = -0.92, zW = 0.12, zRw = -0.48;
-  group.add(multiMesh(THREE, cab.geometry((q) => {
+  const cabKey = (q) => {
     if (q.tag === 'cabLow') return 'paint';
     if (q.tag === 'beltTrim' || q.tag === 'glass' || q.tag === 'frame') {
       if (q.zr < zS0 && q.zr > zS1) return q.tag === 'glass' ? 'glass' : 'gblack';
@@ -98,7 +99,10 @@ export function build(THREE, { color = '#c8102e' } = {}) {
     if (q.zr > zW) return 'glass'; // 前擋
     if (q.zr < zRw && q.zr > -1.18) return 'glass'; // 後窗（引擎窗）
     return 'carbon'; // 碳纖維車頂
-  }, ['paint', 'glass', 'gblack', 'carbon']), M));
+  };
+  group.add(multiMesh(THREE, cab.geometry(cabKey, ['paint', 'glass', 'gblack', 'carbon']), M));
+  // 蝶翼門：鉸鏈在 A 柱根部，向前上方掀起並略為外張
+  const D = loftDoors(THREE, group, M, { body, cab, bodyKey, cabKey, zF: doorF, zR: doorR, topXf: 0.84, hinge: { point: [0.8, 0.7, doorF - 0.04], axis: [1, -0.45, 0.1], angle: 1.05 } });
 
   // 座艙脊線：從車頂延伸到尾部的車身色脊
   const spine = new THREE.Shape();
@@ -161,7 +165,7 @@ export function build(THREE, { color = '#c8102e' } = {}) {
   ]);
 
   return {
-    group, wheels, bodyMaterials: [M.paint],
-    headlights: { meshes: [head], drl: [drl], light }, taillights: tails, meta,
+    group, wheels, bodyMaterials: [M.paint, D.paint],
+    headlights: { meshes: [head], drl: [drl], light }, taillights: tails, doors: D.doors, meta,
   };
 }

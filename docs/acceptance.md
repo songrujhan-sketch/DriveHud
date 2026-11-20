@@ -17,7 +17,8 @@ E2E 指令：`npm run e2e`（webkit；無法安裝時 `E2E_BROWSER=chromium E2E_
 | 1-1e | GPS 狀態列：定位中／定位正常／訊號不佳／權限遭拒／重新定位中 | e2e + 待 iPhone 實測 | 已驗證（iPhone 實測：定位正常與車速顯示）；其餘狀態切換待實測 |
 | 1-2a | 四款車模（女武神／黑暗騎士／阿斯拉／裝甲越野）可切換；第四款由平行原型移植，面數較低 | 設定頁 e2e + src/car/demo.html 目視 | 已驗證（功能）；V1.6b 已升級為 ~3 萬三角形 + 展示廳渲染（clearcoat 車漆、反射地板、bloom）；iPhone 實測流暢不發熱，設定頁可切低畫質 |
 | 1-2e | 「黑暗騎士」改為原創匿蹤楔形四輪車（多切面車身、三角座艙、倒三角三噴口、加大後輪、尾翼、車頭上下兩片尖葉與中央護板）；外觀列的「車門」按鈕可開合鷗翼門（從車頂到門檻整片掀起），有車速時自動關上 | e2e layout.spec（車門按鈕）+ Chromium 截圖 | 已驗證（Chromium）；iPhone 上的外觀與流暢度待 iPhone 實測 |
-| 1-2b | 6 種車色、車燈開關 | 設定頁 e2e + 目視 | 已驗證（Chrome demo 截圖） |
+| 1-2f | 四款車都能開關車門：女武神蝶翼門、黑暗騎士鷗翼門、阿斯拉與裝甲越野前門外開；有車速時自動關上 | e2e layout.spec（車門按鈕）+ Chromium 截圖 | 已驗證（Chromium）；iPhone 待實測 |
+| 1-2b | 7 種車色（含曜黑）、車燈開關 | 設定頁 e2e + 目視 | 已驗證（Chrome demo 截圖） |
 | 1-2d | 外觀列（畫面下方，不遮住車子）：車款、車色、視角（前 45°／後 45°／正後方）、車燈、場景（展示間／山路／城市）、時段（自動／白天／夜晚） | 單元測試（設定儲存）+ Chromium 截圖 | 已驗證（Chromium）；iPhone 上戶外場景的流暢度待 iPhone 實測 |
 | 1-2c | 輪圈隨車速轉動、速度 0 停止 | demo.html 目視 | 已驗證（Chrome demo；iPhone 實測高畫質流暢、不發熱） |
 | 1-3a | 跟隨 prefers-color-scheme（明／暗） | e2e colorScheme light/dark | 已驗證（Chromium iPhone 15 模擬） |

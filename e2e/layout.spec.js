@@ -50,12 +50,12 @@ test('極簡模式（手動）優先於 approach；關閉後恢復', async ({ pa
   await expect(page.locator('#app')).toHaveClass(/layout-normal/);
 });
 
-test('設定頁：四款車、六色、車燈、提醒距離（唯讀）、#settings-data 容器、localStorage', async ({ page }, info) => {
+test('設定頁：四款車、七色、車燈、提醒距離（唯讀）、#settings-data 容器、localStorage', async ({ page }, info) => {
   const errors = await openSim(page);
   await page.locator('#btn-settings').click();
   await expect(page.locator('#sp-models [data-model]')).toHaveText(['女武神', '黑暗騎士', '阿斯拉', '裝甲越野']);
   await expect(page.locator('#sp-models [data-model]')).toHaveCount(4);
-  await expect(page.locator('#sp-colors [data-color]')).toHaveCount(6);
+  await expect(page.locator('#sp-colors [data-color]')).toHaveCount(7);
   await expect(page.locator('#sp-radius')).toContainText('300');
   await expect(page.locator('#sp-radius')).toContainText('500');
   await expect(page.locator('#settings-data')).toHaveCount(1);
@@ -71,21 +71,19 @@ test('設定頁：四款車、六色、車燈、提醒距離（唯讀）、#sett
   expect(errors).toEqual([]);
 });
 
-test('車門按鈕：只在有車門動作的車款出現，可開關，換車後收起', async ({ page }) => {
+test('車門按鈕：四款車都能開關車門，換車後自動關上', async ({ page }) => {
   const errors = await openSim(page);
   await page.evaluate(() => localStorage.removeItem('drivehud.settings.v1'));
   await page.reload();
-  await expect(page.locator('#cb-model')).toHaveText('車款：女武神');
-  await expect(page.locator('#cb-doors')).toBeHidden();
-  await page.locator('#cb-model').click();
-  await expect(page.locator('#cb-model')).toHaveText('車款：黑暗騎士');
-  await expect(page.locator('#cb-doors')).toBeVisible();
-  await expect(page.locator('#cb-doors')).toHaveText('車門：關');
-  await page.locator('#cb-doors').click();
-  await expect(page.locator('#cb-doors')).toHaveText('車門：開');
-  await expect(page.locator('#cb-doors')).toHaveAttribute('aria-pressed', 'true');
-  await page.locator('#cb-model').click();
-  await expect(page.locator('#cb-doors')).toBeHidden();
+  for (const name of ['女武神', '黑暗騎士', '阿斯拉', '裝甲越野']) {
+    await expect(page.locator('#cb-model')).toHaveText(`車款：${name}`);
+    await expect(page.locator('#cb-doors')).toBeVisible();
+    await expect(page.locator('#cb-doors')).toHaveText('車門：關'); // 換車後一律是關的
+    await page.locator('#cb-doors').click();
+    await expect(page.locator('#cb-doors')).toHaveText('車門：開');
+    await expect(page.locator('#cb-doors')).toHaveAttribute('aria-pressed', 'true');
+    await page.locator('#cb-model').click();
+  }
   expect(errors).toEqual([]);
 });
 

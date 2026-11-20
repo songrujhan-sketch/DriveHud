@@ -54,12 +54,11 @@ export function build(THREE, { color = '#3a3f45' } = {}) {
 
   // ── 左右對稱的部件 ──
   const heads = [], drls = [];
-  mirrored(group, () => bx(0.68, 0.4, 0.03, M.glass, 0.02, 1.6, 0.908));           // 側窗
   mirrored(group, () => bx(0.5, 0.4, 0.03, M.glass, -0.72, 1.6, 0.908));
   mirrored(group, () => bx(0.05, 0.64, 0.02, M.gblack, -0.4, 1.56, 0.915));        // B 柱
   for (const zf of [0.5, -0.4]) mirrored(group, () => bx(0.012, 0.42, 0.012, M.gap, zf, 0.9, 1.004, 0.002)); // 門縫
   mirrored(group, () => bx(1.56, 0.012, 0.012, M.gap, 0.02, 1.1, 1.004, 0.002));
-  for (const zf of [0.24, -0.62]) mirrored(group, () => bx(0.16, 0.03, 0.03, M.gblack, zf, 1.0, 1.012, 0.008)); // 門把
+  mirrored(group, () => bx(0.16, 0.03, 0.03, M.gblack, -0.62, 1.0, 1.012, 0.008)); // 後門把
   for (const w of [FW, RW]) {                                                       // 折角葉子板
     const z = w.z;
     const flare = extrudeX(THREE, shapeOf(THREE, [[z - 0.82, 0.96], [z - 0.56, 1.26], [z + 0.56, 1.26], [z + 0.82, 0.96], [z + 0.72, 0.96], [z + 0.5, 1.17], [z - 0.5, 1.17], [z - 0.72, 0.96]]), 0.5, { bevel: 0.015, curveSegments: 1 });
@@ -108,10 +107,8 @@ export function build(THREE, { color = '#3a3f45' } = {}) {
   // 擋風玻璃框與雨刷、側窗框
   add(mesh(THREE, roundBox(THREE, 1.58, 0.76, 0.02, 0.01), M.gblack, [0, 1.621, 0.776], [-0.705, 0, 0]));
   for (const s of [1, -1]) add(mesh(THREE, roundBox(THREE, 0.5, 0.014, 0.014, 0.004), M.gblack, [s * 0.3, 1.446, 0.97], [-0.705, 0, s * 0.22]));
-  mirrored(group, () => bx(0.76, 0.48, 0.02, M.gblack, 0.02, 1.6, 0.898, 0.012));
   mirrored(group, () => bx(0.58, 0.48, 0.02, M.gblack, -0.72, 1.6, 0.898, 0.012));
   // 裝甲側板、下緣護板、引擎蓋接縫與扣件
-  mirrored(group, () => bx(0.72, 0.28, 0.025, M.paint, 0.07, 0.9, 1.01, 0.012));
   mirrored(group, () => bx(0.26, 0.28, 0.025, M.paint, -0.58, 0.9, 1.01, 0.012));
   mirrored(group, () => bx(1.56, 0.09, 0.03, M.trim, 0.02, 0.7, 1.008, 0.01));
   mirrored(group, () => mesh(THREE, roundBox(THREE, 0.01, 0.006, 1.2, 0.002), M.gap, [0.82, 1.236, 1.7], [0.107, 0, 0]));
@@ -119,7 +116,7 @@ export function build(THREE, { color = '#3a3f45' } = {}) {
   // 鉚釘：側板四角與葉子板上緣（合併成一個幾何）
   const bolts = [];
   const boltAt = (x, y, z) => { const g = new THREE.CylinderGeometry(0.016, 0.016, 0.02, 6); g.rotateZ(Math.PI / 2); g.translate(x, y, z); bolts.push(g); };
-  for (const [zc, half] of [[0.07, 0.32], [-0.58, 0.09]]) for (const dz of [-half, half]) for (const y of [0.79, 1.01]) boltAt(1.03, y, zc + dz);
+  for (const dz of [-0.09, 0.09]) for (const y of [0.79, 1.01]) boltAt(1.03, y, -0.58 + dz);
   for (const w of [FW, RW]) for (const dz of [-0.45, -0.22, 0, 0.22, 0.45]) boltAt(1.135, 1.215, w.z + dz);
   const boltG = merge(THREE, bolts);
   mirrored(group, () => new THREE.Mesh(boltG, M.darkChrome));
@@ -149,6 +146,32 @@ export function build(THREE, { color = '#3a3f45' } = {}) {
   for (const w of [FW, RW]) add(mesh(THREE, new THREE.SphereGeometry(0.17, 14, 10), M.darkChrome, [0, w.r, w.z]));
   add(bx(0.14, 0.1, 0.12, M.trim, 1.02, 2.26, 0.98, 0.02));
 
+  // ── 前車門：下門板、裝甲板、窗框與側窗連成一片，鉸鏈在門前緣，向外平開 ──
+  const doors = [];
+  for (const s of [1, -1]) {
+    add(bx(0.84, 0.5, 0.008, M.under, 0.05, 1.01, s * 1.003, 0.002));               // 門洞（開門後才看得到）
+    add(bx(0.74, 0.46, 0.012, M.under, 0.02, 1.6, s * 0.902, 0.004));
+    const pivot = new THREE.Group();
+    pivot.position.set(s * 1.024, 1.0, 0.48);
+    const put = (m) => { m.position.sub(pivot.position); pivot.add(m); return m; };
+    put(bx(0.86, 0.52, 0.022, M.paint, 0.05, 1.01, s * 1.013, 0.008));              // 下門板
+    put(bx(0.72, 0.28, 0.025, M.paint, 0.07, 0.9, s * 1.034, 0.012));               // 裝甲板
+    put(bx(0.86, 0.03, 0.12, M.paint, 0.05, 1.285, s * 0.964, 0.008));              // 窗台
+    put(bx(0.76, 0.48, 0.02, M.gblack, 0.02, 1.6, s * 0.906, 0.012));               // 窗框
+    put(bx(0.68, 0.4, 0.03, M.glass, 0.02, 1.6, s * 0.916));                        // 側窗
+    put(bx(0.16, 0.03, 0.03, M.gblack, 0.24, 1.0, s * 1.036, 0.008));               // 門把
+    const db = [];
+    for (const dz of [-0.32, 0.32]) for (const y of [0.79, 1.01]) {
+      const g = new THREE.CylinderGeometry(0.016, 0.016, 0.02, 6);
+      g.rotateZ(Math.PI / 2);
+      g.translate(s * 1.054, y, 0.07 + dz);
+      db.push(g);
+    }
+    put(new THREE.Mesh(merge(THREE, db), M.darkChrome));
+    group.add(pivot);
+    doors.push({ pivot, axis: new THREE.Vector3(0, 1, 0), sign: -s, max: 1.05 });
+  }
+
   const light = makeHeadSpot(THREE, group, { y: 1.0, z: 2.5 });
 
   const wheelOpts = { spokes: 6, spokeW: [0.08, 0.065], spokeT: 0.045, concave: 0.07, rimRatio: 0.56, tread: 'offroad', segments: 40, lugs: 6 };
@@ -157,5 +180,5 @@ export function build(THREE, { color = '#3a3f45' } = {}) {
     { ...RW, radius: RW.r, width: RW.w, ...wheelOpts },
   ]);
 
-  return { group, wheels, bodyMaterials: [M.paint], headlights: { meshes: heads, drl: drls, light }, taillights: tails, meta };
+  return { group, wheels, bodyMaterials: [M.paint], headlights: { meshes: heads, drl: drls, light }, taillights: tails, doors, meta };
 }

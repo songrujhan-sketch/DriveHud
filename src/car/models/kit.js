@@ -97,3 +97,44 @@ export function regionHelpers(L) {
     topIdx: (q) => q.k - L.K.top0, // 0 = 肩線外側
   };
 }
+
+/**
+ * 放樣車的車門：把門範圍內的車身與座艙曲面沿法線偏移取出，掛在鉸鏈樞紐下；原位置蓋一層深色曲面當門洞。
+ * O：body, cab（放樣物件）、bodyKey(q)／cabKey(q)（與車體相同的材質分類）、zF／zR（門的前後緣）、
+ *    topXf（車身頂面從相對半寬多少開始算門）、hinge: { point: [x, y, z]（+X 側）, axis: [x, y, z], angle }。
+ * 另一側自動鏡射。回傳 { doors, paint }：doors 交給車模回傳值，paint 是門板用的雙面車漆（要加入 bodyMaterials）。
+ */
+export function loftDoors(THREE, group, M, O) {
+  const { body, cab, bodyKey, cabKey, zF, zR, topXf = 0.86, hinge } = O;
+  const R = regionHelpers(body);
+  const twoSided = new Map();
+  const mat = (key) => {
+    if (!twoSided.has(key)) { const m = (M[key] || M.paint).clone(); m.side = THREE.DoubleSide; twoSided.set(key, m); }
+    return twoSided.get(key);
+  };
+  const SKIN = 0.009, HOLE = 0.004;
+  const doors = [];
+  for (const s of [1, -1]) {
+    const inZ = (q) => !q.cap && q.side === s && q.zr < zF - 0.006 && q.zr > zR + 0.006;
+    const bodyPred = (q) => inZ(q) && ((R.isSide(q) && R.sideIdx(q) >= 1) || (R.isTop(q) && R.xf(q) > topXf));
+    const cabPred = (q) => inZ(q) && ['cabLow', 'beltTrim', 'glass', 'frame'].includes(q.tag);
+    const pivot = new THREE.Group();
+    pivot.position.set(s * hinge.point[0], hinge.point[1], hinge.point[2]);
+    for (const [L, pred, keyOf] of [[body, bodyPred, bodyKey], [cab, cabPred, cabKey]]) {
+      const hole = L.extract(pred, HOLE);
+      if (hole) group.add(new THREE.Mesh(hole, M.under));
+      const keys = new Set();
+      L.extract((q) => { if (pred(q)) keys.add(keyOf(q)); return false; });
+      for (const key of keys) {
+        const g = L.extract((q) => pred(q) && keyOf(q) === key, SKIN);
+        if (!g) continue;
+        const m = new THREE.Mesh(g, mat(key));
+        m.position.copy(pivot.position).negate();
+        pivot.add(m);
+      }
+    }
+    group.add(pivot);
+    doors.push({ pivot, axis: new THREE.Vector3(s * hinge.axis[0], hinge.axis[1], hinge.axis[2]).normalize(), sign: s, max: hinge.angle });
+  }
+  return { doors, paint: mat('paint') };
+}
