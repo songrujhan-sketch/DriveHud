@@ -1,5 +1,6 @@
-// 黑暗騎士（darkknight）— 原創匿蹤楔形四輪車：多切面車身、三角形飛翼式座艙、兩側鷗翼門、
-// 車尾倒三角排列三噴口、雙立柱尾翼、車頭水箱護板。全部為原創幾何（平面著色的多面體）。
+// 黑暗騎士（darkknight）— 原創匿蹤楔形四輪車：多切面車身、三角形飛翼式座艙、兩側鷗翼門
+// （從車頂到門檻整片掀起）、車尾倒三角排列三噴口、加大的後輪與隆起的後葉子板、雙立柱尾翼、
+// 車頭裝甲護板。全部為原創幾何（平面著色的多面體）。
 // 座標：+Z 車頭、X 車寬（+X 為左側）、Y 向上。
 import { makeMaterials, placeWheels, makeHeadSpot, roundBox, mesh, mirrored, merge, shapeOf, extrudeX } from './parts.js';
 
@@ -22,15 +23,18 @@ const CANOPY = [
   [0.55, 0.34, 0.89, 0.16, 1.08],
   [1.05, 0.05, 0.80, 0.03, 0.83],
 ];
-// 側艙（含輪拱缺口）的側視輪廓 [z, y]
-const POD = [
-  [-2.26, 0.52], [-2.14, 0.36], [-1.97, 0.34],
-  [-1.66, 0.84], [-1.14, 0.84], [-0.83, 0.34],
-  [-0.7, 0.27], [0.78, 0.27], [0.94, 0.32],
+// 側艙的側視輪廓 [z, y]：前段（含前輪拱）與後段（含後輪拱）；中間一段是鷗翼門
+const POD_F = [
+  [0.57, 0.27], [0.78, 0.27], [0.94, 0.32],
   [1.22, 0.76], [1.68, 0.76], [1.96, 0.32],
   [2.06, 0.34], [2.14, 0.44], [2.08, 0.6],
-  [1.72, 0.85], [1.2, 0.85],
-  [0.62, 0.74], [-0.95, 1.0], [-1.95, 1.0], [-2.26, 0.84],
+  [1.72, 0.85], [1.2, 0.85], [0.62, 0.74], [0.57, 0.752],
+];
+const POD_R = [
+  [-2.3, 0.56], [-2.2, 0.36], [-2.04, 0.34],
+  [-1.7, 1.02], [-1.1, 1.02], [-0.76, 0.34],
+  [-0.66, 0.27], [-0.47, 0.27], [-0.47, 1.009],
+  [-1.0, 1.14], [-1.85, 1.14], [-2.3, 0.92],
 ];
 const DOOR_Z = [0.55, -0.45]; // 鷗翼門的前緣、後緣
 
@@ -42,7 +46,7 @@ function lerpKeys(K, z) {
   }
   return K[K.length - 1].slice(1);
 }
-const podTop = (z) => (z >= 0.62 ? 0.74 + (0.85 - 0.74) * Math.min(1, (z - 0.62) / 0.58) : 0.74 + (1.0 - 0.74) * Math.min(1, (0.62 - z) / 1.57));
+const podTop = (z) => (z >= 0.62 ? 0.74 + (0.85 - 0.74) * Math.min(1, (z - 0.62) / 0.58) : 0.74 + (1.14 - 0.74) * Math.min(1, (0.62 - z) / 1.62));
 
 export function build(THREE, { color = '#3a3f45' } = {}) {
   const group = new THREE.Group();
@@ -54,8 +58,8 @@ export function build(THREE, { color = '#3a3f45' } = {}) {
   M.paint.clearcoatRoughness = 0.25;
   const flame = new THREE.MeshStandardMaterial({ color: 0x1a0a04, emissive: 0xff6a1a, emissiveIntensity: 0.7, roughness: 0.6 });
 
-  const FW = { z: 1.45, r: 0.35, w: 0.28, x: 0.86 };
-  const RW = { z: -1.4, r: 0.39, w: 0.34, x: 0.86 };
+  const FW = { z: 1.45, r: 0.35, w: 0.28, x: 0.9 };
+  const RW = { z: -1.4, r: 0.48, w: 0.4, x: 0.88 };   // 後輪加大
 
   // ── 幾何工具：全部輸出非索引幾何，法線逐面計算，稜線保持銳利 ──
   const geo = (tris) => {
@@ -121,8 +125,11 @@ export function build(THREE, { color = '#3a3f45' } = {}) {
 
   // ── 中央車殼與側艙 ──
   add(new THREE.Mesh(loftF(HULL.map(([z, yb, wb, ym, wm, yt, wt]) => [z, [[wb, yb], [wm, ym], [wt, yt]]])), M.paint));
-  mirrored(group, () => slab(POD, 0.38, M.paint, 0.02, 0.84));
-  for (const w of [FW, RW]) mirrored(group, () => bx(1.16, 0.6, 0.016, M.under, w.z, 0.52, 0.668)); // 輪拱內襯
+  mirrored(group, () => slab(POD_F, 0.42, M.paint, 0.02, 0.86));
+  mirrored(group, () => slab(POD_R, 0.42, M.paint, 0.02, 0.86));
+  mirrored(group, () => bx(1.16, 0.6, 0.016, M.under, FW.z, 0.52, 0.668));                             // 輪拱內襯
+  mirrored(group, () => bx(1.4, 0.84, 0.016, M.under, RW.z, 0.62, 0.668));
+  mirrored(group, () => slab([[-0.5, 0.27], [0.6, 0.27], [0.6, 0.37], [-0.5, 0.37]], 0.44, M.trim, 0.012, 0.87)); // 門檻踏板
 
   // ── 座艙罩：前段玻璃、後段整流罩、車頂脊樑；中段兩側是鷗翼門 ──
   const sec = (z) => { const c = canopy(z); return [z, [[c.wB, c.yB], [c.wT, c.yT]]]; };
@@ -140,7 +147,8 @@ export function build(THREE, { color = '#3a3f45' } = {}) {
   // 腰線斜面上、高度 y 處的點
   const beltPt = (h, y, z, s) => [s * (h.wt + (h.wm - h.wt) * ((h.yt - y) / (h.yt - h.ym))), y, z];
   const lowA = podTop(zA) + 0.01, lowB = podTop(zB) + 0.01;
-  mirrored(group, () => plate([[hA.wt, hA.yt, zA], [hB.wt, hB.yt, zB], beltPt(hB, lowB, zB, 1), beltPt(hA, lowA, zA, 1)], M.under, 0.006, 0.003));
+  mirrored(group, () => plate([[hA.wt, hA.yt, zA], [hB.wt, hB.yt, zB], [hB.wm, hB.ym, zB], [hA.wm, hA.ym, zA]], M.under, 0.006, 0.003));
+  mirrored(group, () => plate([[hA.wm, hA.ym, zA], [hB.wm, hB.ym, zB], [hB.wb, hB.yb, zB], [hA.wb, hA.yb, zA]], M.under, 0.006, 0.003));
 
   // 座椅、儀表台、方向盤（左駕）
   for (const s of [1, -1]) {
@@ -150,7 +158,7 @@ export function build(THREE, { color = '#3a3f45' } = {}) {
   add(bx(0.1, 0.06, 0.5, M.trim, 0.47, 0.95));
   add(mesh(THREE, new THREE.TorusGeometry(0.045, 0.008, 6, 14), M.gblack, [0.2, 0.985, 0.34], [-0.35, 0, 0]));
 
-  // ── 鷗翼門：鉸鏈在車頂脊樑邊緣，沿鉸鏈軸向上掀開 ──
+  // ── 鷗翼門：側窗、車殼頂面、側艙上蓋與外板連成一片，鉸鏈在車頂脊樑邊緣，沿鉸鏈軸向上掀開 ──
   const doors = [];
   for (const s of [1, -1]) {
     const cA = canopy(zA), cB = canopy(zB);
@@ -159,13 +167,26 @@ export function build(THREE, { color = '#3a3f45' } = {}) {
     const at = (P, Q, t) => P.map((v, i) => v + (Q[i] - v) * t);
     const pivot = new THREE.Group();
     pivot.position.set(S1[0], S1[1], S1[2]);
-    const put = (m) => { m.position.set(-S1[0], -S1[1], -S1[2]); pivot.add(m); return m; };
+    const put = (m) => { m.position.x -= S1[0]; m.position.y -= S1[1]; m.position.z -= S1[2]; pivot.add(m); return m; };
     put(plate([S1, S2, Q2, Q1], M.glass, 0.02, 0));                                                    // 側窗
     put(plate([S1, at(S1, S2, 0.05), at(Q1, Q2, 0.05), Q1], M.gblack, 0.01, 0.005));                   // 前後窗框
     put(plate([at(S1, S2, 0.95), S2, Q2, at(Q1, Q2, 0.95)], M.gblack, 0.01, 0.005));
     const T1 = [s * hA.wt, hA.yt, zA], T2 = [s * hB.wt, hB.yt, zB];
     put(plate([[Q1[0], hA.yt, zA], [Q2[0], hB.yt, zB], T2, T1], M.paint, 0.02, 0.012));                // 門板：車殼頂面段
     put(plate([T1, T2, beltPt(hB, lowB, zB, s), beltPt(hA, lowA, zA, s)], M.paint, 0.02, 0.012));      // 門板：腰線斜面段
+    const zf = zA - 0.01, zr = zB + 0.01;
+    put(plate([[s * 0.63, podTop(zf), zf], [s * 0.98, podTop(zf), zf], [s * 0.98, podTop(zr), zr], [s * 0.63, podTop(zr), zr]], M.paint, 0.03, 0)); // 門板：側艙上蓋
+    put(slab([[zr + 0.02, 0.42], [zf - 0.02, 0.42], [zf - 0.02, podTop(zf - 0.02) - 0.02], [zr + 0.02, podTop(zr + 0.02) - 0.02]], 0.1, M.paint, 0.02, s * 1.02)); // 門板：外板
+    put(slab([[-0.36, 0.46], [0.46, 0.46], [0.46, 0.66], [-0.36, 0.88]], 0.03, M.paint, 0.01, s * 1.085));  // 外掛裝甲板
+    put(bx(0.14, 0.02, 0.02, M.gblack, -0.2, 0.92, s * 1.078, 0.004));                                   // 門把
+    const db = [];
+    for (const [z, y] of [[-0.3, 0.5], [-0.3, 0.8], [0.4, 0.5], [0.4, 0.62], [0.05, 0.5], [0.05, 0.7]]) {
+      const g = new THREE.CylinderGeometry(0.015, 0.015, 0.02, 6);
+      g.rotateZ(Math.PI / 2);
+      g.translate(s * 1.105, y, z);
+      db.push(g);
+    }
+    put(new THREE.Mesh(merge(THREE, db), M.darkChrome));
     group.add(pivot);
     const axis = new THREE.Vector3(S2[0] - S1[0], S2[1] - S1[1], S2[2] - S1[2]).normalize();
     doors.push({ pivot, axis, sign: -s, max: 1.15 });
@@ -175,32 +196,35 @@ export function build(THREE, { color = '#3a3f45' } = {}) {
   mirrored(group, () => plate([[0.08, deckY(1.62), 1.62], [0.42, deckY(1.62), 1.62], [0.5, deckY(0.72), 0.72], [0.3, deckY(0.72), 0.72], [0.08, deckY(1.12), 1.12]], M.paint, 0.02, 0.014));
   add(plate([[-0.3, deckY(2.24), 2.24], [0.3, deckY(2.24), 2.24], [0.42, deckY(1.76), 1.76], [-0.42, deckY(1.76), 1.76]], M.paint, 0.02, 0.014));
   for (let i = 0; i < 3; i++) { const z = 1.26 + i * 0.1; mirrored(group, () => bx(0.05, 0.012, 0.2, M.gblack, z, deckY(z) + 0.03, 0.28, 0.003, [0.197, 0, 0])); } // 引擎蓋散熱縫
-  mirrored(group, () => slab([[-0.74, 0.36], [0.8, 0.36], [0.88, 0.44], [0.6, 0.68], [-0.8, 0.9], [-0.8, 0.5]], 0.03, M.paint, 0.012, 1.04));
-  mirrored(group, () => slab([[-1.92, 0.98], [-1.0, 0.98], [-1.12, 0.88], [-1.68, 0.88]], 0.025, M.paint, 0.01, 1.04));
+  mirrored(group, () => slab([[-1.9, 1.12], [-0.98, 1.12], [-1.08, 1.05], [-1.72, 1.05]], 0.025, M.paint, 0.01, 1.08));
   const bolts = [];
-  const boltAt = (z, y, x = 1.06) => { const g = new THREE.CylinderGeometry(0.015, 0.015, 0.02, 6); g.rotateZ(Math.PI / 2); g.translate(x, y, z); bolts.push(g); };
-  for (const [z, y] of [[-0.72, 0.44], [-0.72, 0.82], [0.74, 0.44], [0.55, 0.64], [0, 0.42], [-0.1, 0.74], [-0.72, 0.63], [-1.82, 0.95], [-1.4, 0.95], [-1.08, 0.95]]) boltAt(z, y);
+  const boltAt = (z, y, x = 1.1) => { const g = new THREE.CylinderGeometry(0.015, 0.015, 0.02, 6); g.rotateZ(Math.PI / 2); g.translate(x, y, z); bolts.push(g); };
+  for (const [z, y] of [[-1.82, 1.085], [-1.4, 1.085], [-1.06, 1.085]]) boltAt(z, y);
   const boltG = merge(THREE, bolts);
   mirrored(group, () => new THREE.Mesh(boltG, M.darkChrome));
-  // 側裙刀片（三角斷面的楔形）
-  const strake = (() => {
-    const V = [[1.04, 0.31, 0.86], [1.04, 0.27, 0.5], [1.15, 0.33, 0.5], [1.04, 0.5, 0.5], [1.04, 0.27, -0.5], [1.15, 0.33, -0.5], [1.04, 0.5, -0.5], [1.04, 0.31, -0.8]];
-    return geo(fan(V, [[0, 2, 1], [0, 3, 2], [1, 2, 5, 4], [2, 3, 6, 5], [7, 4, 5], [7, 5, 6]], [1.04, 0.36, 0]));
-  })();
-  mirrored(group, () => new THREE.Mesh(strake, M.trim));
   // 後視鏡（稜角鏡座）
   mirrored(group, () => bx(0.03, 0.02, 0.12, M.gblack, 0.62, 0.93, 0.6));
   mirrored(group, () => bx(0.06, 0.07, 0.14, M.paint, 0.6, 0.95, 0.7, 0.012));
 
-  // ── 車頭：水箱罩、護板（斜葉片）、底部滑橇、頭燈與日行燈 ──
+  // ── 車頭：水箱罩、裝甲護板（中央主板加兩側後掠翼板、三道散熱槽、鉚釘）、底部滑橇、頭燈與日行燈 ──
   add(plate([[-0.34, 0.58, 2.3], [0.34, 0.58, 2.3], [0.38, 0.33, 2.3], [-0.38, 0.33, 2.3]], M.grille, 0.01, 0.004, [0, 0.5, 0]));
-  for (let i = 0; i < 4; i++) add(bx(0.07, 0.022, 0.92, M.darkChrome, 2.38, 0.36 + i * 0.065, 0, 0.005, [0.5, 0, 0]));
-  mirrored(group, () => slab([[2.26, 0.3], [2.44, 0.33], [2.43, 0.6], [2.26, 0.63]], 0.035, M.trim, 0.006, 0.47));
+  add(plate([[-0.46, 0.26, 2.46], [0.46, 0.26, 2.46], [0.42, 0.66, 2.38], [-0.42, 0.66, 2.38]], M.paint, 0.04, 0, [0, 0.45, 0]));
+  mirrored(group, () => plate([[0.46, 0.26, 2.46], [0.66, 0.3, 2.3], [0.6, 0.62, 2.26], [0.42, 0.66, 2.38]], M.paint, 0.04, 0, [0, 0.45, 0]));
+  for (const y of [0.38, 0.46, 0.54]) add(bx(0.012, 0.035, 0.6, M.gblack, 2.464 - 0.2 * (y - 0.26), y, 0, 0.003, [-0.197, 0, 0]));
+  const rivets = [];
+  for (const [x, y] of [[0.4, 0.31], [-0.4, 0.31], [0, 0.31], [0.37, 0.61], [-0.37, 0.61], [0, 0.61]]) {
+    const g = new THREE.CylinderGeometry(0.016, 0.016, 0.02, 6);
+    g.rotateX(Math.PI / 2);
+    g.translate(x, y, 2.466 - 0.2 * (y - 0.26));
+    rivets.push(g);
+  }
+  add(new THREE.Mesh(merge(THREE, rivets), M.darkChrome));
+  mirrored(group, () => slab([[2.28, 0.4], [2.42, 0.4], [2.4, 0.5], [2.28, 0.5]], 0.04, M.trim, 0.006, 0.3));
   add(slab([[1.9, 0.24], [2.44, 0.28], [2.46, 0.32], [1.9, 0.3]], 0.84, M.darkChrome, 0.008));
   const heads = [], drls = [];
-  mirrored(group, () => bx(0.04, 0.085, 0.29, M.gblack, 2.116, 0.53, 0.84));
-  heads.push(...mirrored(group, () => bx(0.04, 0.05, 0.24, M.head, 2.128, 0.53, 0.84)));
-  drls.push(...mirrored(group, () => bx(0.05, 0.012, 0.3, M.drl, 1.78, 0.83, 0.84, 0.003, [0.607, 0, 0])));        // 葉子板前緣的細燈條
+  mirrored(group, () => bx(0.04, 0.085, 0.29, M.gblack, 2.116, 0.53, 0.86));
+  heads.push(...mirrored(group, () => bx(0.04, 0.05, 0.24, M.head, 2.128, 0.53, 0.86)));
+  drls.push(...mirrored(group, () => bx(0.05, 0.012, 0.3, M.drl, 1.78, 0.83, 0.86, 0.003, [0.607, 0, 0])));        // 葉子板前緣的細燈條
   const light = makeHeadSpot(THREE, group, { y: 0.55, z: 2.2 });
 
   // ── 車尾：倒三角排列的三個噴口、尾燈、擴散器、後甲板人字形散熱縫、尾翼 ──
@@ -224,14 +248,14 @@ export function build(THREE, { color = '#3a3f45' } = {}) {
     group.add(n);
   }
   const tails = [
-    ...mirrored(group, () => bx(0.03, 0.22, 0.05, M.tail, -2.285, 0.68, 0.98)),
-    ...mirrored(group, () => bx(0.03, 0.03, 0.26, M.tail, -2.285, 0.8, 0.83)),
+    ...mirrored(group, () => bx(0.03, 0.26, 0.05, M.tail, -2.325, 0.74, 1.01)),
+    ...mirrored(group, () => bx(0.03, 0.03, 0.28, M.tail, -2.325, 0.86, 0.85)),
   ];
   for (const xs of [-0.3, -0.1, 0.1, 0.3]) add(slab([[-2.32, 0.3], [-1.95, 0.24], [-1.95, 0.3], [-2.32, 0.44]], 0.02, M.trim, 0.004, xs));
   for (const z of [-1.8, -1.94, -2.08]) mirrored(group, () => bx(0.04, 0.014, 0.32, M.gblack, z, deckY(z) + 0.006, 0.18, 0.003, [0, 0.35, 0]));
-  mirrored(group, () => slab([[-2.0, 0.98], [-1.68, 0.98], [-2.1, 1.3], [-2.3, 1.3]], 0.04, M.gblack, 0.006, 0.36));
-  add(slab([[-2.46, 1.3], [-2.02, 1.27], [-2.0, 1.3], [-2.44, 1.345]], 1.7, M.paint, 0.008));
-  mirrored(group, () => slab([[-2.52, 1.2], [-1.98, 1.23], [-2.0, 1.4], [-2.5, 1.44]], 0.03, M.gblack, 0.006, 0.86));
+  mirrored(group, () => slab([[-2.0, 0.98], [-1.68, 0.98], [-2.1, 1.42], [-2.3, 1.42]], 0.04, M.gblack, 0.006, 0.36));
+  add(slab([[-2.46, 1.42], [-2.02, 1.39], [-2.0, 1.42], [-2.44, 1.465]], 1.7, M.paint, 0.008));
+  mirrored(group, () => slab([[-2.52, 1.32], [-1.98, 1.35], [-2.0, 1.52], [-2.5, 1.56]], 0.03, M.gblack, 0.006, 0.86));
 
   const wheelOpts = { spokes: 5, spokeW: [0.07, 0.05], spokeT: 0.035, concave: 0.05, rimRatio: 0.68, segments: 36, lugs: 5 };
   const wheels = placeWheels(THREE, group, M, [
