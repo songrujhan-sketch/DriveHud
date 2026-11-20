@@ -1,91 +1,167 @@
-// 女武神（valkyrie）— 原創低趴雙座 hypercar 風格：淚滴座艙、長尾擴散器、大尾翼。
-import { bodyProfile, sideExtrude, extrudeShapeX, deform, planTaper, smooth, box, mirrored, makeMaterials, makeWheel, makeHeadSpot } from './parts.js';
+// 女武神（valkyrie）— 原創低趴中置引擎 hypercar：
+// 淚滴座艙、前葉子板高於引擎蓋的稜線、門後大型側進氣、長尾擴散器、鵝頸大尾翼。
+// 全部為原創幾何，不參考任何既有車款造型或標誌。
+import { bodyLoft, cabinLoft, regionHelpers, curve, smooth } from './kit.js';
+import { band } from './loft.js';
+import { makeMaterials, multiMesh, placeWheels, makeMirror, makeHeadSpot, roundBox, extrudeX, shapeOf, mesh, mirrored, merge } from './parts.js';
 
-export const meta = { id: 'valkyrie', displayName: '女武神', roofY: 1.12 };
+export const meta = { id: 'valkyrie', displayName: '女武神', roofY: 1.13 };
 
 export function build(THREE, { color = '#c8102e' } = {}) {
   const group = new THREE.Group();
   group.name = 'valkyrie';
-  const M = makeMaterials(THREE, color);
-  const W = 2.0, WB = 1.36, WR = 0.33;
+  const M = makeMaterials(THREE, color, { rim: 0x1c1e22, rimMetal: 0.85, rimRough: 0.3, caliper: 0xe2b21c });
+  const Z0 = -2.34, Z1 = 2.3;
+  const FW = { z: 1.4, r: 0.345, w: 0.27, x: 0.83 };
+  const RW = { z: -1.34, r: 0.35, w: 0.33, x: 0.8 };
 
-  // ── 下車身：側視輪廓，含兩個輪拱缺口 ──
-  const top = [
-    [2.28, 0.13], [2.36, 0.24], [2.3, 0.36], [1.95, 0.48], [1.45, 0.6], [0.9, 0.7],
-    [0.2, 0.78], [-0.7, 0.82], [-1.5, 0.85], [-2.05, 0.82], [-2.3, 0.72], [-2.36, 0.5], [-2.3, 0.3],
-    [-2.05, 0.15],
-  ];
-  const outline = bodyProfile(top, { wheelZ: [WB, -WB], archR: 0.41, wheelY: WR, clearance: 0.13 });
-  let body = sideExtrude(THREE, outline, W, { bevel: 0.05, bevelSegments: 1 });
-  body = deform(THREE, body, (v) => {
-    const s = planTaper(v.z, { zFront: 1.7, zFrontEnd: 2.4, frontScale: 0.72, zRear: -1.8, zRearEnd: -2.4, rearScale: 0.9 });
-    const tumble = 1 - 0.1 * smooth((v.y - 0.5) / 0.35);
-    v.x *= s * tumble;
-    // 前輪拱後方的側面凹槽：讓腰線收細
-    if (Math.abs(v.x) > 0.8 && v.z > -0.9 && v.z < 0.8 && v.y < 0.55) v.x *= 0.95;
+  // ── 側視／平面參數曲線 ──
+  const yTop = curve([[Z0, 0.74], [-2.2, 0.82], [-1.9, 0.86], [-1.3, 0.86], [-0.9, 0.8], [0.0, 0.72], [0.6, 0.72], [0.9, 0.75], [1.4, 0.8], [1.8, 0.7], [2.1, 0.5], [Z1, 0.32]]);
+  // 引擎蓋中央下凹（葉子板稜線高於引擎蓋），只作用在中間，不會讓輪拱頂穿出
+  const bump = curve([[0.5, 0], [0.9, -0.06], [1.4, -0.12], [1.9, -0.1], [2.2, -0.06], [Z1, -0.02]]);
+  const yBelt = curve([[Z0, 0.72], [-2.0, 0.8], [-1.34, 0.85], [-0.9, 0.78], [-0.5, 0.65], [0.3, 0.6], [0.85, 0.68], [1.4, 0.82], [1.8, 0.66], [2.1, 0.47], [Z1, 0.34]]);
+  const hw = curve([[Z0, 0.92], [-1.9, 1.0], [-1.34, 1.03], [-1.0, 1.02], [-0.4, 0.96], [0.3, 0.95], [1.0, 0.99], [1.4, 1.02], [1.6, 1.01], [2.0, 0.94], [2.2, 0.84], [Z1, 0.68]]);
+  const yBot = curve([[Z0, 0.27], [-1.95, 0.12], [1.9, 0.11], [Z1, 0.15]]);
+
+  const doorF = 0.97, doorR = -0.18, hoodF = 2.06;
+  const louvers = [];
+  for (let z = -1.88; z < -1.3; z += 0.05) louvers.push(z);
+  const body = bodyLoft(THREE, {
+    z0: Z0, z1: Z1, step: 0.08, endR: [0.08, 0.1],
+    wheels: [
+      { z: FW.z, R: 0.405, y: FW.r, wellX: FW.x - FW.w / 2 - 0.05 },
+      { z: RW.z, R: 0.41, y: RW.r, wellX: RW.x - RW.w / 2 - 0.05 },
+    ],
+    p: { yBot, hw, yBelt, yTop, n: 2.3, tuck: 0.14, bump, bumpX: 0, bumpW: 0.45 },
+    ns: 7, nt: 10, splitX: [0.6],
+    extraZ: [doorF - 0.005, doorF + 0.005, doorR - 0.005, doorR + 0.005, hoodF - 0.005, hoodF + 0.005, ...louvers],
+    deform(pt, z) {
+      // 門後側進氣：往內挖出漸深的導流槽
+      if (pt.x > 0.5 && pt.tag !== 'under' && pt.tag !== 'well') {
+        const u = (-0.22 - z) / 0.72; // 0 → 1 向後
+        const d = 0.15 * smooth(u / 0.4) * smooth((1 - u) / 0.12) * band(pt.y, 0.27, 0.6, 0.06);
+        pt.x -= d;
+      }
+      return pt;
+    },
   });
-  const bodyMesh = new THREE.Mesh(body, M.body);
+  const R = regionHelpers(body);
+  const isIntake = (q) => q.zr < -0.3 && q.zr > -0.9 && q.y > 0.3 && q.y < 0.57 && R.isSide(q);
+  const bodyMesh = multiMesh(THREE, body.geometry((q) => {
+    if (q.cap) return 'paint';
+    if (q.tag === 'under') return 'under';
+    if (q.tag === 'well') return 'under';
+    const xf = R.xf(q);
+    if (R.isSide(q)) {
+      if (isIntake(q)) return 'grille';
+      if ((Math.abs(q.zr - doorF) < 0.006 || Math.abs(q.zr - doorR) < 0.006) && q.y > 0.2) return 'gap';
+      if (R.sideIdx(q) === 0 && q.tag === 'side' && q.zr > -1.0 && q.zr < 1.0) return 'carbon'; // 側裙
+      return 'paint';
+    }
+    // 頂面
+    if (q.tag === 'seam' && q.zr > 0.75 && q.zr < hoodF) return 'gap';
+    if (Math.abs(q.zr - hoodF) < 0.006 && xf < 0.6) return 'gap';
+    if (q.zr > 1.84 && q.zr < 2.12 && xf > 0.62 && xf < 0.97) return 'housing'; // 頭燈座
+    if (q.zr < -1.3 && q.zr > -1.88 && xf < 0.5) { const i = Math.floor((q.zr + 1.88) / 0.05); return i % 2 ? 'gblack' : 'paint'; } // 引擎蓋百葉
+    return 'paint';
+  }, ['paint', 'under', 'gap', 'grille', 'housing', 'gblack', 'carbon']), M);
   group.add(bodyMesh);
 
-  // ── 淚滴座艙（Lathe）──
-  const tear = [
-    [0.0, 1.0], [0.3, 0.92], [0.5, 0.72], [0.58, 0.42], [0.56, 0.05], [0.46, -0.38], [0.3, -0.75], [0.1, -1.05], [0.0, -1.12],
-  ].map(([r, y]) => new THREE.Vector2(r, y));
-  const canopyG = new THREE.LatheGeometry(tear, 12);
-  canopyG.rotateX(Math.PI / 2);
-  canopyG.scale(1.15, 0.78, 1.12); // 寬 1.37、高 0.36（半埋入車身）、長 2.4
-  const canopy = new THREE.Mesh(canopyG, M.glass);
-  canopy.position.set(0, 0.7, -0.15);
-  group.add(canopy);
-  // 座艙脊線（車身色）延伸到尾部
-  const spine = sideExtrude(THREE, [[-0.9, 0.9], [-2.1, 0.86], [-2.1, 0.8], [-0.9, 0.8]], 0.22, { bevel: 0.02 });
-  group.add(new THREE.Mesh(spine, M.body));
+  // ── 頭燈：燈座內的發光條 + 透明燈罩 ──
+  const headG = body.extract((q) => R.isTop(q) && q.zr > 1.9 && q.zr < 2.06 && R.xf(q) > 0.7 && R.xf(q) < 0.9, 0.006);
+  const drlG = body.extract((q) => R.isTop(q) && q.zr > 1.86 && q.zr < 2.1 && R.xf(q) > 0.9 && R.xf(q) < 0.97, 0.005);
+  const lensG = body.extract((q) => R.isTop(q) && q.zr > 1.82 && q.zr < 2.13 && R.xf(q) > 0.6 && R.xf(q) < 0.98, 0.016);
+  const head = new THREE.Mesh(headG, M.head);
+  const drl = new THREE.Mesh(drlG, M.drl);
+  group.add(head, drl, new THREE.Mesh(lensG, M.lens));
 
-  // ── 前分流板、側進氣口、擴散器 ──
-  group.add(box(THREE, 1.7, 0.04, 0.35, M.trim, [0, 0.12, 2.2]));
-  mirrored(group, (s) => box(THREE, 0.06, 0.2, 0.75, M.trim, [s * 0.93, 0.45, -0.55], [0, s * 0.12, 0]));
-  group.add(box(THREE, 1.6, 0.03, 0.6, M.trim, [0, 0.2, -2.05], [-0.28, 0, 0]));
-  for (let i = -2; i <= 2; i++) group.add(box(THREE, 0.025, 0.2, 0.55, M.trim, [i * 0.3, 0.2, -2.08], [-0.28, 0, 0]));
+  // ── 座艙：淚滴形，前擋／側窗／後窗分件 ──
+  const cab = cabinLoft(THREE, {
+    z0: -1.28, z1: 1.02, step: 0.055,
+    yc: curve([[-1.28, 0.82], [-1.0, 0.97], [-0.7, 1.07], [-0.3, 1.125], [0.05, 1.11], [0.4, 0.99], [0.75, 0.8], [1.02, 0.64]]),
+    yr: curve([[-1.28, 0.8], [-1.0, 0.93], [-0.7, 1.02], [-0.3, 1.07], [0.05, 1.055], [0.4, 0.94], [0.75, 0.76], [1.02, 0.62]]),
+    rw: curve([[-1.28, 0.3], [-0.9, 0.42], [-0.3, 0.5], [0.3, 0.55], [0.8, 0.6], [1.02, 0.62]]),
+    cb: curve([[-1.28, 0.55], [-0.9, 0.78], [-0.3, 0.86], [0.4, 0.86], [1.02, 0.78]]),
+    yb: (z) => yBelt(z) - 0.03,
+    ys: curve([[-1.28, 0.84], [-0.8, 0.8], [0.0, 0.73], [0.8, 0.69], [1.02, 0.66]]),
+    n: 2.0, bow: 0.05, nTop: 7,
+    slant: (z) => -0.45 * smooth((z - 0.2) / 0.5) + 0.5 * smooth((-0.5 - z) / 0.4),
+  });
+  const zS0 = 0.82, zS1 = -0.92, zW = 0.12, zRw = -0.48;
+  group.add(multiMesh(THREE, cab.geometry((q) => {
+    if (q.tag === 'cabLow') return 'paint';
+    if (q.tag === 'beltTrim' || q.tag === 'glass' || q.tag === 'frame') {
+      if (q.zr < zS0 && q.zr > zS1) return q.tag === 'glass' ? 'glass' : 'gblack';
+      return 'paint';
+    }
+    if (q.tag === 'rail') return 'paint';
+    if (q.zr > zW) return 'glass'; // 前擋
+    if (q.zr < zRw && q.zr > -1.18) return 'glass'; // 後窗（引擎窗）
+    return 'carbon'; // 碳纖維車頂
+  }, ['paint', 'glass', 'gblack', 'carbon']), M));
 
-  // ── 大尾翼：翼型擠出 + 端板 + 支柱 ──
+  // 座艙脊線：從車頂延伸到尾部的車身色脊
+  const spine = new THREE.Shape();
+  spine.moveTo(-0.95, 0.8); spine.quadraticCurveTo(-1.15, 0.97, -1.45, 0.93); spine.quadraticCurveTo(-1.9, 0.9, -2.2, 0.85); spine.lineTo(-2.2, 0.8); spine.closePath();
+  group.add(mesh(THREE, extrudeX(THREE, spine, 0.1, { bevel: 0.03, bevelSegments: 3, curveSegments: 10 }), M.paint));
+
+  // ── 後視鏡 ──
+  mirrored(group, () => { const m = makeMirror(THREE, M, { len: 0.2, arm: 0.12 }); m.position.set(0.8, 0.74, 0.42); m.rotation.y = -0.1; return m; });
+
+  // ── 前分流板、擴散器、尾翼、尾燈、排氣 ──
+  const splitter = shapeOf(THREE, [[-0.74, 0], [0.74, 0], [0.7, 0.3], [-0.7, 0.3]]);
+  const spl = new THREE.Mesh(new THREE.ExtrudeGeometry(splitter, { depth: 0.02, bevelEnabled: true, bevelThickness: 0.005, bevelSize: 0.008, bevelSegments: 2 }), M.carbon);
+  // 前臉下方進氣格柵（跟著鼻頭斜面）
+  group.add(mesh(THREE, roundBox(THREE, 1.1, 0.075, 0.04, 0.02), M.grille, [0, 0.2, 2.255], [0.55, 0, 0]));
+  mirrored(group, () => mesh(THREE, roundBox(THREE, 0.32, 0.06, 0.04, 0.02), M.grille, [0.62, 0.24, 2.17], [0.5, 0.45, 0]));
+  spl.rotation.x = -Math.PI / 2; spl.position.set(0, 0.1, 2.25);
+  spl.material = M.gblack;
+  group.add(spl);
+  // 擴散器：斜板 + 6 片導流鰭
+  const diff = mesh(THREE, roundBox(THREE, 1.5, 0.02, 0.62, 0.008), M.carbon, [0, 0.21, -2.07], [-0.32, 0, 0]);
+  group.add(diff);
+  const fins = [];
+  for (let i = -2.5; i <= 2.5; i += 1) {
+    const g = roundBox(THREE, 0.018, 0.16, 0.58, 0.006);
+    g.rotateX(-0.32); g.translate(i * 0.26, 0.24, -2.07);
+    fins.push(g);
+  }
+  group.add(new THREE.Mesh(merge(THREE, fins), M.carbon));
+  // 尾翼：翼型擠出 + 端板 + 鵝頸支柱
   const foil = new THREE.Shape();
-  foil.moveTo(0.22, 0.0);
-  foil.quadraticCurveTo(0.12, 0.06, -0.2, 0.035);
-  foil.lineTo(-0.22, 0.0);
-  foil.quadraticCurveTo(0.0, -0.025, 0.22, 0.0);
-  const wing = new THREE.Mesh(extrudeShapeX(THREE, foil, 1.86, { bevel: 0.01, curveSegments: 4 }), M.body);
-  wing.position.set(0, 1.08, -2.02);
-  wing.rotation.x = 0.12;
+  foil.moveTo(0.2, 0.0); foil.bezierCurveTo(0.12, 0.05, -0.12, 0.07, -0.22, 0.035); foil.lineTo(-0.23, 0.02);
+  foil.bezierCurveTo(-0.1, 0.0, 0.08, -0.02, 0.2, 0.0);
+  const wing = mesh(THREE, extrudeX(THREE, foil, 1.9, { bevel: 0.008, bevelSegments: 2, curveSegments: 10 }), M.carbon, [0, 1.12, -2.06], [0.1, 0, 0]);
   group.add(wing);
-  mirrored(group, (s) => box(THREE, 0.025, 0.24, 0.55, M.trim, [s * 0.94, 1.04, -2.04]));
-  mirrored(group, (s) => box(THREE, 0.04, 0.3, 0.08, M.trim, [s * 0.45, 0.93, -1.98], [-0.35, 0, 0]));
+  const plate = shapeOf(THREE, [[0.22, -0.12], [-0.28, -0.08], [-0.26, 0.1], [0.18, 0.06]]);
+  mirrored(group, () => mesh(THREE, extrudeX(THREE, plate, 0.02, { bevel: 0.006 }), M.carbon, [0.96, 1.12, -2.06]));
+  const neck = new THREE.Shape();
+  neck.moveTo(0.05, 0); neck.quadraticCurveTo(0.12, 0.18, 0.02, 0.3); neck.lineTo(-0.06, 0.3); neck.quadraticCurveTo(0.0, 0.16, -0.08, 0); neck.closePath();
+  mirrored(group, () => mesh(THREE, extrudeX(THREE, neck, 0.03, { bevel: 0.008, curveSegments: 8 }), M.gblack, [0.42, 0.84, -1.98]));
+  // 尾燈：C 形細燈條 + 深色燈座
+  const tails = [];
+  const tailBack = mesh(THREE, roundBox(THREE, 1.72, 0.1, 0.03, 0.01), M.gblack, [0, 0.62, Z0 - 0.002]);
+  group.add(tailBack);
+  const tl = mesh(THREE, roundBox(THREE, 1.62, 0.022, 0.025, 0.008), M.tail, [0, 0.645, Z0 - 0.012]);
+  group.add(tl); tails.push(tl);
+  tails.push(...mirrored(group, () => mesh(THREE, roundBox(THREE, 0.022, 0.09, 0.025, 0.008), M.tail, [0.8, 0.61, Z0 - 0.012])));
+  // 中央雙排氣（深色金屬管）
+  const pipe = new THREE.LatheGeometry([[0.05, 0], [0.058, 0], [0.058, 0.1], [0.05, 0.1]].map(([r, y]) => new THREE.Vector2(r, y)), 20);
+  pipe.rotateX(-Math.PI / 2);
+  mirrored(group, () => mesh(THREE, pipe, M.darkChrome, [0.09, 0.38, Z0 + 0.06]));
+  const pipeIn = new THREE.CircleGeometry(0.05, 20); pipeIn.rotateY(Math.PI);
+  mirrored(group, () => mesh(THREE, pipeIn, M.gap, [0.09, 0.38, Z0 + 0.05]));
 
-  // ── 燈具 ──
-  const heads = mirrored(group, (s) => box(THREE, 0.44, 0.05, 0.12, M.head, [s * 0.55, 0.43, 2.14], [0.3, s * 0.5, 0]));
-  const tails = [
-    ...mirrored(group, (s) => box(THREE, 0.5, 0.05, 0.04, M.tail, [s * 0.5, 0.7, -2.31], [0, s * -0.12, 0])),
-    box(THREE, 0.18, 0.05, 0.04, M.tail, [0, 0.62, -2.34]),
-  ];
-  group.add(tails[2]);
   const light = makeHeadSpot(THREE, group, { y: 0.45, z: 2.2 });
 
-  // ── 車輪 ──
-  const wheels = [];
-  for (const z of [WB, -WB]) {
-    for (const s of [1, -1]) {
-      const w = makeWheel(THREE, M, { radius: WR, width: z > 0 ? 0.26 : 0.32, side: s, style: 'spoke5' });
-      w.position.set(s * (W / 2 - 0.2), WR, z);
-      group.add(w);
-      wheels.push(w);
-    }
-  }
+  // ── 車輪：7 細輻 + 黃色卡鉗 ──
+  const wheels = placeWheels(THREE, group, M, [
+    { ...FW, radius: FW.r, width: FW.w, spokes: 7, spokeW: [0.05, 0.03], concave: 0.035, rimRatio: 0.72 },
+    { ...RW, radius: RW.r, width: RW.w, spokes: 7, spokeW: [0.05, 0.03], concave: 0.05, rimRatio: 0.72 },
+  ]);
 
   return {
-    group,
-    wheels,
-    bodyMaterials: [M.body],
-    headlights: { meshes: heads, light },
-    taillights: tails,
-    meta,
+    group, wheels, bodyMaterials: [M.paint],
+    headlights: { meshes: [head], drl: [drl], light }, taillights: tails, meta,
   };
 }

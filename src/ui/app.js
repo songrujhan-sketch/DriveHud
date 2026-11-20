@@ -102,7 +102,7 @@ export function createApp({
   const renderCbs = [];
   const eventCbs = [];
 
-  function pick(s) { return { model: s.model, color: s.color, headlights: s.headlights }; }
+  function pick(s) { return { model: s.model, color: s.color, headlights: s.headlights, quality: s.lowQuality ? 'low' : 'high' }; }
 
   function gpsKey(state) {
     if (adapterStatus === 'DENIED') return 'DENIED';
@@ -201,6 +201,7 @@ export function createApp({
 
   store.subscribe((s) => {
     car.setModel(s.model); car.setColor(s.color); car.setHeadlights(s.headlights);
+    if (car.setQuality) car.setQuality(s.lowQuality ? 'low' : 'high');
     render();
   });
 

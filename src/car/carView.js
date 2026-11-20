@@ -1,67 +1,30 @@
-// DriveHUD V1.6 — 車模視圖（Worker B）
-// createCarView(canvas, { model, color, headlights, darkMode, compact })
+// DriveHUD V1.6 — 車模視圖（Worker B / B2 展示廳升級）
+// createCarView(canvas, { model, color, headlights, darkMode, compact, quality })
 //   → { setSpeedKmh, setColor, setHeadlights, setModel, setCompact, setDarkMode, resize, dispose, getInfo }
+//   （額外：setQuality('high'|'low')，供之後 config 切換；不影響既有介面）
 // 固定視角：相機位於車頭左前方 45°、略高於車頂，看向車身中心；不提供旋轉。
-// 背景透明（alpha:true），底色由頁面 CSS 決定。不開 shadow map；pixelRatio 上限 2。
+// quality 'high'（預設）：反射地板 + 半解析度 Bloom + ACES；'low'：關閉後處理與反射。
+// 背景為展示廳漸層（四邊淡出成透明），compact 時縮成右上角小視窗；pixelRatio 上限 2。
 import * as THREE from '../../vendor/three.module.js';
 import { MODELS, getModel } from './models/index.js';
 import { countTriangles } from './models/parts.js';
+import { createStage } from './stage.js';
 
-const WHEEL_RADIUS_M = 0.33; // 輪徑 0.66 m
+const WHEEL_RADIUS_M = 0.33; // 輪徑 0.66 m（以此換算角速度）
 const COMPACT_SCALE = 0.4;
 const COMPACT_MS = 280;
 const MAX_PIXEL_RATIO = 2;
 
-const LIGHTING = {
-  light: { hemi: 1.05, env: 1.0, key: 2.4, rim: 0.9, shadow: 'rgba(0,0,0,0.55)' },
-  dark: { hemi: 0.55, env: 0.55, key: 1.7, rim: 0.7, shadow: 'rgba(0,0,0,0.85)' },
-};
-
-function radialTexture(stops) {
-  const c = document.createElement('canvas');
-  c.width = c.height = 128;
-  const g = c.getContext('2d');
-  const grd = g.createRadialGradient(64, 64, 0, 64, 64, 64);
-  for (const [o, col] of stops) grd.addColorStop(o, col);
-  g.fillStyle = grd;
-  g.fillRect(0, 0, 128, 128);
-  const t = new THREE.CanvasTexture(c);
-  t.colorSpace = THREE.SRGBColorSpace;
-  return t;
-}
-
-/** 以少量幾何建立簡易攝影棚環境貼圖（只產生一次）。 */
-function buildEnvironment(renderer) {
-  const env = new THREE.Scene();
-  const skyG = new THREE.SphereGeometry(10, 16, 8);
-  const cols = [];
-  const p = skyG.attributes.position;
-  const top = new THREE.Color(0xdfe6ee), mid = new THREE.Color(0x8a939e), bot = new THREE.Color(0x26292d);
-  for (let i = 0; i < p.count; i++) {
-    const y = p.getY(i) / 10;
-    const c = y > 0 ? mid.clone().lerp(top, y) : mid.clone().lerp(bot, -y);
-    cols.push(c.r, c.g, c.b);
-  }
-  skyG.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
-  env.add(new THREE.Mesh(skyG, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide })));
-  const panel = new THREE.MeshBasicMaterial({ color: 0xffffff });
-  const a = new THREE.Mesh(new THREE.PlaneGeometry(8, 2), panel);
-  a.position.set(0, 7, 0); a.rotation.x = Math.PI / 2; env.add(a);
-  const b = new THREE.Mesh(new THREE.PlaneGeometry(3, 5), panel);
-  b.position.set(7, 2, 5); b.lookAt(0, 0, 0); env.add(b);
-  const pm = new THREE.PMREMGenerator(renderer);
-  const rt = pm.fromScene(env, 0.04);
-  pm.dispose();
-  env.traverse((o) => { if (o.isMesh) { o.geometry.dispose(); o.material.dispose(); } });
-  return rt;
-}
-
 function disposeObject(root) {
+  const mats = new Set();
+  const geos = new Set();
   root.traverse((o) => {
-    if (o.geometry) o.geometry.dispose();
-    if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => m.dispose());
+    if (o.geometry) geos.add(o.geometry);
+    if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => mats.add(m));
     if (o.isLight && o.dispose) o.dispose();
   });
+  geos.forEach((g) => g.dispose());
+  mats.forEach((m) => m.dispose());
 }
 
 export function createCarView(canvas, opts = {}) {
@@ -71,100 +34,66 @@ export function createCarView(canvas, opts = {}) {
     headlights: !!opts.headlights,
     darkMode: !!opts.darkMode,
     compact: !!opts.compact,
+    quality: opts.quality === 'low' ? 'low' : 'high',
     speedMps: 0,
     compactT: opts.compact ? 1 : 0, // 0 = 全尺寸，1 = compact
     triangles: 0,
   };
 
-  const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, powerPreference: 'low-power' });
+  const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, powerPreference: 'high-performance' });
   renderer.setClearColor(0x000000, 0);
   renderer.autoClear = false;
   renderer.shadowMap.enabled = false;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.0;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO));
+  renderer.info.autoReset = false; // 一幀含多個 pass：手動歸零，getInfo 才是整幀統計
 
-  const scene = new THREE.Scene();
-  const envRT = buildEnvironment(renderer);
-  scene.environment = envRT.texture;
-
-  const hemi = new THREE.HemisphereLight(0xeef3ff, 0x30302c, 1);
-  const key = new THREE.DirectionalLight(0xffffff, 2);
-  key.position.set(5, 8, 6);
-  const rim = new THREE.DirectionalLight(0xbfd4ff, 1);
-  rim.position.set(-6, 4, -7);
-  scene.add(hemi, key, rim);
-
-  // 地面柔和陰影（非 shadow map，貼圖）
-  const shadowTex = radialTexture([[0, '#ffffff'], [0.55, 'rgba(255,255,255,0.65)'], [1, 'rgba(255,255,255,0)']]);
-  const shadowMat = new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false, toneMapped: false });
-  const shadow = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), shadowMat);
-  shadow.rotation.x = -Math.PI / 2;
-  shadow.position.y = 0.005;
-  shadow.renderOrder = -1;
-  scene.add(shadow);
-
-  // 頭燈照地光暈（開燈時顯示）
-  const poolTex = radialTexture([[0, 'rgba(255,250,235,0.55)'], [0.6, 'rgba(255,250,235,0.18)'], [1, 'rgba(255,250,235,0)']]);
-  const pool = new THREE.Mesh(
-    new THREE.PlaneGeometry(1, 1),
-    new THREE.MeshBasicMaterial({ map: poolTex, transparent: true, depthWrite: false, toneMapped: false }),
-  );
-  pool.rotation.x = -Math.PI / 2;
-  pool.position.y = 0.01;
-  pool.visible = false;
-  scene.add(pool);
-
-  const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
+  const stage = createStage(renderer, { quality: state.quality });
+  const { scene, camera } = stage;
   let car = null; // build() 的回傳值
   let carBox = new THREE.Box3();
 
   function fitCamera() {
     if (!car) return;
     const center = carBox.getCenter(new THREE.Vector3());
-    const roofY = carBox.max.y;
+    const size = carBox.getSize(new THREE.Vector3());
     const corners = [];
     for (const x of [carBox.min.x, carBox.max.x])
-      for (const y of [carBox.min.y, carBox.max.y])
+      for (const y of [0, carBox.max.y])
         for (const z of [carBox.min.z, carBox.max.z]) corners.push(new THREE.Vector3(x, y, z));
-    // 把車頭前方的頭燈照地區也納入取景，避免 compact 時被視窗硬切
-    for (const x of [carBox.min.x * 0.6, carBox.max.x * 0.6]) corners.push(new THREE.Vector3(x, 0, carBox.max.z + 1.3));
-    const camY = roofY + 0.75; // 略高於車頂
+    const camY = carBox.max.y + 0.45; // 略高於車頂
     const az = Math.PI / 4; // 車頭(+Z)左側(+X) 45°
+    const target = new THREE.Vector3(center.x, size.y * 0.36, center.z + size.z * 0.04);
     let d = 9;
-    for (let iter = 0; iter < 6; iter++) {
-      camera.position.set(center.x + d * Math.sin(az), camY, center.z + d * Math.cos(az));
-      camera.lookAt(center);
+    const place = () => {
+      camera.position.set(target.x + d * Math.sin(az), camY, target.z + d * Math.cos(az));
+      camera.lookAt(target);
       camera.updateMatrixWorld();
-      let ext = 0;
+    };
+    for (let iter = 0; iter < 8; iter++) {
+      place();
+      let ex = 0, ey = 0;
       for (const c of corners) {
         const p = c.clone().project(camera);
-        ext = Math.max(ext, Math.abs(p.x), Math.abs(p.y));
+        ex = Math.max(ex, Math.abs(p.x));
+        ey = Math.max(ey, Math.abs(p.y));
       }
-      d *= ext / 0.86;
+      // 車輛偏大：水平佔 90%、垂直佔 78%（下方留給地面反射）
+      d *= Math.max(ex / 0.9, ey / 0.78);
     }
-    camera.position.set(center.x + d * Math.sin(az), camY, center.z + d * Math.cos(az));
-    camera.lookAt(center);
-  }
-
-  function placeGroundFx() {
-    const size = carBox.getSize(new THREE.Vector3());
-    shadow.scale.set(size.x * 1.35, size.z * 1.18, 1);
-    shadow.position.x = (carBox.min.x + carBox.max.x) / 2;
-    shadow.position.z = (carBox.min.z + carBox.max.z) / 2;
-    pool.scale.set(size.x * 1.1, 1.9, 1);
-    pool.position.set(0, 0.01, carBox.max.z + 0.6);
+    place();
   }
 
   function applyHeadlights() {
     if (!car) return;
     const on = state.headlights;
-    const hm = new Set(car.headlights.meshes.map((m) => m.material));
-    hm.forEach((m) => { m.emissiveIntensity = on ? 2.4 : 0.05; });
-    const tm = new Set(car.taillights.map((m) => m.material));
-    tm.forEach((m) => { m.emissiveIntensity = on ? 1.6 : 0.35; });
-    car.headlights.light.intensity = on ? 45 : 0;
-    pool.visible = on;
+    new Set(car.headlights.meshes.map((m) => m.material)).forEach((m) => { m.emissiveIntensity = on ? 7.0 : 0.08; });
+    new Set((car.headlights.drl || []).map((m) => m.material)).forEach((m) => { m.emissiveIntensity = on ? 5.0 : 1.4; });
+    new Set(car.taillights.map((m) => m.material)).forEach((m) => { m.emissiveIntensity = on ? 4.0 : 0.7; });
+    car.headlights.light.intensity = on ? 40 : 0;
+    stage.setHeadlights(on);
   }
 
   function applyColor() {
@@ -173,16 +102,7 @@ export function createCarView(canvas, opts = {}) {
   }
 
   function applyDarkMode() {
-    const L = state.darkMode ? LIGHTING.dark : LIGHTING.light;
-    hemi.intensity = L.hemi;
-    scene.environmentIntensity = L.env;
-    key.intensity = L.key;
-    rim.intensity = L.rim;
-    const c = new THREE.Color();
-    const m = /rgba\((\d+),(\d+),(\d+),([\d.]+)\)/.exec(L.shadow);
-    c.setRGB(m[1] / 255, m[2] / 255, m[3] / 255, THREE.SRGBColorSpace);
-    shadowMat.color.copy(c);
-    shadowMat.opacity = parseFloat(m[4]);
+    stage.setDark(state.darkMode);
   }
 
   function loadModel(id) {
@@ -199,7 +119,7 @@ export function createCarView(canvas, opts = {}) {
     state.triangles = countTriangles(car.group);
     applyColor();
     applyHeadlights();
-    placeGroundFx();
+    stage.setCar(car.group, carBox);
     fitCamera();
   }
 
@@ -208,9 +128,11 @@ export function createCarView(canvas, opts = {}) {
   function resize() {
     const w = canvas.clientWidth, h = canvas.clientHeight;
     if (!w || !h) return;
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO));
+    const pr = Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO);
+    renderer.setPixelRatio(pr);
     renderer.setSize(w, h, false);
     cssW = w; cssH = h;
+    stage.setSize(w, h, pr);
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
     fitCamera();
@@ -252,17 +174,17 @@ export function createCarView(canvas, opts = {}) {
     }
 
     if (cssW && cssH) {
-      renderer.setScissorTest(false);
-      renderer.setViewport(0, 0, cssW, cssH);
-      renderer.clear();
-      const r = viewportRect();
-      renderer.setViewport(r.x, r.y, r.w, r.h);
-      renderer.render(scene, camera);
+      renderer.info.reset();
+      stage.render(viewportRect());
+      lastStats = { drawCalls: renderer.info.render.calls, frameTriangles: renderer.info.render.triangles };
     }
+    frames++;
     dirty = false;
     if (needsFrames()) raf = requestAnimationFrame(frame);
     else lastT = 0;
   }
+  let frames = 0;
+  let lastStats = { drawCalls: 0, frameTriangles: 0 };
 
   function kick() {
     dirty = true;
@@ -307,9 +229,18 @@ export function createCarView(canvas, opts = {}) {
       kick();
     },
     setDarkMode(on) { state.darkMode = !!on; applyDarkMode(); kick(); },
+    setQuality(v) {
+      state.quality = v === 'low' ? 'low' : 'high';
+      stage.setQuality(state.quality);
+      if (car) stage.setCar(car.group, carBox);
+      kick();
+    },
     resize,
     getInfo() {
-      return { model: state.modelId, triangles: state.triangles, compact: state.compact, speedMps: state.speedMps, models: MODELS.map((m) => m.id) };
+      return {
+        model: state.modelId, triangles: state.triangles, compact: state.compact, speedMps: state.speedMps,
+        models: MODELS.map((m) => m.id), quality: state.quality, frames, ...lastStats,
+      };
     },
     dispose() {
       disposed = true;
@@ -319,10 +250,8 @@ export function createCarView(canvas, opts = {}) {
       ro?.disconnect();
       document.removeEventListener('visibilitychange', onVis);
       if (car) { scene.remove(car.group); disposeObject(car.group); car = null; }
+      stage.dispose();
       disposeObject(scene);
-      shadowTex.dispose();
-      poolTex.dispose();
-      envRT.dispose();
       renderer.dispose();
     },
   };

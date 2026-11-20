@@ -14,7 +14,7 @@ export const CAR_COLORS = [
   { hex: '#2e9e5b', name: '森綠' },
   { hex: '#7a3fd1', name: '紫' },
 ];
-export const DEFAULT_SETTINGS = { model: 'valkyrie', color: CAR_COLORS[0].hex, headlights: false, minimal: false };
+export const DEFAULT_SETTINGS = { model: 'valkyrie', color: CAR_COLORS[0].hex, headlights: false, minimal: false, lowQuality: false };
 const KEY = 'drivehud.settings.v1';
 
 export function createSettingsStore({ storage } = {}) {
@@ -53,6 +53,7 @@ export function createSettingsPanel({ el, store, config = CONFIG }) {
       <section class="sp-switches">
         <label class="sp-switch"><input type="checkbox" id="sp-lights"><span>車燈</span></label>
         <label class="sp-switch"><input type="checkbox" id="sp-minimal"><span>極簡模式（隱藏車模）</span></label>
+        <label class="sp-switch"><input type="checkbox" id="sp-lowq"><span>車模低畫質（卡頓或發熱時開啟）</span></label>
       </section>
       <section><h3>提醒距離（唯讀）</h3>
         <ul class="sp-readout" id="sp-radius">
@@ -73,11 +74,13 @@ export function createSettingsPanel({ el, store, config = CONFIG }) {
     colors.querySelectorAll('[data-color]').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.color === s.color)));
     $('#sp-lights').checked = s.headlights;
     $('#sp-minimal').checked = s.minimal;
+    $('#sp-lowq').checked = !!s.lowQuality;
   }
   models.addEventListener('click', (e) => { const b = e.target.closest('[data-model]'); if (b) store.set({ model: b.dataset.model }); });
   colors.addEventListener('click', (e) => { const b = e.target.closest('[data-color]'); if (b) store.set({ color: b.dataset.color }); });
   $('#sp-lights').addEventListener('change', (e) => store.set({ headlights: e.target.checked }));
   $('#sp-minimal').addEventListener('change', (e) => store.set({ minimal: e.target.checked }));
+  $('#sp-lowq').addEventListener('change', (e) => store.set({ lowQuality: e.target.checked }));
   $('#sp-close').addEventListener('click', () => close());
   store.subscribe(sync);
   sync(store.get());

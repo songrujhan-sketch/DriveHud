@@ -13,7 +13,7 @@ E2E 指令：`npm run e2e`（webkit；無法安裝時 `E2E_BROWSER=chromium E2E_
 | 1-1c | 車速為畫面最大元素，tabular-nums | e2e layout.spec（字級比較） | 已驗證（Chromium iPhone 15 模擬） |
 | 1-1d | 顯示方向（N/NE/E… 加中文） | e2e 截圖 | 已驗證（Chromium iPhone 15 模擬） |
 | 1-1e | GPS 狀態列：定位中／定位正常／訊號不佳／權限遭拒／重新定位中 | e2e + 待 iPhone 實測 | 已驗證（iPhone 實測：定位正常與車速顯示）；其餘狀態切換待實測 |
-| 1-2a | 三款車模（女武神／黑暗騎士／阿斯拉）可切換 | 設定頁 e2e + src/car/demo.html 目視 | 已驗證（功能）；視覺品質使用者評為過於粗糙，V1.6b 升級中 |
+| 1-2a | 三款車模（女武神／黑暗騎士／阿斯拉）可切換 | 設定頁 e2e + src/car/demo.html 目視 | 已驗證（功能）；V1.6b 已升級為 ~3 萬三角形 + 展示廳渲染（clearcoat 車漆、反射地板、bloom）；iPhone fps 待實測，設定頁可切低畫質 |
 | 1-2b | 6 種車色、車燈開關 | 設定頁 e2e + 目視 | 已驗證（Chrome demo 截圖） |
 | 1-2c | 輪圈隨車速轉動、速度 0 停止 | demo.html 目視 | 已驗證（Chrome demo）；iPhone 60 fps 待 iPhone 實測 |
 | 1-3a | 跟隨 prefers-color-scheme（明／暗） | e2e colorScheme light/dark | 已驗證（Chromium iPhone 15 模擬） |
