@@ -16,6 +16,7 @@ const VIEW_AZ = { front: Math.PI / 4, rear: Math.PI * 3 / 4, back: Math.PI };
 const VIEW_SPEED = 3.2; // 視角轉換的角速度（rad/s）
 const COMPACT_SCALE = 0.4;
 const COMPACT_MS = 280;
+const DOOR_MS = 700;
 const MAX_PIXEL_RATIO = 2;
 
 function disposeObject(root) {
@@ -43,6 +44,8 @@ export function createCarView(canvas, opts = {}) {
     time: ['auto', 'day', 'night'].includes(opts.time) ? opts.time : 'auto',
     az: VIEW_AZ[opts.view] != null ? VIEW_AZ[opts.view] : VIEW_AZ.front,
     speedMps: 0,
+    doorsOpen: false,
+    doorT: 0, // 0 = 關，1 = 全開
     compactT: opts.compact ? 1 : 0, // 0 = 全尺寸，1 = compact
     triangles: 0,
   };
@@ -108,6 +111,12 @@ export function createCarView(canvas, opts = {}) {
     stage.setHeadlights(on);
   }
 
+  function applyDoors() {
+    if (!car || !car.doors) return;
+    const e = state.doorT * state.doorT * (3 - 2 * state.doorT);
+    for (const d of car.doors) d.pivot.quaternion.setFromAxisAngle(d.axis, d.sign * d.max * e);
+  }
+
   function applyColor() {
     if (!car) return;
     car.bodyMaterials.forEach((m) => m.color.set(state.color));
@@ -127,6 +136,8 @@ export function createCarView(canvas, opts = {}) {
       disposeObject(car.group);
     }
     car = def.build(THREE, { color: state.color });
+    state.doorsOpen = false;
+    state.doorT = 0;
     state.modelId = def.id;
     scene.add(car.group);
     car.group.updateMatrixWorld(true);
@@ -169,7 +180,7 @@ export function createCarView(canvas, opts = {}) {
 
   function needsFrames() {
     const target = state.compact ? 1 : 0;
-    return state.speedMps > 0 || state.compactT !== target || state.az !== VIEW_AZ[state.view] || dirty;
+    return state.speedMps > 0 || state.compactT !== target || state.az !== VIEW_AZ[state.view] || state.doorT !== (state.doorsOpen ? 1 : 0) || dirty;
   }
 
   function frame(now) {
@@ -187,6 +198,12 @@ export function createCarView(canvas, opts = {}) {
       const step = VIEW_SPEED * dt, diff = azTarget - state.az;
       state.az = Math.abs(diff) <= step ? azTarget : state.az + Math.sign(diff) * step;
       fitCamera();
+    }
+    const doorTarget = state.doorsOpen ? 1 : 0;
+    if (car && car.doors && state.doorT !== doorTarget) { // 車門開合
+      const step = dt * 1000 / DOOR_MS;
+      state.doorT = doorTarget > state.doorT ? Math.min(1, state.doorT + step) : Math.max(0, state.doorT - step);
+      applyDoors();
     }
     stage.update(dt, state.speedMps);
     const target = state.compact ? 1 : 0;
@@ -240,11 +257,19 @@ export function createCarView(canvas, opts = {}) {
     setSpeedKmh(v) {
       const k = Number(v);
       state.speedMps = Number.isFinite(k) && k > 0 ? k / 3.6 : 0;
+      if (state.speedMps > 0) state.doorsOpen = false; // 車子一動就關門
       kick();
     },
     setColor(hex) { state.color = hex; applyColor(); kick(); },
     setHeadlights(on) { state.headlights = !!on; applyHeadlights(); kick(); },
     setModel(id) { if (getModel(id).id === state.modelId) return; loadModel(id); kick(); },
+    hasDoors() { return !!(car && car.doors && car.doors.length); },
+    get doorsOpen() { return state.doorsOpen; },
+    setDoors(open) {
+      state.doorsOpen = !!open && !!(car && car.doors && car.doors.length) && state.speedMps === 0;
+      kick();
+      return state.doorsOpen;
+    },
     setView(v) { if (VIEW_AZ[v] != null && v !== state.view) { state.view = v; kick(); } },
     setScene(s) { if (['studio', 'mountain', 'city'].includes(s) && s !== state.scene) { state.scene = s; applyDarkMode(); kick(); } },
     setTime(t) { if (['auto', 'day', 'night'].includes(t) && t !== state.time) { state.time = t; applyDarkMode(); kick(); } },

@@ -59,6 +59,7 @@ export const SHELL_HTML = `
       <div class="cb-swatches" id="cb-colors" role="radiogroup" aria-label="車色"></div>
       <button type="button" class="cb-btn" id="cb-view">視角</button>
       <button type="button" class="cb-btn" id="cb-lights" aria-pressed="false">車燈</button>
+      <button type="button" class="cb-btn" id="cb-doors" aria-pressed="false" hidden>車門</button>
       <button type="button" class="cb-btn" id="cb-scene">場景</button>
       <button type="button" class="cb-btn" id="cb-time">時段</button>
     </div>
@@ -97,7 +98,7 @@ export function createApp({
   $('#btn-settings').addEventListener('click', () => panel.toggle());
 
   // 外觀列：車款、車色、視角、車燈、場景、時段都在畫面下方，不遮住車子；與設定面板共用同一個 store。
-  const bar = { model: $('#cb-model'), colors: $('#cb-colors'), view: $('#cb-view'), lights: $('#cb-lights'), scene: $('#cb-scene'), time: $('#cb-time') };
+  const bar = { model: $('#cb-model'), colors: $('#cb-colors'), view: $('#cb-view'), lights: $('#cb-lights'), doors: $('#cb-doors'), scene: $('#cb-scene'), time: $('#cb-time') };
   bar.colors.innerHTML = CAR_COLORS.map((c) => `<button type="button" role="radio" class="cb-swatch" data-color="${c.hex}" aria-label="${c.name}" title="${c.name}" style="--sw:${c.hex}"></button>`).join('');
   const nextOf = (list, id) => list[(list.findIndex((x) => x.id === id) + 1) % list.length].id;
   const nameOf = (list, id) => (list.find((x) => x.id === id) || list[0]).name;
@@ -121,6 +122,16 @@ export function createApp({
   const dark = globalThis.matchMedia ? globalThis.matchMedia('(prefers-color-scheme: dark)') : null;
   const car = createCarView(els.canvas, { ...pick(store.get()), darkMode: !!(dark && dark.matches) });
   if (dark && dark.addEventListener) dark.addEventListener('change', (e) => car.setDarkMode(e.matches));
+  // 車門：只有具備車門動作的車款才顯示；開合狀態不存檔，車子一動就自動關上
+  function syncDoors() {
+    const has = !!(car.hasDoors && car.hasDoors());
+    bar.doors.hidden = !has;
+    const open = has && !!car.doorsOpen;
+    bar.doors.textContent = `車門：${open ? '開' : '關'}`;
+    bar.doors.setAttribute('aria-pressed', String(open));
+  }
+  bar.doors.addEventListener('click', () => { if (car.setDoors) car.setDoors(!car.doorsOpen); syncDoors(); });
+  syncDoors();
   if (globalThis.ResizeObserver) new ResizeObserver(() => car.resize()).observe(els.canvas);
 
   let running = mode === 'sim';
@@ -155,6 +166,7 @@ export function createApp({
     els.speed.classList.toggle('empty', state.speedKmh == null);
     els.heading.textContent = headingText(state.headingDeg);
     car.setSpeedKmh(state.speedKmh || 0);
+    syncDoors();
     car.setCompact(layout === 'approach');
 
     const f = state.focus;
@@ -237,6 +249,7 @@ export function createApp({
     if (car.setScene) car.setScene(s.scene);
     if (car.setTime) car.setTime(s.time);
     syncBar(s);
+    syncDoors();
     render();
   });
 
