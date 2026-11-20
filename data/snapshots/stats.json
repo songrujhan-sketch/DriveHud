@@ -1,0 +1,20 @@
+{
+  "source": "npa7320",
+  "fetchedAt": "2026-11-20T00:05:00+08:00",
+  "files": [
+    {
+      "file": "npa7320-taichung.csv",
+      "rows": 192
+    }
+  ],
+  "total": 192,
+  "kept": 192,
+  "dropped": 0,
+  "deduped": 0,
+  "byCity": {
+    "臺中市": 192
+  },
+  "limitMissing": 0,
+  "directionUnknown": 7,
+  "interval": 2
+}

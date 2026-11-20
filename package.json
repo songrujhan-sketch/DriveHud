@@ -1,0 +1,16 @@
+{
+  "name": "drivehud",
+  "version": "1.6.0-alpha",
+  "private": true,
+  "type": "module",
+  "description": "DriveHUD — iPhone Safari 行車儀表板，台灣固定式測速照相提醒",
+  "scripts": {
+    "test": "node --test \"test/**/*.test.js\"",
+    "e2e": "playwright test -c e2e/playwright.config.js",
+    "serve": "python3 -m http.server 8080"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0",
+    "fake-indexeddb": "^6.2.8"
+  }
+}

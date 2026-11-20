@@ -1,0 +1,624 @@
+{
+ "id": "01-same-dir-overspeed",
+ "title": "同向接近並持續超速",
+ "expectation": "福科路617號（西向東，速限50）。車輛由西往東以 65 km/h 行駛：約 300 m 前語音「前方三百公尺有測速照相，速限五十」一次，切換接近版面；連續 3 秒超速後紅色警示並語音「注意，目前超速，速限五十」一次；通過後恢復一般版面。",
+ "cameras": [
+  {
+   "id": "npa7320|24.186693|120.612840|90",
+   "lat": 24.186693,
+   "lon": 120.61284,
+   "bearings": [
+    90
+   ],
+   "bidirectional": false,
+   "directionKnown": true,
+   "limit": 50,
+   "roadClass": "urban",
+   "interval": false,
+   "source": "npa7320",
+   "address": "西屯區福科路617號前往福林路方向中央分隔島",
+   "city": "臺中市",
+   "region": "西屯區",
+   "rawDirect": "西向東"
+  }
+ ],
+ "fixes": [
+  {
+   "t": 1795132800000,
+   "lat": 24.186643,
+   "lon": 120.605939,
+   "speedMps": 18.06,
+   "headingDeg": 90.43,
+   "accuracyM": 7
+  },
+  {
+   "t": 1795132801000,
+   "lat": 24.186651,
+   "lon": 120.606113,
+   "speedMps": 18.06,
+   "headingDeg": 88.32,
+   "accuracyM": 7
+  },
+  {
+   "t": 1795132802000,
+   "lat": 24.186645,
+   "lon": 120.606292,
+   "speedMps": 18.06,
+   "headingDeg": 89.92,
+   "accuracyM": 8
+  },
+  {
+   "t": 1795132803000,
+   "lat": 24.186643,
+   "lon": 120.606476,
+   "speedMps": 18.06,
+   "headingDeg": 90.73,
+   "accuracyM": 6
+  },
+  {
+   "t": 1795132804000,
+   "lat": 24.186649,
+   "lon": 120.606653,
+   "speedMps": 18.06,
+   "headingDeg": 89.58,
+   "accuracyM": 7
+  },
+  {
+   "t": 1795132805000,
+   "lat": 24.186647,
+   "lon": 120.606828,
+   "speedMps": 18.06,
+   "headingDeg": 90.39,
+   "accuracyM": 7
+  },
+  {
+   "t": 1795132806000,
+   "lat": 24.186641,
+   "lon": 120.607011,
+   "speedMps": 18.06,
+   "headingDeg": 91.22,
+   "accuracyM": 8
+  },
+  {
+   "t": 1795132807000,
+   "lat": 24.186646,
+   "lon": 120.607191,
+   "speedMps": 18.06,
+   "headingDeg": 89.01,
+   "accuracyM": 5
+  },
+  {
+   "t": 1795132808000,
+   "lat": 24.186647,
+   "lon": 120.607353,
+   "speedMps": 18.06,
+   "headingDeg": 89.19,
+   "accuracyM": 6
+  },
+  {
+   "t": 1795132809000,
+   "lat": 24.186648,
+   "lon": 120.607538,
+   "speedMps": 18.06,
+   "headingDeg": 90.21,
+   "accuracyM": 7
+  },
+  {
+   "t": 1795132810000,
+   "lat": 24.186649,
+   "lon": 120.607718,
+   "speedMps": 18.06,
+   "headingDeg": 91.4,
+   "accuracyM": 8
+  },
+  {
+   "t": 1795132811000,
+   "lat": 24.186648,
+   "lon": 120.607897,
+   "speedMps": 18.06,
+   "headingDeg": 88.31,
+   "accuracyM": 8
+  },
+  {
+   "t": 1795132812000,
+   "lat": 24.186643,
+   "lon": 120.608075,
+   "speedMps": 18.06,
+   "headingDeg": 89.08,
+   "accuracyM": 7
+  },
+  {
+   "t": 1795132813000,
+   "lat": 24.186648,
+   "lon": 120.608252,
+   "speedMps": 18.06,
+   "headingDeg": 90.58,
+   "accuracyM": 5
+  },
+  {
+   "t": 1795132814000,
+   "lat": 24.186642,
+   "lon": 120.608433,
+   "speedMps": 18.06,
+   "headingDeg": 91.94,
+   "accuracyM": 7
+  },
+  {
+   "t": 1795132815000,
+   "lat": 24.186645,
+   "lon": 120.60861,
+   "speedMps": 18.06,
+   "headingDeg": 88.19,
+   "accuracyM": 8
+  },
+  {
+   "t": 1795132816000,
+   "lat": 24.186642,
+   "lon": 120.608791,
+   "speedMps": 18.06,
+   "headingDeg": 89.2,
+   "accuracyM": 7
+  },
+  {
+   "t": 1795132817000,
+   "lat": 24.186643,
+   "lon": 120.608972,
+   "speedMps": 18.06,
+   "headingDeg": 88.64,
+   "accuracyM": 5
+  },
+  {
+   "t": 1795132818000,
+   "lat": 24.186644,
+   "lon": 120.609139,
+   "speedMps": 18.06,
+   "headingDeg": 88.5,
+   "accuracyM": 6
+  },
+  {
+   "t": 1795132819000,
+   "lat": 24.186642,
+   "lon": 120.609327,
+   "speedMps": 18.06,
+   "headingDeg": 91.41,
+   "accuracyM": 8
+  },
+  {
+   "t": 1795132820000,
+   "lat": 24.186641,
+   "lon": 120.609504,
+   "speedMps": 18.06,
+   "headingDeg": 90.35,
+   "accuracyM": 7
+  },
+  {
+   "t": 1795132821000,
+   "lat": 24.186646,
+   "lon": 120.609682,
+   "speedMps": 18.06,
+   "headingDeg": 88.03,
+   "accuracyM": 9
+  },
+  {
+   "t": 1795132822000,
+   "lat": 24.186647,
+   "lon": 120.609859,
+   "speedMps": 18.06,
+   "headingDeg": 88.49,
+   "accuracyM": 5
+  },
+  {
+   "t": 1795132823000,
+   "lat": 24.186648,
+   "lon": 120.610028,
+   "speedMps": 18.06,
+   "headingDeg": 90.06,
+   "accuracyM": 5
+  },
+  {
+   "t": 1795132824000,
+   "lat": 24.186643,
+   "lon": 120.610209,
+   "speedMps": 18.06,
+   "headingDeg": 91.54,
+   "accuracyM": 9
+  },
+  {
+   "t": 1795132825000,
+   "lat": 24.186643,
+   "lon": 120.610386,
+   "speedMps": 18.06,
+   "headingDeg": 90.29,
+   "accuracyM": 7
+  },
+  {
+   "t": 1795132826000,
+   "lat": 24.186653,
+   "lon": 120.610571,
+   "speedMps": 18.06,
+   "headingDeg": 90.6,
+   "accuracyM": 9
+  },
+  {
+   "t": 1795132827000,
+   "lat": 24.186648,
+   "lon": 120.610744,
+   "speedMps": 18.06,
+   "headingDeg": 88.55,
+   "accuracyM": 8
+  },
+  {
+   "t": 1795132828000,
+   "lat": 24.186651,
+   "lon": 120.610922,
+   "speedMps": 18.06,
+   "headingDeg": 91.7,
+   "accuracyM": 7
+  },
+  {
+   "t": 1795132829000,
+   "lat": 24.186648,
+   "lon": 120.611095,
+   "speedMps": 18.06,
+   "headingDeg": 88.29,
+   "accuracyM": 6
+  },
+  {
+   "t": 1795132830000,
+   "lat": 24.186646,
+   "lon": 120.611275,
+   "speedMps": 18.06,
+   "headingDeg": 90.51,
+   "accuracyM": 6
+  },
+  {
+   "t": 1795132831000,
+   "lat": 24.186647,
+   "lon": 120.611454,
+   "speedMps": 18.06,
+   "headingDeg": 88.37,
+   "accuracyM": 7
+  },
+  {
+   "t": 1795132832000,
+   "lat": 24.186647,
+   "lon": 120.611636,
+   "speedMps": 18.06,
+   "headingDeg": 91.27,
+   "accuracyM": 9
+  },
+  {
+   "t": 1795132833000,
+   "lat": 24.186648,
+   "lon": 120.611813,
+   "speedMps": 18.06,
+   "headingDeg": 89.73,
+   "accuracyM": 8
+  },
+  {
+   "t": 1795132834000,
+   "lat": 24.186642,
+   "lon": 120.611988,
+   "speedMps": 18.06,
+   "headingDeg": 90.51,
+   "accuracyM": 5
+  },
+  {
+   "t": 1795132835000,
+   "lat": 24.186643,
+   "lon": 120.612169,
+   "speedMps": 18.06,
+   "headingDeg": 88.65,
+   "accuracyM": 8
+  },
+  {
+   "t": 1795132836000,
+   "lat": 24.186648,
+   "lon": 120.612347,
+   "speedMps": 18.06,
+   "headingDeg": 91.99,
+   "accuracyM": 7
+  },
+  {
+   "t": 1795132837000,
+   "lat": 24.186646,
+   "lon": 120.612517,
+   "speedMps": 18.06,
+   "headingDeg": 91.67,
+   "accuracyM": 9
+  },
+  {
+   "t": 1795132838000,
+   "lat": 24.186649,
+   "lon": 120.612704,
+   "speedMps": 18.06,
+   "headingDeg": 90.38,
+   "accuracyM": 7
+  },
+  {
+   "t": 1795132839000,
+   "lat": 24.186644,
+   "lon": 120.612884,
+   "speedMps": 18.06,
+   "headingDeg": 88.2,
+   "accuracyM": 5
+  },
+  {
+   "t": 1795132840000,
+   "lat": 24.186645,
+   "lon": 120.61306,
+   "speedMps": 18.06,
+   "headingDeg": 89.67,
+   "accuracyM": 8
+  },
+  {
+   "t": 1795132841000,
+   "lat": 24.186645,
+   "lon": 120.613239,
+   "speedMps": 18.06,
+   "headingDeg": 90.35,
+   "accuracyM": 6
+  },
+  {
+   "t": 1795132842000,
+   "lat": 24.18665,
+   "lon": 120.613415,
+   "speedMps": 18.06,
+   "headingDeg": 89.78,
+   "accuracyM": 6
+  },
+  {
+   "t": 1795132843000,
+   "lat": 24.186647,
+   "lon": 120.61359,
+   "speedMps": 18.06,
+   "headingDeg": 90.25,
+   "accuracyM": 8
+  },
+  {
+   "t": 1795132844000,
+   "lat": 24.186649,
+   "lon": 120.613771,
+   "speedMps": 18.06,
+   "headingDeg": 88.66,
+   "accuracyM": 8
+  },
+  {
+   "t": 1795132845000,
+   "lat": 24.186653,
+   "lon": 120.613955,
+   "speedMps": 18.06,
+   "headingDeg": 88.77,
+   "accuracyM": 8
+  },
+  {
+   "t": 1795132846000,
+   "lat": 24.186651,
+   "lon": 120.614121,
+   "speedMps": 18.06,
+   "headingDeg": 91.25,
+   "accuracyM": 5
+  },
+  {
+   "t": 1795132847000,
+   "lat": 24.186653,
+   "lon": 120.614309,
+   "speedMps": 18.06,
+   "headingDeg": 88.86,
+   "accuracyM": 5
+  },
+  {
+   "t": 1795132848000,
+   "lat": 24.186647,
+   "lon": 120.614484,
+   "speedMps": 18.06,
+   "headingDeg": 91.53,
+   "accuracyM": 8
+  },
+  {
+   "t": 1795132849000,
+   "lat": 24.186647,
+   "lon": 120.614656,
+   "speedMps": 18.06,
+   "headingDeg": 91.03,
+   "accuracyM": 8
+  },
+  {
+   "t": 1795132850000,
+   "lat": 24.186643,
+   "lon": 120.614844,
+   "speedMps": 18.06,
+   "headingDeg": 88.91,
+   "accuracyM": 6
+  },
+  {
+   "t": 1795132851000,
+   "lat": 24.186651,
+   "lon": 120.615022,
+   "speedMps": 18.06,
+   "headingDeg": 88.03,
+   "accuracyM": 7
+  },
+  {
+   "t": 1795132852000,
+   "lat": 24.186655,
+   "lon": 120.615193,
+   "speedMps": 18.06,
+   "headingDeg": 90.08,
+   "accuracyM": 9
+  },
+  {
+   "t": 1795132853000,
+   "lat": 24.186652,
+   "lon": 120.615375,
+   "speedMps": 18.06,
+   "headingDeg": 91.07,
+   "accuracyM": 6
+  },
+  {
+   "t": 1795132854000,
+   "lat": 24.186649,
+   "lon": 120.615551,
+   "speedMps": 18.06,
+   "headingDeg": 91.5,
+   "accuracyM": 7
+  },
+  {
+   "t": 1795132855000,
+   "lat": 24.186656,
+   "lon": 120.615725,
+   "speedMps": 18.06,
+   "headingDeg": 89.56,
+   "accuracyM": 7
+  },
+  {
+   "t": 1795132856000,
+   "lat": 24.186647,
+   "lon": 120.615908,
+   "speedMps": 18.06,
+   "headingDeg": 88.75,
+   "accuracyM": 5
+  },
+  {
+   "t": 1795132857000,
+   "lat": 24.186655,
+   "lon": 120.61609,
+   "speedMps": 18.06,
+   "headingDeg": 90.2,
+   "accuracyM": 7
+  },
+  {
+   "t": 1795132858000,
+   "lat": 24.186649,
+   "lon": 120.616272,
+   "speedMps": 18.06,
+   "headingDeg": 88.31,
+   "accuracyM": 8
+  },
+  {
+   "t": 1795132859000,
+   "lat": 24.186647,
+   "lon": 120.616442,
+   "speedMps": 18.06,
+   "headingDeg": 89.77,
+   "accuracyM": 7
+  },
+  {
+   "t": 1795132860000,
+   "lat": 24.18665,
+   "lon": 120.616622,
+   "speedMps": 18.06,
+   "headingDeg": 88.53,
+   "accuracyM": 9
+  },
+  {
+   "t": 1795132861000,
+   "lat": 24.186644,
+   "lon": 120.616795,
+   "speedMps": 18.06,
+   "headingDeg": 91.97,
+   "accuracyM": 6
+  },
+  {
+   "t": 1795132862000,
+   "lat": 24.186643,
+   "lon": 120.616973,
+   "speedMps": 18.06,
+   "headingDeg": 89.03,
+   "accuracyM": 7
+  },
+  {
+   "t": 1795132863000,
+   "lat": 24.18665,
+   "lon": 120.617152,
+   "speedMps": 18.06,
+   "headingDeg": 89.9,
+   "accuracyM": 7
+  },
+  {
+   "t": 1795132864000,
+   "lat": 24.186649,
+   "lon": 120.617333,
+   "speedMps": 18.06,
+   "headingDeg": 90.53,
+   "accuracyM": 5
+  },
+  {
+   "t": 1795132865000,
+   "lat": 24.186653,
+   "lon": 120.617513,
+   "speedMps": 18.06,
+   "headingDeg": 88.64,
+   "accuracyM": 6
+  },
+  {
+   "t": 1795132866000,
+   "lat": 24.186641,
+   "lon": 120.61769,
+   "speedMps": 18.06,
+   "headingDeg": 90.4,
+   "accuracyM": 7
+  },
+  {
+   "t": 1795132867000,
+   "lat": 24.186646,
+   "lon": 120.617862,
+   "speedMps": 18.06,
+   "headingDeg": 91.03,
+   "accuracyM": 9
+  },
+  {
+   "t": 1795132868000,
+   "lat": 24.186644,
+   "lon": 120.618049,
+   "speedMps": 18.06,
+   "headingDeg": 88.34,
+   "accuracyM": 6
+  },
+  {
+   "t": 1795132869000,
+   "lat": 24.186641,
+   "lon": 120.61822,
+   "speedMps": 18.06,
+   "headingDeg": 88.4,
+   "accuracyM": 9
+  },
+  {
+   "t": 1795132870000,
+   "lat": 24.186648,
+   "lon": 120.618398,
+   "speedMps": 18.06,
+   "headingDeg": 91.59,
+   "accuracyM": 7
+  },
+  {
+   "t": 1795132871000,
+   "lat": 24.186646,
+   "lon": 120.618572,
+   "speedMps": 18.06,
+   "headingDeg": 91.14,
+   "accuracyM": 9
+  }
+ ],
+ "expectedEvents": [
+  {
+   "type": "FIX_VALID"
+  },
+  {
+   "type": "APPROACH_ALERT",
+   "camera": "npa7320|24.186693|120.612840|90"
+  },
+  {
+   "type": "OVERSPEED_ALERT",
+   "camera": "npa7320|24.186693|120.612840|90"
+  },
+  {
+   "type": "PASSED",
+   "camera": "npa7320|24.186693|120.612840|90"
+  }
+ ],
+ "expectedFinal": {
+  "layout": "normal",
+  "speedKmh": "number"
+ }
+}

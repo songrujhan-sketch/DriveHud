@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DriveHUD 車模 Demo</title>
+<link rel="icon" href="data:,">
+<style>
+  :root { color-scheme: light dark; --bg: #eef1f4; --fg: #15181c; --panel: rgba(255,255,255,.8); }
+  body.dark { --bg: #0b0d10; --fg: #e8ebef; --panel: rgba(28,31,36,.85); }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg);
+    font: 14px/1.4 -apple-system, "PingFang TC", "Noto Sans TC", system-ui, sans-serif; }
+  #stage { position: absolute; inset: 0 0 170px 0; }
+  #car { width: 100%; height: 100%; display: block; }
+  #speed { position: absolute; left: 16px; top: 12px; font-size: 44px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  #speed small { font-size: 16px; font-weight: 500; opacity: .6; }
+  #info { position: absolute; right: 16px; top: 16px; opacity: .65; font-size: 12px; text-align: right; }
+  #ctl { position: absolute; left: 0; right: 0; bottom: 0; height: 170px; box-sizing: border-box; padding: 10px 14px;
+    background: var(--panel); display: grid; gap: 8px; align-content: start; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  button { font: inherit; padding: 6px 12px; border-radius: 8px; border: 1px solid rgba(127,127,127,.4);
+    background: transparent; color: inherit; }
+  button[aria-pressed="true"] { background: #2b6fd6; color: #fff; border-color: #2b6fd6; }
+  .sw { width: 28px; height: 28px; border-radius: 50%; padding: 0; }
+  .sw[aria-pressed="true"] { outline: 3px solid #2b6fd6; outline-offset: 2px; }
+  input[type=range] { flex: 1; min-width: 160px; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="car" aria-label="車模"></canvas>
+  <div id="speed"><span id="spv">0</span> <small>km/h</small></div>
+  <div id="info"></div>
+</div>
+<div id="ctl">
+  <div class="row" id="models"></div>
+  <div class="row"><label for="spd">車速</label><input id="spd" type="range" min="0" max="120" step="1" value="0"></div>
+  <div class="row" id="colors"></div>
+  <div class="row">
+    <button id="lights" aria-pressed="false">車燈</button>
+    <button id="compact" aria-pressed="false">Compact</button>
+    <button id="dark" aria-pressed="false">Dark</button>
+  </div>
+</div>
+<script type="module">
+import { createCarView } from './carView.js';
+import { MODELS } from './models/index.js';
+
+const COLORS = ['#c8102e', '#1f5fbf', '#e8eaed', '#1c1d20', '#f0a020', '#2f8f5b'];
+const $ = (id) => document.getElementById(id);
+const darkPref = matchMedia('(prefers-color-scheme: dark)').matches;
+const view = createCarView($('car'), { model: MODELS[0].id, color: COLORS[0], headlights: false, darkMode: darkPref });
+window.carView = view; // 供 Playwright 檢查
+document.body.classList.toggle('dark', darkPref);
+$('dark').setAttribute('aria-pressed', String(darkPref));
+
+const info = () => { const i = view.getInfo(); $('info').textContent = `${i.model}・${i.triangles} △`; };
+
+for (const m of MODELS) {
+  const b = document.createElement('button');
+  b.textContent = m.displayName; b.dataset.id = m.id;
+  b.setAttribute('aria-pressed', String(m.id === MODELS[0].id));
+  b.onclick = () => {
+    view.setModel(m.id);
+    document.querySelectorAll('#models button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    info();
+  };
+  $('models').append(b);
+}
+for (const c of COLORS) {
+  const b = document.createElement('button');
+  b.className = 'sw'; b.style.background = c; b.title = c; b.dataset.color = c;
+  b.setAttribute('aria-pressed', String(c === COLORS[0]));
+  b.onclick = () => {
+    view.setColor(c);
+    document.querySelectorAll('#colors button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+  };
+  $('colors').append(b);
+}
+$('spd').oninput = (e) => { const v = +e.target.value; $('spv').textContent = v; view.setSpeedKmh(v); };
+const toggle = (id, fn) => { $(id).onclick = () => { const on = $(id).getAttribute('aria-pressed') !== 'true'; $(id).setAttribute('aria-pressed', String(on)); fn(on); }; };
+toggle('lights', (on) => view.setHeadlights(on));
+toggle('compact', (on) => view.setCompact(on));
+toggle('dark', (on) => { document.body.classList.toggle('dark', on); view.setDarkMode(on); });
+info();
+</script>
+</body>
+</html>

@@ -1,0 +1,177 @@
+/* DriveHUD V1.6 — 版面以 container query 判斷橫／直向，使主畫面與 sim.html 內嵌舞台共用同一套規則。 */
+:root {
+  --bg: #f3f4f6; --fg: #101215; --muted: #5d6470; --panel: #ffffff; --line: #d5d9e0;
+  --ok: #1a9d4b; --warn: #d98a00; --bad: #d8261d; --accent: #1e6fd9;
+  --over-bg: #d8261d; --over-fg: #ffffff;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #05070a; --fg: #f4f6f8; --muted: #9aa3b0; --panel: #12161c; --line: #2a313b;
+    --ok: #3ddc84; --warn: #ffb938; --bad: #ff5a50; --accent: #5aa2ff;
+    --over-bg: #c4161c; --over-fg: #ffffff;
+  }
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; background: var(--bg); color: var(--fg);
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+  -webkit-text-size-adjust: 100%; -webkit-tap-highlight-color: transparent; }
+body:not(.sim-page) { overflow: hidden; }
+#root { height: 100vh; height: 100dvh; }
+[hidden] { display: none !important; }
+.muted { color: var(--muted); font-weight: 400; }
+
+.dh-btn { font: inherit; font-size: 15px; color: var(--fg); background: var(--panel); border: 1px solid var(--line);
+  border-radius: 10px; padding: 8px 14px; min-height: 40px; cursor: pointer; }
+.dh-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.dh-btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+/* ---------- App 容器 ---------- */
+.app { position: relative; width: 100%; height: 100%; overflow: hidden; background: var(--bg);
+  container: app / size; }
+.frame { position: absolute; inset: 0; display: grid; gap: 1.5cqmin; padding: 1.5cqmin;
+  padding-left: max(1.5cqmin, env(safe-area-inset-left)); padding-right: max(1.5cqmin, env(safe-area-inset-right));
+  padding-bottom: max(1.5cqmin, env(safe-area-inset-bottom)); }
+.topbar { grid-area: top; display: flex; align-items: center; gap: 12px; min-height: 44px; }
+.top-actions { margin-left: auto; display: flex; gap: 8px; }
+.car-zone { grid-area: car; position: relative; min-height: 0; min-width: 0; }
+.car-zone canvas { width: 100%; height: 100%; display: block; }
+.speed-zone { grid-area: speed; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 0; min-width: 0; }
+.approach { grid-area: ap; min-height: 0; min-width: 0; }
+.nearby-hint { position: absolute; left: 50%; bottom: 2cqmin; transform: translateX(-50%); z-index: 3;
+  background: var(--warn); color: #000; font-weight: 700; padding: 6px 16px; border-radius: 999px; font-size: clamp(14px, 4cqmin, 26px); }
+
+/* GPS 狀態列 */
+.gps { display: inline-flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 600;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; }
+.gps .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--warn); }
+.gps[data-status="OK"] .dot { background: var(--ok); }
+.gps[data-status="DENIED"] .dot, .gps[data-status="POOR"] .dot, .gps[data-status="STALE"] .dot { background: var(--bad); }
+.gps[data-status="SEARCHING"] .dot, .gps[data-status="RELOCATING"] .dot { animation: blink 1s infinite; }
+@keyframes blink { 50% { opacity: .25; } }
+.voice-warn { font-size: 14px; color: var(--bad); font-weight: 600; }
+
+/* 車速：畫面最大元素 */
+.speed { font-weight: 800; line-height: .95; font-variant-numeric: tabular-nums; font-feature-settings: "tnum";
+  letter-spacing: -.02em; white-space: nowrap; }
+.speed-meta { display: flex; gap: 1.2em; align-items: baseline; color: var(--muted); font-weight: 600; font-size: clamp(16px, 5cqmin, 32px); }
+.heading { color: var(--fg); }
+
+/* 接近區塊 */
+.approach { display: flex; flex-direction: column; justify-content: center; gap: 1cqmin; padding: 2cqmin 3cqmin;
+  border-radius: 3cqmin; background: var(--panel); border: 2px solid var(--line); text-align: center; }
+.ap-main { display: flex; flex-direction: column; align-items: center; gap: 1cqmin; }
+.ap-label { font-size: clamp(14px, 3.6cqmin, 24px); color: var(--muted); margin-right: .5em; font-weight: 600; }
+.ap-limit { display: flex; align-items: center; justify-content: center; }
+.ap-limit-val { font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.1; min-width: 1.6em; padding: .1em .22em;
+  border-radius: 50%; border: .08em solid var(--bad); background: #fff; color: #111; }
+.ap-limit-val.unknown { border: 0; border-radius: .2em; background: transparent; color: var(--fg); font-size: .5em; }
+.ap-dist { display: flex; align-items: baseline; justify-content: center; }
+.ap-dist-val { font-weight: 800; font-variant-numeric: tabular-nums; }
+.ap-unit { font-size: clamp(16px, 4.5cqmin, 30px); color: var(--muted); margin-left: .3em; font-weight: 700; }
+.ap-addr { font-size: clamp(14px, 3.8cqmin, 24px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--muted); }
+.ap-over { font-weight: 800; font-size: clamp(18px, 6cqmin, 40px); }
+.approach.over { background: var(--over-bg); border-color: var(--over-bg); color: var(--over-fg); }
+.approach.over .ap-label, .approach.over .ap-unit, .approach.over .ap-addr { color: rgba(255,255,255,.88); }
+
+/* ---------- 版面：橫向 ---------- */
+@container app (orientation: landscape) {
+  .layout-normal .frame { grid-template-columns: 1fr 1fr; grid-template-rows: auto 1fr; grid-template-areas: "top top" "car speed"; }
+  .layout-normal .speed { font-size: min(46cqh, 25cqw); }
+  .layout-approach .frame { grid-template-columns: 1fr 1fr; grid-template-rows: auto 1fr auto; grid-template-areas: "top top" "speed ap" "car ap"; }
+  .layout-approach .car-zone { height: 26cqh; }
+  .layout-approach .speed { font-size: min(34cqh, 22cqw); }
+  .layout-approach .ap-limit-val { font-size: min(30cqh, 15cqw); }
+  .layout-approach .ap-dist-val { font-size: min(20cqh, 12cqw); }
+  .layout-minimal .frame { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; grid-template-areas: "top" "speed" "ap"; }
+  .layout-minimal .speed { font-size: min(58cqh, 34cqw); }
+  .layout-minimal .approach { flex-direction: row; align-items: center; justify-content: space-around; padding: 1.5cqmin 3cqmin; }
+  .layout-minimal .ap-main { flex-direction: row; gap: 4cqmin; }
+  .layout-minimal .ap-limit-val { font-size: 12cqh; }
+  .layout-minimal .ap-dist-val { font-size: 10cqh; }
+  .layout-minimal .ap-addr { display: none; }
+}
+/* ---------- 版面：直向 ---------- */
+@container app (orientation: portrait) {
+  .layout-normal .frame { grid-template-columns: 1fr; grid-template-rows: auto 36% 1fr; grid-template-areas: "top" "car" "speed"; }
+  .layout-normal .speed { font-size: min(26cqh, 46cqw); }
+  .layout-approach .frame { grid-template-columns: 1fr; grid-template-rows: auto auto 1fr 20%; grid-template-areas: "top" "ap" "speed" "car"; }
+  .layout-approach .speed { font-size: min(20cqh, 40cqw); }
+  .layout-approach .ap-limit-val { font-size: min(16cqh, 30cqw); }
+  .layout-approach .ap-dist-val { font-size: min(11cqh, 20cqw); }
+  .layout-minimal .frame { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; grid-template-areas: "top" "speed" "ap"; }
+  .layout-minimal .speed { font-size: min(34cqh, 54cqw); }
+  .layout-minimal .approach { flex-direction: row; align-items: center; justify-content: space-around; }
+  .layout-minimal .ap-main { flex-direction: row; gap: 4cqmin; }
+  .layout-minimal .ap-limit-val { font-size: 8cqh; }
+  .layout-minimal .ap-dist-val { font-size: 7cqh; }
+  .layout-minimal .ap-addr { display: none; }
+}
+.layout-minimal .car-zone { display: none; }
+/* 接近時整個畫面也帶紅色邊框，提高周邊視野辨識 */
+.app.overspeed .frame { box-shadow: inset 0 0 0 1.2cqmin var(--over-bg); }
+
+/* ---------- 開始行車 ---------- */
+.start-btn { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 5;
+  font: inherit; font-weight: 800; font-size: clamp(22px, 7cqmin, 48px); padding: .6em 1.6em; border-radius: 999px;
+  border: 0; background: var(--accent); color: #fff; box-shadow: 0 0 0 200vmax rgba(0,0,0,.45); cursor: pointer; }
+
+/* ---------- 模擬標記 ---------- */
+.sim-badge { position: absolute; top: 0; right: 0; z-index: 6; background: #f5a000; color: #000; font-weight: 800;
+  padding: 4px 14px; border-radius: 0 0 0 10px; letter-spacing: .15em; font-size: 16px; }
+.app[data-mode="sim"] .top-actions { margin-right: 4.5em; }
+
+/* ---------- 設定面板 ---------- */
+.settings { position: absolute; top: 0; right: 0; bottom: 0; width: min(440px, 92cqw); z-index: 20; background: var(--panel);
+  border-left: 1px solid var(--line); transform: translateX(102%); transition: transform .25s ease; overflow-y: auto;
+  display: flex; flex-direction: column; box-shadow: -8px 0 24px rgba(0,0,0,.3); }
+.settings.open { transform: none; }
+.sp-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; position: sticky; top: 0; background: var(--panel); border-bottom: 1px solid var(--line); }
+.sp-head h2 { margin: 0; font-size: 20px; }
+.sp-body { padding: 8px 16px 24px; }
+.sp-body h3 { margin: 18px 0 8px; font-size: 15px; color: var(--muted); }
+.sp-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.chip { font: inherit; padding: 10px 16px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--fg); min-height: 44px; }
+.chip[aria-checked="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+.swatch { width: 44px; height: 44px; border-radius: 50%; border: 3px solid var(--line); background: var(--sw); cursor: pointer; }
+.swatch[aria-checked="true"] { border-color: var(--fg); box-shadow: 0 0 0 2px var(--accent); }
+.sp-switches { display: grid; gap: 4px; margin-top: 14px; }
+.sp-switch { display: flex; align-items: center; gap: 12px; min-height: 44px; font-size: 17px; }
+.sp-switch input { width: 26px; height: 26px; }
+.sp-readout { margin: 0; padding-left: 20px; line-height: 1.8; }
+
+/* ---------- 自製對話框 ---------- */
+.dh-dialog-backdrop { position: absolute; inset: 0; z-index: 40; background: rgba(0,0,0,.55); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.dh-dialog { background: var(--panel); color: var(--fg); border-radius: 16px; padding: 20px; max-width: 420px; width: 100%; border: 1px solid var(--line); }
+.dh-dialog-msg { margin: 0 0 16px; font-size: 18px; line-height: 1.5; }
+.dh-dialog-actions { display: flex; gap: 10px; justify-content: flex-end; }
+
+/* ---------- sim.html ---------- */
+body.sim-page { height: auto; min-height: 100%; }
+.sim-layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; height: 100vh; height: 100dvh; }
+.sim-stage { position: relative; min-height: 0; min-width: 0; border-right: 1px solid var(--line); }
+.sim-panel { overflow-y: auto; padding: 12px 14px 24px; background: var(--panel); font-size: 14px; }
+.sim-panel h1 { font-size: 18px; margin: 0 0 8px; }
+.sim-panel h1 small { font-size: 12px; color: var(--muted); font-weight: 400; }
+.sim-panel h2 { font-size: 14px; margin: 14px 0 6px; color: var(--muted); }
+.sim-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.sim-item { width: 100%; text-align: left; font: inherit; color: var(--fg); background: transparent; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; display: grid; gap: 2px; cursor: pointer; }
+.sim-list li.active .sim-item { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent) inset; }
+.sim-title { font-weight: 700; }
+.sim-exp { color: var(--muted); font-size: 12px; }
+.sim-controls { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; align-items: center; }
+.sim-speed { display: inline-flex; gap: 6px; margin-left: auto; }
+.sim-progress { display: flex; align-items: center; gap: 8px; }
+.sim-progress progress { flex: 1; }
+#sim-status { margin: 8px 0 4px; font-weight: 700; }
+#sim-result { padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); }
+#sim-result[data-pass="true"] { border-color: var(--ok); }
+#sim-result[data-pass="false"] { border-color: var(--bad); }
+.sim-log { list-style: none; margin: 0; padding: 0; max-height: 220px; overflow-y: auto; border: 1px solid var(--line); border-radius: 8px; }
+.sim-log:empty::after { content: "（無）"; display: block; padding: 6px 8px; color: var(--muted); }
+.sim-log li { padding: 5px 8px; border-bottom: 1px solid var(--line); font-size: 13px; }
+.sim-log li:last-child { border-bottom: 0; }
+@media (max-width: 700px) {
+  .sim-layout { display: block; height: auto; }
+  .sim-stage { height: 62vh; height: 62dvh; border-right: 0; border-bottom: 1px solid var(--line); }
+}

@@ -1,0 +1,15 @@
+{
+  "npa7320": {
+    "sourceUrl": "https://data.gov.tw/dataset/7320",
+    "downloadUrl": "https://opdadm.moi.gov.tw/api/v1/no-auth/resource/api/dataset/EA5E6FCD-B82D-43B7-A5CF-E9893253187E/resource/7957B67D-2191-46CB-BD5D-63312764E1E8/download",
+    "fetchedAt": "2026-11-20T00:05:00+08:00",
+    "totalRowsAtFetch": 1910,
+    "files": { "taichungSubset": "npa7320-taichung.csv", "full": "npa7320.csv (待補)" },
+    "notes": ["第1列英文欄名、第2列中文欄名", "同座標多筆代表不同拍攝方向", "從 data.gov.tw 頁面以 fetch 取得會被 CORS 擋"]
+  },
+  "npa100855": {
+    "sourceUrl": "https://data.gov.tw/dataset/100855",
+    "status": "dropped",
+    "reason": "25 筆皆為交流道區跨越槽化線／雙白線／未繫安全帶，速限欄為空，非測速資料"
+  }
+}
