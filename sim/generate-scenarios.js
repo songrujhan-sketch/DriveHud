@@ -96,7 +96,7 @@ const scenarios = [];
 scenarios.push({
   id: '01-same-dir-overspeed',
   title: '同向接近並持續超速',
-  expectation: '福科路617號（西向東，速限50）。車輛由西往東以 65 km/h 行駛：約 300 m 前語音「前方三百公尺有測速照相，速限五十」一次，切換接近版面；連續 3 秒超速後紅色警示並語音「注意，目前超速，速限五十」一次；通過後恢復一般版面。',
+  expectation: '福科路617號（西向東，速限50）。車輛由西往東以 65 km/h 行駛：約 100 m 前語音「前方一百公尺有測速照相，速限五十」一次，切換接近版面；連續 3 秒超速後紅色警示並語音「注意，目前超速，速限五十」一次；通過後恢復一般版面。',
   cameras: [FUKE],
   fixes: drive({ cam: FUKE, heading: 90, startBeforeM: 700, lateralM: -5, speeds: constant(kmh(65), 72), seed: 11 }),
   expectedEvents: [
@@ -125,7 +125,7 @@ scenarios.push({
 scenarios.push({
   id: '03-parallel-unknown-dir',
   title: '平行道路（相機方向未知）',
-  expectation: '相機同福科路617號但方向設為未知（directionKnown=false）。車輛沿福科路北側 40 m 的平行道路由西往東以 50 km/h 行駛：只在 300 m 內出現一次「附近測速點」提示（NEARBY），不播接近語音、不切換接近版面。',
+  expectation: '相機同福科路617號但方向設為未知（directionKnown=false）。車輛沿福科路北側 40 m 的平行道路由西往東以 50 km/h 行駛：只在 100 m 內出現一次「附近測速點」提示（NEARBY），不播接近語音、不切換接近版面。',
   cameras: [FUKE_UNKNOWN],
   fixes: drive({ cam: FUKE_UNKNOWN, heading: 90, startBeforeM: 700, lateralM: 40, speeds: constant(kmh(50), 90), seed: 33 }),
   expectedEvents: [
@@ -146,10 +146,10 @@ scenarios.push({
   const stopEnd = speeds.length;
   for (let v = 2; v < cruise; v += 2) speeds.push(v);               // 起步
   for (let i = 0; i < 50; i++) speeds.push(cruise);                 // 通過並離開
-  // 停車點設在相機前 150 m：先算停車前行駛距離
+  // 停車點設在相機前 50 m（在市區提醒距離 100 m 以內）：先算停車前行駛距離
   let s = 0;
   for (let i = 1; i < stopStart; i++) s += (speeds[i - 1] + speeds[i]) / 2;
-  const startBeforeM = Math.round(s + 150);
+  const startBeforeM = Math.round(s + 50);
   const fixes = drive({
     cam: FUKE, heading: 90, startBeforeM, lateralM: -5, speeds, seed: 44,
     mutate(i, fix, rand, base) {
@@ -166,7 +166,7 @@ scenarios.push({
   scenarios.push({
     id: '04-red-light-drift',
     title: '接近後停紅燈（座標漂移）',
-    expectation: '福科路617號（西向東，速限50）。車輛以 48 km/h 接近，約 300 m 前提醒一次；在相機前約 150 m 停紅燈 20 秒，期間座標漂移 ±8 m：顯示停車、不重複提醒、不誤判通過；綠燈起步後通過相機才恢復一般版面。全程未超速。',
+    expectation: '福科路617號（西向東，速限50）。車輛以 48 km/h 接近，約 100 m 前提醒一次；在相機前約 50 m 停紅燈 20 秒，期間座標漂移 ±8 m：顯示停車、不重複提醒、不誤判通過；綠燈起步後通過相機才恢復一般版面。全程未超速。',
     cameras: [FUKE],
     fixes,
     expectedEvents: [
@@ -197,7 +197,7 @@ scenarios.push({
   scenarios.push({
     id: '05-expressway-gps-loss',
     title: '快速道路雙向相機＋訊號中斷',
-    expectation: '中彰快速道路4.8K（南北雙向，速限80，快速道路）。車輛南下 75 km/h；進入提醒範圍前有 8 秒定位精度 200 m：車速顯示「—」、暫停判定；恢復後在約 500 m 前提醒一次，未超速，通過後恢復一般版面。',
+    expectation: '中彰快速道路4.8K（南北雙向，速限80，快速道路）。車輛南下 75 km/h；進入提醒範圍前有 8 秒定位精度 200 m：車速顯示「—」、暫停判定；恢復後在約 200 m 前提醒一次，未超速，通過後恢復一般版面。',
     cameras: [ZHONGZHANG],
     fixes,
     expectedEvents: [

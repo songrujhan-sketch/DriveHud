@@ -1,7 +1,7 @@
 // 女武神（valkyrie）— 原創低趴中置引擎 hypercar：
 // 淚滴座艙、前葉子板高於引擎蓋的稜線、門後大型側進氣、長尾擴散器、鵝頸大尾翼。
 // 全部為原創幾何，不參考任何既有車款造型或標誌。
-import { bodyLoft, cabinLoft, loftDoors, regionHelpers, curve, smooth } from './kit.js';
+import { bodyLoft, cabinLoft, loftDoors, loftDoorPreds, interiorMaterials, cabinInterior, regionHelpers, curve, smooth } from './kit.js';
 import { band } from './loft.js';
 import { makeMaterials, multiMesh, placeWheels, makeMirror, makeHeadSpot, roundBox, extrudeX, shapeOf, mesh, mirrored, merge } from './parts.js';
 
@@ -65,8 +65,13 @@ export function build(THREE, { color = '#c8102e' } = {}) {
     if (q.zr < -1.3 && q.zr > -1.88 && xf < 0.5) { const i = Math.floor((q.zr + 1.88) / 0.05); return i % 2 ? 'gblack' : 'paint'; } // 引擎蓋百葉
     return 'paint';
   };
-  const bodyMesh = multiMesh(THREE, body.geometry(bodyKey, ['paint', 'under', 'gap', 'grille', 'housing', 'gblack', 'carbon']), M);
-  group.add(bodyMesh);
+  // 車門與座艙地板在車體上挖空：門板另外掛在鉸鏈上，座艙底下的車身頂面拿掉後才看得到內裝
+  const cabCb = curve([[-1.28, 0.55], [-0.9, 0.78], [-0.3, 0.86], [0.4, 0.86], [1.02, 0.78]]);
+  const doorPreds = loftDoorPreds(body, { zF: doorF, zR: doorR, topXf: 0.84 });
+  const cabinFloor = (q) => !q.cap && R.isTop(q) && q.zr > -0.6 && q.zr < 0.9 && q.ax < cabCb(q.zr) - 0.05;
+  const bodyMesh = multiMesh(THREE, body.geometry((q) => (doorPreds.body(q) || cabinFloor(q) ? null : bodyKey(q)), ['paint', 'under', 'gap', 'grille', 'housing', 'gblack', 'carbon']), M);
+  const I = interiorMaterials(THREE, 0xe2b21c);
+  group.add(bodyMesh, new THREE.Mesh(bodyMesh.geometry, I.liner));
 
   // ── 頭燈：燈座內的發光條 + 透明燈罩 ──
   const headG = body.extract((q) => R.isTop(q) && q.zr > 1.9 && q.zr < 2.06 && R.xf(q) > 0.7 && R.xf(q) < 0.9, 0.006);
@@ -82,7 +87,7 @@ export function build(THREE, { color = '#c8102e' } = {}) {
     yc: curve([[-1.28, 0.82], [-1.0, 0.97], [-0.7, 1.07], [-0.3, 1.125], [0.05, 1.11], [0.4, 0.99], [0.75, 0.8], [1.02, 0.64]]),
     yr: curve([[-1.28, 0.8], [-1.0, 0.93], [-0.7, 1.02], [-0.3, 1.07], [0.05, 1.055], [0.4, 0.94], [0.75, 0.76], [1.02, 0.62]]),
     rw: curve([[-1.28, 0.3], [-0.9, 0.42], [-0.3, 0.5], [0.3, 0.55], [0.8, 0.6], [1.02, 0.62]]),
-    cb: curve([[-1.28, 0.55], [-0.9, 0.78], [-0.3, 0.86], [0.4, 0.86], [1.02, 0.78]]),
+    cb: cabCb,
     yb: (z) => yBelt(z) - 0.03,
     ys: curve([[-1.28, 0.84], [-0.8, 0.8], [0.0, 0.73], [0.8, 0.69], [1.02, 0.66]]),
     n: 2.0, bow: 0.05, nTop: 7,
@@ -100,9 +105,18 @@ export function build(THREE, { color = '#c8102e' } = {}) {
     if (q.zr < zRw && q.zr > -1.18) return 'glass'; // 後窗（引擎窗）
     return 'carbon'; // 碳纖維車頂
   };
-  group.add(multiMesh(THREE, cab.geometry(cabKey, ['paint', 'glass', 'gblack', 'carbon']), M));
+  const cabMesh = multiMesh(THREE, cab.geometry((q) => (doorPreds.cab(q) ? null : cabKey(q)), ['paint', 'glass', 'gblack', 'carbon']), M);
+  group.add(cabMesh, new THREE.Mesh(cabMesh.geometry, I.liner));
   // 蝶翼門：鉸鏈在 A 柱根部，向前上方掀起並略為外張
-  const D = loftDoors(THREE, group, M, { body, cab, bodyKey, cabKey, zF: doorF, zR: doorR, topXf: 0.84, hinge: { point: [0.8, 0.7, doorF - 0.04], axis: [1, -0.45, 0.1], angle: 1.05 } });
+  const doors = loftDoors(THREE, group, M, I, { body, cab, bodyKey, cabKey, preds: doorPreds, hinge: { point: [0.8, 0.7, doorF - 0.04], axis: [1, -0.45, 0.1], angle: 1.05 } });
+  // 內裝：兩張桶形座椅、儀表台、方向盤、中央鞍座、座椅後方的引擎室隔板
+  cabinInterior(THREE, group, I, {
+    seats: [{ x: 0.34, z: -0.12, yBase: 0.13 }, { x: -0.34, z: -0.12, yBase: 0.13 }],
+    dash: { z: 0.73, y: 0.58, w: 1.5, h: 0.12, len: 0.22 },
+    wheel: { x: 0.34, y: 0.62, z: 0.55, r: 0.14 },
+    console: { z: 0.15, y: 0.21, len: 0.95, w: 0.2, h: 0.16 },
+    wall: { z: -0.56, w: 1.4, y0: 0.13, y1: 0.78 },
+  });
 
   // 座艙脊線：從車頂延伸到尾部的車身色脊
   const spine = new THREE.Shape();
@@ -110,7 +124,14 @@ export function build(THREE, { color = '#c8102e' } = {}) {
   group.add(mesh(THREE, extrudeX(THREE, spine, 0.1, { bevel: 0.03, bevelSegments: 3, curveSegments: 10 }), M.paint));
 
   // ── 後視鏡 ──
-  mirrored(group, () => { const m = makeMirror(THREE, M, { len: 0.2, arm: 0.12 }); m.position.set(0.8, 0.74, 0.42); m.rotation.y = -0.1; return m; });
+  for (const d of doors) { // 後視鏡裝在門上，跟著門動
+    const m = makeMirror(THREE, M, { len: 0.2, arm: 0.12 });
+    m.position.set(d.sign * 0.8, 0.74, 0.42);
+    m.rotation.y = d.sign * -0.1;
+    if (d.sign < 0) m.scale.x = -1;
+    m.position.sub(d.pivot.position);
+    d.pivot.add(m);
+  }
 
   // ── 前分流板、擴散器、尾翼、尾燈、排氣 ──
   const splitter = shapeOf(THREE, [[-0.74, 0], [0.74, 0], [0.7, 0.3], [-0.7, 0.3]]);
@@ -165,7 +186,7 @@ export function build(THREE, { color = '#c8102e' } = {}) {
   ]);
 
   return {
-    group, wheels, bodyMaterials: [M.paint, D.paint],
-    headlights: { meshes: [head], drl: [drl], light }, taillights: tails, doors: D.doors, meta,
+    group, wheels, bodyMaterials: [M.paint],
+    headlights: { meshes: [head], drl: [drl], light }, taillights: tails, doors, meta,
   };
 }

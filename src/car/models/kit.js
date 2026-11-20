@@ -1,4 +1,5 @@
 // DriveHUD V1.6 — 車身／座艙放樣組裝工具（供三款原創車模共用）。
+import { roundBox, mesh } from './parts.js';
 import { loft, bodySection, sampleZ, archZs, endZs, endInset, insetSection, archHeight, curve, clamp01, smooth } from './loft.js';
 
 const val = (v, z) => (typeof v === 'function' ? v(z) : v);
@@ -98,43 +99,94 @@ export function regionHelpers(L) {
   };
 }
 
-/**
- * 放樣車的車門：把門範圍內的車身與座艙曲面沿法線偏移取出，掛在鉸鏈樞紐下；原位置蓋一層深色曲面當門洞。
- * O：body, cab（放樣物件）、bodyKey(q)／cabKey(q)（與車體相同的材質分類）、zF／zR（門的前後緣）、
- *    topXf（車身頂面從相對半寬多少開始算門）、hinge: { point: [x, y, z]（+X 側）, axis: [x, y, z], angle }。
- * 另一側自動鏡射。回傳 { doors, paint }：doors 交給車模回傳值，paint 是門板用的雙面車漆（要加入 bodyMaterials）。
- */
-export function loftDoors(THREE, group, M, O) {
-  const { body, cab, bodyKey, cabKey, zF, zR, topXf = 0.86, hinge } = O;
-  const R = regionHelpers(body);
-  const twoSided = new Map();
-  const mat = (key) => {
-    if (!twoSided.has(key)) { const m = (M[key] || M.paint).clone(); m.side = THREE.DoubleSide; twoSided.set(key, m); }
-    return twoSided.get(key);
+/** 內裝材質：liner 只畫背面，掛在車殼與門板的同一份幾何上，車殼內側與門內側就是深色飾板。 */
+export function interiorMaterials(THREE, accent = 0xd8d8d8) {
+  const std = (o) => new THREE.MeshStandardMaterial(o);
+  return {
+    liner: std({ color: 0x141518, roughness: 0.85, metalness: 0, side: THREE.BackSide }),
+    trim: std({ color: 0x1c1e22, roughness: 0.7, metalness: 0.05 }),
+    seat: std({ color: 0x2c2e33, roughness: 0.6, metalness: 0 }),
+    accent: std({ color: accent, roughness: 0.5, metalness: 0.1 }),
+    screen: std({ color: 0x0a1420, emissive: 0x2a6cff, emissiveIntensity: 0.35, roughness: 0.3 }),
   };
-  const SKIN = 0.009, HOLE = 0.004;
+}
+
+/** 桶形座椅：原點在椅墊後緣下方的地板上，面向 +Z。w 加寬就是後座長椅。 */
+export function makeSeat(THREE, I, { w = 0.44, cushion = 0.5, back = 0.62, recline = 0.42, yBase = 0.14, headrests = [0] } = {}) {
+  const g = new THREE.Group();
+  g.add(mesh(THREE, roundBox(THREE, w, 0.1, cushion, 0.03), I.seat, [0, yBase + 0.05, cushion / 2]));
+  for (const s of [1, -1]) g.add(mesh(THREE, roundBox(THREE, 0.06, 0.13, cushion * 0.9, 0.025), I.seat, [s * (w / 2 - 0.02), yBase + 0.075, cushion / 2]));
+  const b = new THREE.Group();
+  b.position.set(0, yBase + 0.08, 0.04);
+  b.rotation.x = -recline;
+  b.add(mesh(THREE, roundBox(THREE, w, back, 0.09, 0.035), I.seat, [0, back / 2, 0]));
+  for (const s of [1, -1]) b.add(mesh(THREE, roundBox(THREE, 0.06, back * 0.8, 0.13, 0.025), I.seat, [s * (w / 2 - 0.02), back * 0.45, 0.03]));
+  for (const hx of headrests) {
+    b.add(mesh(THREE, roundBox(THREE, 0.08, back * 0.7, 0.012, 0.004), I.accent, [hx, back * 0.5, 0.048]));   // 椅背飾條
+    b.add(mesh(THREE, roundBox(THREE, 0.24, 0.14, 0.08, 0.03), I.seat, [hx, back + 0.06, 0]));              // 頭枕
+  }
+  g.add(b);
+  return g;
+}
+
+/**
+ * 座艙內裝：座椅、儀表台與儀表罩、中控螢幕、方向盤（左駕，+X 側）、中央鞍座、座椅後方隔板。
+ * spec：seats [{ x, z, ...makeSeat 選項 }]、dash { z, y, w, h, len }、wheel { x, y, z, r }、
+ *       console { z, y, len, w, h }、screen { y, z }、wall { z, w, y0, y1 }（可省略）。
+ */
+export function cabinInterior(THREE, group, I, spec) {
+  for (const { x, z, ...o } of spec.seats) { const seat = makeSeat(THREE, I, o); seat.position.set(x, 0, z); group.add(seat); }
+  const d = spec.dash;
+  group.add(mesh(THREE, roundBox(THREE, d.w, d.h, d.len, 0.03), I.trim, [0, d.y, d.z]));
+  const wh = spec.wheel;
+  group.add(mesh(THREE, roundBox(THREE, 0.34, 0.07, 0.16, 0.025), I.trim, [wh.x, d.y + d.h / 2 + 0.02, d.z - 0.02]));   // 儀表罩
+  const sw = new THREE.Group();
+  sw.add(new THREE.Mesh(new THREE.TorusGeometry(wh.r, 0.014, 8, 24), I.trim));
+  sw.add(mesh(THREE, roundBox(THREE, wh.r * 1.9, 0.03, 0.02, 0.008), I.trim));
+  sw.add(mesh(THREE, roundBox(THREE, 0.07, 0.07, 0.03, 0.012), I.accent));
+  const col = new THREE.CylinderGeometry(0.02, 0.025, 0.22, 10);
+  col.rotateX(Math.PI / 2);
+  sw.add(mesh(THREE, col, I.trim, [0, 0, 0.11]));
+  sw.position.set(wh.x, wh.y, wh.z);
+  sw.rotation.x = 0.35;
+  group.add(sw);
+  if (spec.screen) group.add(mesh(THREE, roundBox(THREE, 0.3, 0.17, 0.015, 0.006), I.screen, [0, spec.screen.y, spec.screen.z], [0.25, 0, 0]));
+  const c = spec.console;
+  group.add(mesh(THREE, roundBox(THREE, c.w, c.h, c.len, 0.03), I.trim, [0, c.y, c.z]));
+  if (spec.wall) { const w = spec.wall; group.add(mesh(THREE, roundBox(THREE, w.w, w.y1 - w.y0, 0.03, 0.01), I.trim, [0, (w.y0 + w.y1) / 2, w.z])); }
+}
+
+/** 車門範圍的判斷式（不分左右）：車體幾何用它挖出門洞，loftDoors 用它取出門板。 */
+export function loftDoorPreds(body, { zF, zR, topXf = 0.86 }) {
+  const R = regionHelpers(body);
+  const inZ = (q) => !q.cap && q.zr < zF - 0.006 && q.zr > zR + 0.006;
+  return {
+    body: (q) => inZ(q) && ((R.isSide(q) && R.sideIdx(q) >= 1) || (R.isTop(q) && R.xf(q) > topXf)),
+    cab: (q) => inZ(q) && ['cabLow', 'beltTrim', 'glass', 'frame'].includes(q.tag),
+  };
+}
+
+/**
+ * 放樣車的車門：把門範圍內的車身與座艙曲面取出，掛在鉸鏈樞紐下（車體幾何要先用同一組判斷式挖掉）。
+ * O：body, cab、bodyKey(q)／cabKey(q)（與車體相同的材質分類）、preds（loftDoorPreds 的結果）、
+ *    hinge: { point: [x, y, z]（+X 側）, axis: [x, y, z], angle }。另一側自動鏡射。回傳 doors 陣列。
+ */
+export function loftDoors(THREE, group, M, I, O) {
+  const { body, cab, bodyKey, cabKey, preds, hinge } = O;
   const doors = [];
   for (const s of [1, -1]) {
-    const inZ = (q) => !q.cap && q.side === s && q.zr < zF - 0.006 && q.zr > zR + 0.006;
-    const bodyPred = (q) => inZ(q) && ((R.isSide(q) && R.sideIdx(q) >= 1) || (R.isTop(q) && R.xf(q) > topXf));
-    const cabPred = (q) => inZ(q) && ['cabLow', 'beltTrim', 'glass', 'frame'].includes(q.tag);
     const pivot = new THREE.Group();
     pivot.position.set(s * hinge.point[0], hinge.point[1], hinge.point[2]);
-    for (const [L, pred, keyOf] of [[body, bodyPred, bodyKey], [cab, cabPred, cabKey]]) {
-      const hole = L.extract(pred, HOLE);
-      if (hole) group.add(new THREE.Mesh(hole, M.under));
+    const put = (g, m) => { if (!g) return; const o = new THREE.Mesh(g, m); o.position.copy(pivot.position).negate(); pivot.add(o); };
+    for (const [L, pred, keyOf] of [[body, preds.body, bodyKey], [cab, preds.cab, cabKey]]) {
+      const mine = (q) => q.side === s && pred(q);
+      put(L.extract(mine, 0), I.liner);                                   // 門內側飾板
       const keys = new Set();
-      L.extract((q) => { if (pred(q)) keys.add(keyOf(q)); return false; });
-      for (const key of keys) {
-        const g = L.extract((q) => pred(q) && keyOf(q) === key, SKIN);
-        if (!g) continue;
-        const m = new THREE.Mesh(g, mat(key));
-        m.position.copy(pivot.position).negate();
-        pivot.add(m);
-      }
+      L.extract((q) => { if (mine(q)) keys.add(keyOf(q)); return false; });
+      for (const key of keys) put(L.extract((q) => mine(q) && keyOf(q) === key, 0), M[key] || M.paint);
     }
     group.add(pivot);
     doors.push({ pivot, axis: new THREE.Vector3(s * hinge.axis[0], hinge.axis[1], hinge.axis[2]).normalize(), sign: s, max: hinge.angle });
   }
-  return { doors, paint: mat('paint') };
+  return doors;
 }

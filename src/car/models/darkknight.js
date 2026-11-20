@@ -1,10 +1,10 @@
-// 黑暗騎士（darkknight）— 原創匿蹤楔形四輪車：多切面車身、三角形飛翼式座艙、兩側鷗翼門
+// 黑騎士（darkknight）— 原創匿蹤楔形四輪車：多切面車身、三角形飛翼式座艙、兩側鷗翼門
 // （從車頂到門檻整片掀起）、車尾倒三角排列三噴口、加大的後輪與隆起的後葉子板、雙立柱尾翼、
 // 車頭為上下兩片尖葉夾著中央 V 形護板。全部為原創幾何（平面著色的多面體）。
 // 座標：+Z 車頭、X 車寬（+X 為左側）、Y 向上。
 import { makeMaterials, placeWheels, makeHeadSpot, roundBox, mesh, mirrored, merge, shapeOf, extrudeX } from './parts.js';
 
-export const meta = { id: 'darkknight', displayName: '黑暗騎士', roofY: 1.24 };
+export const meta = { id: 'darkknight', displayName: '黑騎士', roofY: 1.24 };
 
 // 中央車殼斷面 [z, 底y, 底半寬, 腰y, 腰半寬, 頂y, 頂半寬]，由車尾到車頭
 const HULL = [
@@ -37,6 +37,52 @@ const POD_R = [
   [-1.0, 1.14], [-1.85, 1.14], [-2.3, 0.92],
 ];
 const DOOR_Z = [0.55, -0.45]; // 鷗翼門的前緣、後緣
+
+// 噴焰：沿噴口軸線的錐形殼，疊加混色。顏色由噴口的藍白高溫區過渡到黃、橘、暗紅，
+// 亮度沿軸線有一節一節的馬赫環，邊緣依視角變薄，整體隨時間抖動。uPower 0–1 控制強度。
+const FLAME_VS = /* glsl */`
+  uniform float uTime, uSeed;
+  varying vec2 vUv; varying vec3 vN; varying vec3 vV;
+  void main() {
+    vUv = uv;
+    float t = uv.y;
+    vec3 p = position;
+    p.xy *= 1.0 + 0.4 * sin(min(t * 1.7, 1.0) * 3.14159);
+    float wob = sin(uTime * 23.0 + t * 9.0 + uSeed) * 0.014 + sin(uTime * 37.0 + t * 15.0 + uSeed * 2.0) * 0.009;
+    p.x += wob * t; p.y += wob * 0.7 * t;
+    vec4 mv = modelViewMatrix * vec4(p, 1.0);
+    vN = normalMatrix * normal;
+    vV = -mv.xyz;
+    gl_Position = projectionMatrix * mv;
+  }
+`;
+const FLAME_FS = /* glsl */`
+  uniform float uTime, uPower, uHot, uSeed;
+  varying vec2 vUv; varying vec3 vN; varying vec3 vV;
+  float fh(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+  float fn(vec2 p) {
+    vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(fh(i), fh(i + vec2(1.0, 0.0)), f.x), mix(fh(i + vec2(0.0, 1.0)), fh(i + vec2(1.0, 1.0)), f.x), f.y);
+  }
+  void main() {
+    float t = vUv.y;                                   // 0 = 噴口，1 = 焰尾
+    float ang = vUv.x * 12.0;
+    float n = fn(vec2(ang + uSeed, t * 6.0 - uTime * 9.0)) * 0.65 + fn(vec2(ang * 2.5, t * 15.0 - uTime * 17.0)) * 0.35;
+    vec3 cHot = vec3(0.45, 0.68, 1.0) * 1.5;
+    vec3 cMid = vec3(1.0, 0.5, 0.1) * 1.25;
+    vec3 cEnd = vec3(0.95, 0.14, 0.02) * 0.9;
+    vec3 col = mix(cEnd, cMid, smoothstep(1.0, 0.3, t));
+    col = mix(col, cHot, max(uHot * (1.0 - t * 0.6), pow(smoothstep(0.4, 0.0, t), 2.0)));
+    float ring = pow(0.5 + 0.5 * cos(t * 30.0 - 0.8), 4.0) * (1.0 - t);   // 馬赫環
+    col += vec3(1.0, 0.85, 0.6) * ring * 0.7;
+    float facing = pow(abs(dot(normalize(vN), normalize(vV))), 1.4);
+    float a = (1.0 - smoothstep(0.5, 1.0, t + (n - 0.5) * 0.35)) * smoothstep(0.0, 0.05, t);
+    a *= facing * (0.55 + 0.45 * n) * uPower * mix(0.7, 0.9, uHot);
+    gl_FragColor = vec4(col, a);
+    #include <tonemapping_fragment>
+    #include <colorspace_fragment>
+  }
+`;
 
 function lerpKeys(K, z) {
   if (z <= K[0][0]) return K[0].slice(1);
@@ -234,7 +280,10 @@ export function build(THREE, { color = '#3a3f45' } = {}) {
 
   // ── 車尾：倒三角排列的三個噴口、尾燈、擴散器、後甲板人字形散熱縫、尾翼 ──
   add(plate([[-0.4, 0.93, -2.3], [0.4, 0.93, -2.3], [0.22, 0.47, -2.3], [-0.22, 0.47, -2.3]], M.gblack, 0.02, 0.004, [0, 0.7, 0]));
-  const cores = [];
+  const flames = [];
+  const flameGeo = new THREE.CylinderGeometry(0.25, 1, 1, 20, 18, true); // 單位錐：底在 z=0（噴口），尖端在 z=-1
+  flameGeo.translate(0, 0.5, 0);
+  flameGeo.rotateX(-Math.PI / 2);
   for (const [x, y] of [[0.2, 0.79], [-0.2, 0.79], [0, 0.6]]) {
     const n = new THREE.Group();
     const bell = new THREE.CylinderGeometry(0.075, 0.12, 0.2, 20, 1, true);
@@ -246,9 +295,20 @@ export function build(THREE, { color = '#3a3f45' } = {}) {
     n.add(mesh(THREE, collar, M.darkChrome, [0, 0, 0.09]));
     const core = new THREE.CircleGeometry(0.074, 20);
     core.rotateY(Math.PI);
-    const glow = mesh(THREE, core, flame, [0, 0, 0.06]);
-    n.add(glow);
-    cores.push(glow);
+    n.add(mesh(THREE, core, flame, [0, 0, 0.06]));
+    for (const [hot, r, len] of [[0, 0.105, 1.25], [1, 0.055, 0.5]]) { // 外焰與內焰
+      const f = new THREE.Mesh(flameGeo, new THREE.ShaderMaterial({
+        uniforms: { uTime: { value: 0 }, uPower: { value: 0 }, uHot: { value: hot }, uSeed: { value: x * 17.0 + y * 31.0 + hot } },
+        vertexShader: FLAME_VS, fragmentShader: FLAME_FS,
+        transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+      }));
+      f.position.z = -0.08;
+      f.scale.set(r, r, 0.001);            // 建好時收到最短，才不會把車身的外框撐大
+      f.visible = false;
+      f.renderOrder = 5;
+      n.add(f);
+      flames.push({ mesh: f, len });
+    }
     n.position.set(x, y, -2.41);
     group.add(n);
   }
@@ -268,5 +328,22 @@ export function build(THREE, { color = '#3a3f45' } = {}) {
     { ...RW, radius: RW.r, width: RW.w, ...wheelOpts },
   ]);
 
-  return { group, wheels, bodyMaterials: [M.paint], headlights: { meshes: heads, drl: drls, light }, taillights: [...tails, ...cores], doors, meta };
+  // 噴焰動畫：車速超過約 5 km/h 點火，越快越長；停車後逐漸熄滅。回傳 true 表示還在變化，畫面要繼續更新
+  let time = 0, power = 0;
+  const animate = (dt, speedMps) => {
+    time += dt;
+    const target = speedMps > 1.5 ? Math.min(1, 0.4 + speedMps / 30) : 0;
+    power += (target - power) * Math.min(1, dt * 3);
+    if (Math.abs(target - power) < 0.004) power = target;
+    for (const f of flames) {
+      const u = f.mesh.material.uniforms;
+      u.uTime.value = time; u.uPower.value = power;
+      f.mesh.scale.z = Math.max(0.001, f.len * (0.3 + 0.7 * power));
+      f.mesh.visible = power > 0.01;
+    }
+    flame.emissiveIntensity = 0.7 + 3 * power;
+    return power > 0 || target > 0;
+  };
+
+  return { group, wheels, bodyMaterials: [M.paint], headlights: { meshes: heads, drl: drls, light }, taillights: tails, doors, animate, meta };
 }

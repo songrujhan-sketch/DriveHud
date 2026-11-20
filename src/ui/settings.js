@@ -3,9 +3,9 @@ import { CONFIG, mountSettingsData, dataServices } from './deps.js';
 
 export const CAR_MODELS = [
   { id: 'valkyrie', name: '女武神' },
-  { id: 'darkknight', name: '黑暗騎士' },
+  { id: 'darkknight', name: '黑騎士' },
   { id: 'asurada', name: '阿斯拉' },
-  { id: 'rover', name: '裝甲越野' },
+  { id: 'rover', name: '豹勇士' },
 ];
 export const CAR_COLORS = [
   { hex: '#d32f2f', name: '赤紅' },
@@ -18,8 +18,10 @@ export const CAR_COLORS = [
 ];
 export const CAR_VIEWS = [
   { id: 'front', name: '前 45°' },
+  { id: 'head', name: '正面' },
   { id: 'rear', name: '後 45°' },
   { id: 'back', name: '正後方' },
+  { id: 'top', name: '上方' },
 ];
 export const CAR_SCENES = [
   { id: 'studio', name: '展示間' },
@@ -72,14 +74,11 @@ export function createSettingsPanel({ el, store, config = CONFIG }) {
   el.innerHTML = `
     <div class="sp-head"><h2>設定</h2><button type="button" class="dh-btn" id="sp-close">關閉</button></div>
     <div class="sp-body">
-      <section><h3>車型</h3><div class="sp-row" id="sp-models" role="radiogroup" aria-label="車型"></div></section>
-      <section><h3>車色</h3><div class="sp-row" id="sp-colors" role="radiogroup" aria-label="車色"></div></section>
       <section class="sp-switches">
-        <label class="sp-switch"><input type="checkbox" id="sp-lights"><span>車燈</span></label>
         <label class="sp-switch"><input type="checkbox" id="sp-minimal"><span>極簡模式（隱藏車模）</span></label>
         <label class="sp-switch"><input type="checkbox" id="sp-lowq"><span>車模低畫質（卡頓或發熱時開啟）</span></label>
       </section>
-      <section><h3>提醒距離（唯讀）</h3>
+      <section><h3>提醒距離</h3>
         <ul class="sp-readout" id="sp-radius">
           <li>市區：<b>${a.radiusUrbanM}</b> m</li>
           <li>快速道路：<b>${a.radiusExpresswayM}</b> m</li>
@@ -89,20 +88,11 @@ export function createSettingsPanel({ el, store, config = CONFIG }) {
       <section><h3>測速資料</h3><div id="settings-data"></div></section>
     </div>`;
   const $ = (s) => el.querySelector(s);
-  const models = $('#sp-models'), colors = $('#sp-colors');
-  models.innerHTML = CAR_MODELS.map((m) => `<button type="button" role="radio" class="chip" data-model="${m.id}">${m.name}</button>`).join('');
-  colors.innerHTML = CAR_COLORS.map((c) => `<button type="button" role="radio" class="swatch" data-color="${c.hex}" aria-label="${c.name}" title="${c.name}" style="--sw:${c.hex}"></button>`).join('');
-
+  // 車款、車色、車燈在首頁下方的外觀列選，這裡不重複
   function sync(s) {
-    models.querySelectorAll('[data-model]').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.model === s.model)));
-    colors.querySelectorAll('[data-color]').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.color === s.color)));
-    $('#sp-lights').checked = s.headlights;
     $('#sp-minimal').checked = s.minimal;
     $('#sp-lowq').checked = !!s.lowQuality;
   }
-  models.addEventListener('click', (e) => { const b = e.target.closest('[data-model]'); if (b) store.set({ model: b.dataset.model }); });
-  colors.addEventListener('click', (e) => { const b = e.target.closest('[data-color]'); if (b) store.set({ color: b.dataset.color }); });
-  $('#sp-lights').addEventListener('change', (e) => store.set({ headlights: e.target.checked }));
   $('#sp-minimal').addEventListener('change', (e) => store.set({ minimal: e.target.checked }));
   $('#sp-lowq').addEventListener('change', (e) => store.set({ lowQuality: e.target.checked }));
   $('#sp-close').addEventListener('click', () => close());

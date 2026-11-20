@@ -80,7 +80,7 @@ describe('情境細節', () => {
     const { events, states } = play(load('01-same-dir-overspeed.json'));
     const a = events.find((e) => e.type === 'APPROACH_ALERT');
     const o = events.find((e) => e.type === 'OVERSPEED_ALERT');
-    assert.equal(a.speechText, '前方三百公尺有測速照相，速限五十');
+    assert.equal(a.speechText, '前方一百公尺有測速照相，速限五十');
     assert.equal(o.speechText, '注意，目前超速，速限五十');
     assert.equal(states[o.index].overspeed, true);
     assert.equal(states[a.index].focus.phase, 'APPROACHING');
@@ -116,7 +116,7 @@ describe('情境細節', () => {
     assert.ok(spreadM > 6 && spreadM <= 16.5, `漂移幅度 ${spreadM.toFixed(1)} m`);
   });
 
-  test('⑤ 訊號不佳 8 秒期間 speedKmh=null、gps=POOR；恢復後於 500 m 內提醒', () => {
+  test('⑤ 訊號不佳 8 秒期間 speedKmh=null、gps=POOR；恢復後於 200 m 內提醒', () => {
     const sc = load('05-expressway-gps-loss.json');
     const { events, states } = play(sc);
     const { fromIndex, toIndex } = sc.outage;
@@ -128,6 +128,6 @@ describe('情境細節', () => {
     assert.notEqual(states[toIndex].speedKmh, null);
     const a = events.find((e) => e.type === 'APPROACH_ALERT');
     assert.ok(a.index > toIndex && a.distanceM <= CONFIG.alert.radiusExpresswayM);
-    assert.equal(a.speechText, '前方五百公尺有測速照相，速限八十');
+    assert.equal(a.speechText, '前方兩百公尺有測速照相，速限八十');
   });
 });

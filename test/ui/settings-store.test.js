@@ -14,7 +14,7 @@ test('預設值：前 45°、展示間、時段自動', () => {
   assert.equal(s.view, 'front');
   assert.equal(s.scene, 'studio');
   assert.equal(s.time, 'auto');
-  assert.deepEqual(CAR_VIEWS.map((v) => v.id), ['front', 'rear', 'back']);
+  assert.deepEqual(CAR_VIEWS.map((v) => v.id), ['front', 'head', 'rear', 'back', 'top']);
   assert.deepEqual(CAR_SCENES.map((v) => v.id), ['studio', 'mountain', 'city']);
   assert.deepEqual(CAR_TIMES.map((v) => v.id), ['auto', 'day', 'night']);
 });
@@ -31,7 +31,7 @@ test('寫入後可讀回，並通知訂閱者', () => {
 });
 
 test('儲存內容無效時退回預設值', () => {
-  const storage = memoryStorage({ [KEY]: JSON.stringify({ view: 'top', scene: 'beach', time: 'dusk', model: 'valkyrie' }) });
+  const storage = memoryStorage({ [KEY]: JSON.stringify({ view: 'sideways', scene: 'beach', time: 'dusk', model: 'valkyrie' }) });
   const s = createSettingsStore({ storage }).get();
   assert.equal(s.view, DEFAULT_SETTINGS.view);
   assert.equal(s.scene, DEFAULT_SETTINGS.scene);

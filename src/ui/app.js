@@ -122,12 +122,14 @@ export function createApp({
   const dark = globalThis.matchMedia ? globalThis.matchMedia('(prefers-color-scheme: dark)') : null;
   const car = createCarView(els.canvas, { ...pick(store.get()), darkMode: !!(dark && dark.matches) });
   if (dark && dark.addEventListener) dark.addEventListener('change', (e) => car.setDarkMode(e.matches));
-  // 車門：只有具備車門動作的車款才顯示；開合狀態不存檔，車子一動就自動關上
+  // 車門：只有具備車門動作的車款才顯示；開合狀態不存檔，車速到 5 km/h 就自動關上並鎖定
   function syncDoors() {
     const has = !!(car.hasDoors && car.hasDoors());
     bar.doors.hidden = !has;
     const open = has && !!car.doorsOpen;
-    bar.doors.textContent = `車門：${open ? '開' : '關'}`;
+    const locked = has && !!car.doorsLocked; // 行駛中不能開門：按鈕停用並寫明原因，不要按了沒反應
+    bar.doors.disabled = locked;
+    bar.doors.textContent = locked ? '車門：行駛中鎖定' : `車門：${open ? '開' : '關'}`;
     bar.doors.setAttribute('aria-pressed', String(open));
   }
   bar.doors.addEventListener('click', () => { if (car.setDoors) car.setDoors(!car.doorsOpen); syncDoors(); });

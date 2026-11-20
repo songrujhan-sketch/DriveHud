@@ -1,6 +1,6 @@
 // 阿斯拉（asurada）— 原創流線電動雙門跑車：長軸距、單弧 fastback 全景玻璃頂、
 // 前後貫穿式燈條、封閉式前臉、隱藏式門把、空力輪蓋。全部為原創幾何。
-import { bodyLoft, cabinLoft, loftDoors, regionHelpers, curve, smooth } from './kit.js';
+import { bodyLoft, cabinLoft, loftDoors, loftDoorPreds, interiorMaterials, cabinInterior, regionHelpers, curve, smooth } from './kit.js';
 import { makeMaterials, multiMesh, placeWheels, makeMirror, makeHeadSpot, roundBox, mesh, mirrored } from './parts.js';
 
 export const meta = { id: 'asurada', displayName: '阿斯拉', roofY: 1.3 };
@@ -50,7 +50,13 @@ export function build(THREE, { color = '#e8eaed' } = {}) {
     if (q.zr < tailZ) return 'housing';
     return 'paint';
   };
-  group.add(multiMesh(THREE, body.geometry(bodyKey, ['paint', 'under', 'gap', 'gblack', 'housing']), M));
+  // 車門與座艙地板在車體上挖空：門板另外掛在鉸鏈上，座艙底下的車身頂面拿掉後才看得到內裝
+  const cabCb = curve([[-2.12, 0.74], [-1.5, 0.86], [0.0, 0.86], [0.8, 0.84], [1.06, 0.8]]);
+  const doorPreds = loftDoorPreds(body, { zF: doorF, zR: doorR, topXf: 0.86 });
+  const cabinFloor = (q) => !q.cap && R.isTop(q) && q.zr > -1.4 && q.zr < 0.95 && q.ax < cabCb(q.zr) - 0.05;
+  const bodyMesh = multiMesh(THREE, body.geometry((q) => (doorPreds.body(q) || cabinFloor(q) ? null : bodyKey(q)), ['paint', 'under', 'gap', 'gblack', 'housing']), M);
+  const I = interiorMaterials(THREE, 0x1f6fff);
+  group.add(bodyMesh, new THREE.Mesh(bodyMesh.geometry, I.liner));
 
   // ── 前後貫穿燈條（由車身曲面偏移取出，自然包覆轉角）──
   const frontBar = new THREE.Mesh(body.extract((q) => R.isTop(q) && q.zr > 2.24 && q.zr < 2.27, 0.004), M.drl);
@@ -70,7 +76,7 @@ export function build(THREE, { color = '#e8eaed' } = {}) {
     yc: curve([[-2.12, 0.84], [-1.8, 0.96], [-1.3, 1.13], [-0.7, 1.27], [-0.2, 1.3], [0.3, 1.2], [0.7, 0.98], [1.06, 0.74]]),
     yr: curve([[-2.12, 0.82], [-1.8, 0.92], [-1.3, 1.07], [-0.7, 1.2], [-0.2, 1.23], [0.3, 1.14], [0.7, 0.94], [1.06, 0.72]]),
     rw: curve([[-2.12, 0.5], [-1.4, 0.53], [-0.3, 0.57], [0.6, 0.6], [1.06, 0.62]]),
-    cb: curve([[-2.12, 0.74], [-1.5, 0.86], [0.0, 0.86], [0.8, 0.84], [1.06, 0.8]]),
+    cb: cabCb,
     yb: (z) => yBelt(z) - 0.02,
     ys: curve([[-2.12, 0.84], [-1.3, 0.83], [0.0, 0.79], [1.06, 0.74]]),
     n: 2.0, bow: 0.06, nTop: 7,
@@ -91,17 +97,36 @@ export function build(THREE, { color = '#e8eaed' } = {}) {
     if (q.zr < -1.96) return 'paint';
     return 'glass'; // 前擋 → 車頂 → 後窗 一體玻璃
   };
-  group.add(multiMesh(THREE, cab.geometry(cabKey, ['paint', 'glass', 'gblack', 'chrome']), M));
+  const cabMesh = multiMesh(THREE, cab.geometry((q) => (doorPreds.cab(q) ? null : cabKey(q)), ['paint', 'glass', 'gblack', 'chrome']), M);
+  group.add(cabMesh, new THREE.Mesh(cabMesh.geometry, I.liner));
   // 車門：鉸鏈在門前緣，向外平開
-  const D = loftDoors(THREE, group, M, { body, cab, bodyKey, cabKey, zF: doorF, zR: doorR, topXf: 0.86, hinge: { point: [0.93, 0.5, doorF - 0.01], axis: [0, 1, 0], angle: -1.0 } });
+  const doors = loftDoors(THREE, group, M, I, { body, cab, bodyKey, cabKey, preds: doorPreds, hinge: { point: [0.93, 0.5, doorF - 0.01], axis: [0, 1, 0], angle: -1.0 } });
+  // 內裝：前座兩張、後座長椅、儀表台與中控螢幕、方向盤、中央鞍座
+  cabinInterior(THREE, group, I, {
+    seats: [
+      { x: 0.38, z: -0.1, back: 0.7, recline: 0.35 }, { x: -0.38, z: -0.1, back: 0.7, recline: 0.35 },
+      { x: 0, z: -1.12, w: 1.1, cushion: 0.4, back: 0.5, recline: 0.3, headrests: [0.32, -0.32] },
+    ],
+    dash: { z: 0.84, y: 0.62, w: 1.5, h: 0.14, len: 0.25 },
+    wheel: { x: 0.38, y: 0.7, z: 0.6, r: 0.15 },
+    screen: { y: 0.77, z: 0.7 },
+    console: { z: 0.05, y: 0.24, len: 1.1, w: 0.22, h: 0.2 },
+  });
 
   // ── 隱藏式門把、後視鏡（小型）、尾部小鴨尾、擴散器 ──
-  for (const d of D.doors) { // 隱藏式門把跟著車門
+  for (const d of doors) { // 隱藏式門把跟著車門
     const h = mesh(THREE, roundBox(THREE, 0.015, 0.022, 0.2, 0.008), M.chrome, [d.sign * 0.955, 0.69, 0.25]);
     h.position.sub(d.pivot.position);
     d.pivot.add(h);
   }
-  mirrored(group, () => { const m = makeMirror(THREE, M, { len: 0.17, h: 0.075, w: 0.09, arm: 0.11 }); m.position.set(0.8, 0.82, 0.62); m.rotation.y = -0.1; return m; });
+  for (const d of doors) { // 後視鏡裝在門上，跟著門動
+    const m = makeMirror(THREE, M, { len: 0.17, h: 0.075, w: 0.09, arm: 0.11 });
+    m.position.set(d.sign * 0.8, 0.82, 0.62);
+    m.rotation.y = d.sign * -0.1;
+    if (d.sign < 0) m.scale.x = -1;
+    m.position.sub(d.pivot.position);
+    d.pivot.add(m);
+  }
   group.add(mesh(THREE, roundBox(THREE, 1.5, 0.025, 0.5, 0.01), M.gblack, [0, 0.21, -2.18], [-0.22, 0, 0]));
   for (let i = -1.5; i <= 1.5; i += 1) group.add(mesh(THREE, roundBox(THREE, 0.016, 0.09, 0.45, 0.006), M.gblack, [i * 0.28, 0.24, -2.18], [-0.22, 0, 0]));
 
@@ -112,5 +137,5 @@ export function build(THREE, { color = '#e8eaed' } = {}) {
     { ...RW, radius: RW.r, width: RW.w, spokes: 5, spokeW: [0.075, 0.055], concave: 0.03, rimRatio: 0.74, aeroCover: true },
   ]);
 
-  return { group, wheels, bodyMaterials: [M.paint, D.paint], headlights: { meshes: heads, drl: [frontBar], light }, taillights: [tailBar], doors: D.doors, meta };
+  return { group, wheels, bodyMaterials: [M.paint], headlights: { meshes: heads, drl: [frontBar], light }, taillights: [tailBar], doors, meta };
 }
