@@ -50,24 +50,28 @@ test('極簡模式（手動）優先於 approach；關閉後恢復', async ({ pa
   await expect(page.locator('#app')).toHaveClass(/layout-normal/);
 });
 
-test('設定頁：四款車、七色、車燈、提醒距離（唯讀）、#settings-data 容器、localStorage', async ({ page }, info) => {
+test('設定頁只留極簡、低畫質、提醒距離與資料；車款、車色、車燈在外觀列選並存入 localStorage', async ({ page }, info) => {
   const errors = await openSim(page);
-  await page.locator('#btn-settings').click();
-  await expect(page.locator('#sp-models [data-model]')).toHaveText(['女武神', '黑暗騎士', '阿斯拉', '裝甲越野']);
-  await expect(page.locator('#sp-models [data-model]')).toHaveCount(4);
-  await expect(page.locator('#sp-colors [data-color]')).toHaveCount(7);
-  await expect(page.locator('#sp-radius')).toContainText('300');
-  await expect(page.locator('#sp-radius')).toContainText('500');
-  await expect(page.locator('#settings-data')).toHaveCount(1);
-  await page.locator('#sp-models [data-model="darkknight"]').click();
-  await page.locator('#sp-colors [data-color]').nth(1).click();
-  await page.locator('#sp-lights').check();
+  await page.evaluate(() => localStorage.removeItem('drivehud.settings.v1'));
+  await page.reload();
+  await expect(page.locator('#cb-colors [data-color]')).toHaveCount(7);
+  await page.locator('#cb-model').click();
+  await expect(page.locator('#cb-model')).toHaveText('車款：黑騎士');
+  await page.locator('#cb-colors [data-color]').nth(6).click();
+  await page.locator('#cb-lights').click();
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('drivehud.settings.v1')));
-  expect(saved).toMatchObject({ model: 'darkknight', headlights: true });
+  expect(saved).toMatchObject({ model: 'darkknight', color: '#15171a', headlights: true });
+  await page.locator('#btn-settings').click();
+  await expect(page.locator('#sp-models, #sp-colors, #sp-lights')).toHaveCount(0);
+  await expect(page.locator('#sp-minimal')).toHaveCount(1);
+  await expect(page.locator('#sp-lowq')).toHaveCount(1);
+  await expect(page.locator('#sp-radius')).toContainText('100');
+  await expect(page.locator('#sp-radius')).toContainText('200');
+  await expect(page.locator('#settings-data')).toHaveCount(1);
   await page.screenshot({ path: path.join(SHOTS, `${info.project.name}-settings.png`) });
   await page.reload();
-  await page.locator('#btn-settings').click();
-  await expect(page.locator('#sp-models [data-model="darkknight"]')).toHaveAttribute('aria-checked', 'true');
+  await expect(page.locator('#cb-model')).toHaveText('車款：黑騎士');
+  await expect(page.locator('#cb-lights')).toHaveAttribute('aria-pressed', 'true');
   expect(errors).toEqual([]);
 });
 
@@ -75,7 +79,7 @@ test('車門按鈕：四款車都能開關車門，換車後自動關上', async
   const errors = await openSim(page);
   await page.evaluate(() => localStorage.removeItem('drivehud.settings.v1'));
   await page.reload();
-  for (const name of ['女武神', '黑暗騎士', '阿斯拉', '裝甲越野']) {
+  for (const name of ['女武神', '黑騎士', '阿斯拉', '豹勇士']) {
     await expect(page.locator('#cb-model')).toHaveText(`車款：${name}`);
     await expect(page.locator('#cb-doors')).toBeVisible();
     await expect(page.locator('#cb-doors')).toHaveText('車門：關'); // 換車後一律是關的

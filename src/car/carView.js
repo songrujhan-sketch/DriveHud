@@ -11,12 +11,16 @@ import { countTriangles } from './models/parts.js';
 import { createStage } from './stage.js';
 
 const WHEEL_RADIUS_M = 0.33; // 輪徑 0.66 m（以此換算角速度）
-// 視角方位角（由車頭 +Z 起算、朝車身左側 +X 為正）：前 45°、後 45°、正後方
-const VIEW_AZ = { front: Math.PI / 4, rear: Math.PI * 3 / 4, back: Math.PI };
+// 視角方位角（由車頭 +Z 起算、朝車身左側 +X 為正）：前 45°、正面、後 45°、正後方、上方（由左側上方俯視）
+const VIEW_AZ = { front: Math.PI / 4, head: 0, rear: Math.PI * 3 / 4, back: Math.PI, top: Math.PI / 2 };
+const VIEW_EL = { top: 1 };          // 俯視程度 0–1，沒列的視角是 0
+const TOP_ELEV = 1.36;               // 俯視的仰角（約 78°；不到 90° 才有穩定的畫面上方）
+const EL_SPEED = 2.2;                // 俯視程度的變化速度（1/s）
 const VIEW_SPEED = 3.2; // 視角轉換的角速度（rad/s）
 const COMPACT_SCALE = 0.4;
 const COMPACT_MS = 280;
 const DOOR_MS = 700;
+const DOOR_LOCK_MPS = 5 / 3.6; // 車速到 5 km/h 才鎖門；低於這個值視為停車（GPS 靜止時也會回報零星的小車速）
 const MAX_PIXEL_RATIO = 2;
 
 function disposeObject(root) {
@@ -43,9 +47,11 @@ export function createCarView(canvas, opts = {}) {
     scene: ['studio', 'mountain', 'city'].includes(opts.scene) ? opts.scene : 'studio',
     time: ['auto', 'day', 'night'].includes(opts.time) ? opts.time : 'auto',
     az: VIEW_AZ[opts.view] != null ? VIEW_AZ[opts.view] : VIEW_AZ.front,
+    el: VIEW_EL[opts.view] || 0,
     speedMps: 0,
     doorsOpen: false,
     doorT: 0, // 0 = 關，1 = 全開
+    fx: false, // 車模自己的動畫（例如噴焰）還沒結束
     compactT: opts.compact ? 1 : 0, // 0 = 全尺寸，1 = compact
     triangles: 0,
   };
@@ -77,8 +83,10 @@ export function createCarView(canvas, opts = {}) {
     const az = state.az;
     const target = new THREE.Vector3(center.x, size.y * 0.36, center.z + size.z * 0.04);
     let d = 9;
+    const e = state.el * state.el * (3 - 2 * state.el), elev = e * TOP_ELEV;
     const place = () => {
-      camera.position.set(target.x + d * Math.sin(az), camY, target.z + d * Math.cos(az));
+      const h = d * Math.cos(elev);
+      camera.position.set(target.x + h * Math.sin(az), camY * (1 - e) + (target.y + d * Math.sin(elev)) * e, target.z + h * Math.cos(az));
       camera.lookAt(target);
       camera.updateMatrixWorld();
     };
@@ -97,7 +105,7 @@ export function createCarView(canvas, opts = {}) {
     if (stage.outdoor) { // 地平線：沿視線水平方向極遠處、高度 0 的點
       const f = new THREE.Vector3(target.x - camera.position.x, 0, target.z - camera.position.z).normalize();
       const h = new THREE.Vector3(camera.position.x + f.x * 5000, 0, camera.position.z + f.z * 5000).project(camera);
-      stage.setHorizon(h.y);
+      stage.setHorizon(Math.min(h.y, 4)); // 俯視時地平線在畫面上方之外
     }
   }
 
@@ -180,7 +188,7 @@ export function createCarView(canvas, opts = {}) {
 
   function needsFrames() {
     const target = state.compact ? 1 : 0;
-    return state.speedMps > 0 || state.compactT !== target || state.az !== VIEW_AZ[state.view] || state.doorT !== (state.doorsOpen ? 1 : 0) || dirty;
+    return state.speedMps > 0 || state.fx || state.compactT !== target || state.az !== VIEW_AZ[state.view] || state.el !== (VIEW_EL[state.view] || 0) || state.doorT !== (state.doorsOpen ? 1 : 0) || dirty;
   }
 
   function frame(now) {
@@ -193,10 +201,12 @@ export function createCarView(canvas, opts = {}) {
       const omega = state.speedMps / WHEEL_RADIUS_M;
       for (const w of car.wheels) w.rotation.x = (w.rotation.x + omega * dt) % (Math.PI * 2);
     }
-    const azTarget = VIEW_AZ[state.view];
-    if (state.az !== azTarget) { // 視角轉換
+    const azTarget = VIEW_AZ[state.view], elTarget = VIEW_EL[state.view] || 0;
+    if (state.az !== azTarget || state.el !== elTarget) { // 視角轉換
       const step = VIEW_SPEED * dt, diff = azTarget - state.az;
       state.az = Math.abs(diff) <= step ? azTarget : state.az + Math.sign(diff) * step;
+      const es = EL_SPEED * dt, ed = elTarget - state.el;
+      state.el = Math.abs(ed) <= es ? elTarget : state.el + Math.sign(ed) * es;
       fitCamera();
     }
     const doorTarget = state.doorsOpen ? 1 : 0;
@@ -206,6 +216,7 @@ export function createCarView(canvas, opts = {}) {
       applyDoors();
     }
     stage.update(dt, state.speedMps);
+    state.fx = !!(car && car.animate && car.animate(dt, state.speedMps));
     const target = state.compact ? 1 : 0;
     if (state.compactT !== target) {
       const step = dt * 1000 / COMPACT_MS;
@@ -257,7 +268,7 @@ export function createCarView(canvas, opts = {}) {
     setSpeedKmh(v) {
       const k = Number(v);
       state.speedMps = Number.isFinite(k) && k > 0 ? k / 3.6 : 0;
-      if (state.speedMps > 0) state.doorsOpen = false; // 車子一動就關門
+      if (state.speedMps >= DOOR_LOCK_MPS) state.doorsOpen = false; // 開始行駛就關門
       kick();
     },
     setColor(hex) { state.color = hex; applyColor(); kick(); },
@@ -265,8 +276,9 @@ export function createCarView(canvas, opts = {}) {
     setModel(id) { if (getModel(id).id === state.modelId) return; loadModel(id); kick(); },
     hasDoors() { return !!(car && car.doors && car.doors.length); },
     get doorsOpen() { return state.doorsOpen; },
+    get doorsLocked() { return state.speedMps >= DOOR_LOCK_MPS; },
     setDoors(open) {
-      state.doorsOpen = !!open && !!(car && car.doors && car.doors.length) && state.speedMps === 0;
+      state.doorsOpen = !!open && !!(car && car.doors && car.doors.length) && state.speedMps < DOOR_LOCK_MPS;
       kick();
       return state.doorsOpen;
     },

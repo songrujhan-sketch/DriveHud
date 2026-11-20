@@ -121,8 +121,8 @@ describe('停車', () => {
   test('停車期間座標漂移不改變 phase、不產生 PASSED／重複提醒', () => {
     const c = cam();
     const { engine, clock } = makeEngine([c]);
-    // 以 14 m/s 接近到相機前約 150 m，之後停 20 s 並漂移 ±8 m（含遠離方向）
-    const approach = line({ n: 35, mps: 13, startBeforeM: 13 * 34 + 150 });
+    // 以 13 m/s 接近到相機前約 50 m（已進入市區提醒距離），之後停 20 s 並漂移 ±8 m（含遠離方向）
+    const approach = line({ n: 35, mps: 13, startBeforeM: 13 * 34 + 50 });
     const last = approach[approach.length - 1];
     const drift = [];
     for (let i = 0; i < 20; i++) {
@@ -144,7 +144,7 @@ describe('提醒與超速', () => {
     assert.deepEqual(alertTypes(events), ['FIX_VALID', 'APPROACH_ALERT', 'PASSED']);
     const a = events.find((e) => e.type === 'APPROACH_ALERT');
     assert.ok(a.distanceM <= A.radiusUrbanM);
-    assert.equal(a.speechText, '前方三百公尺有測速照相，速限五十');
+    assert.equal(a.speechText, '前方一百公尺有測速照相，速限五十');
     assert.equal(a.camera.id, c.id);
     assert.equal(states.at(-1).focus, null);
   });
@@ -262,12 +262,12 @@ describe('定位有效性', () => {
     const c = cam();
     const { engine, clock } = makeEngine([c]);
     const fixes = line({ n: 90, mps: 13 });
-    const r1 = run(engine, clock, fixes.slice(0, 35));
+    const r1 = run(engine, clock, fixes.slice(0, 42)); // 第 39 筆進入 100 m，第 47 筆通過
     assert.deepEqual(alertTypes(r1.events), ['FIX_VALID', 'APPROACH_ALERT']);
     engine.reset();
     assert.equal(engine.getState().gps, 'SEARCHING');
     assert.equal(engine.getState().speedKmh, null);
-    const r2 = run(engine, clock, fixes.slice(35));
+    const r2 = run(engine, clock, fixes.slice(42));
     assert.deepEqual(alertTypes(r2.events), ['FIX_VALID', 'PASSED']);
   });
 });
@@ -291,7 +291,7 @@ describe('效能與資料更新', () => {
   test('setCameras：移除的相機狀態清除', () => {
     const c = cam();
     const { engine, clock } = makeEngine([c]);
-    run(engine, clock, line({ n: 35, mps: 13 }));
+    run(engine, clock, line({ n: 42, mps: 13 }));
     assert.equal(engine.getState().focus?.camera.id, c.id);
     engine.setCameras([]);
     assert.equal(engine.getState().focus, null);

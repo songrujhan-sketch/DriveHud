@@ -6,9 +6,9 @@ import * as rover from './rover.js';
 
 export const MODELS = [
   { id: 'valkyrie', displayName: '女武神', build: valkyrie.build },
-  { id: 'darkknight', displayName: '黑暗騎士', build: darkknight.build },
+  { id: 'darkknight', displayName: '黑騎士', build: darkknight.build },
   { id: 'asurada', displayName: '阿斯拉', build: asurada.build },
-  { id: 'rover', displayName: '裝甲越野', build: rover.build },
+  { id: 'rover', displayName: '豹勇士', build: rover.build },
 ];
 
 export function getModel(id) {

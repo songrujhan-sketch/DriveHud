@@ -15,9 +15,12 @@ E2E 指令：`npm run e2e`（webkit；無法安裝時 `E2E_BROWSER=chromium E2E_
 | 1-1c | 車速為畫面最大元素，tabular-nums | e2e layout.spec（字級比較） | 已驗證（Chromium iPhone 15 模擬） |
 | 1-1d | 顯示方向（N/NE/E… 加中文） | e2e 截圖 | 已驗證（Chromium iPhone 15 模擬） |
 | 1-1e | GPS 狀態列：定位中／定位正常／訊號不佳／權限遭拒／重新定位中 | e2e + 待 iPhone 實測 | 已驗證（iPhone 實測：定位正常與車速顯示）；其餘狀態切換待實測 |
-| 1-2a | 四款車模（女武神／黑暗騎士／阿斯拉／裝甲越野）可切換；第四款由平行原型移植，面數較低 | 設定頁 e2e + src/car/demo.html 目視 | 已驗證（功能）；V1.6b 已升級為 ~3 萬三角形 + 展示廳渲染（clearcoat 車漆、反射地板、bloom）；iPhone 實測流暢不發熱，設定頁可切低畫質 |
-| 1-2e | 「黑暗騎士」改為原創匿蹤楔形四輪車（多切面車身、三角座艙、倒三角三噴口、加大後輪、尾翼、車頭上下兩片尖葉與中央護板）；外觀列的「車門」按鈕可開合鷗翼門（從車頂到門檻整片掀起），有車速時自動關上 | e2e layout.spec（車門按鈕）+ Chromium 截圖 | 已驗證（Chromium）；iPhone 上的外觀與流暢度待 iPhone 實測 |
-| 1-2f | 四款車都能開關車門：女武神蝶翼門、黑暗騎士鷗翼門、阿斯拉與裝甲越野前門外開；有車速時自動關上 | e2e layout.spec（車門按鈕）+ Chromium 截圖 | 已驗證（Chromium）；iPhone 待實測 |
+| 1-2a | 四款車模（女武神／黑騎士／阿斯拉／豹勇士）可切換；第四款由平行原型移植，面數較低 | 設定頁 e2e + src/car/demo.html 目視 | 已驗證（功能）；V1.6b 已升級為 ~3 萬三角形 + 展示廳渲染（clearcoat 車漆、反射地板、bloom）；iPhone 實測流暢不發熱，設定頁可切低畫質 |
+| 1-2e | 「黑騎士」改為原創匿蹤楔形四輪車（多切面車身、三角座艙、倒三角三噴口、加大後輪、尾翼、車頭上下兩片尖葉與中央護板）；外觀列的「車門」按鈕可開合鷗翼門（從車頂到門檻整片掀起），有車速時自動關上 | e2e layout.spec（車門按鈕）+ Chromium 截圖 | 已驗證（Chromium）；iPhone 上的外觀與流暢度待 iPhone 實測 |
+| 1-2f | 四款車都能開關車門：女武神蝶翼門、黑騎士鷗翼門、阿斯拉與豹勇士前門外開；有車速時自動關上 | e2e layout.spec（車門按鈕）+ Chromium 截圖 | 已驗證（Chromium）；iPhone 待實測 |
+| 1-2g | 視角五種（前 45°／正面／後 45°／正後方／上方）；展示間改為有牆面燈條與天花燈板的長廳、白天灰色底；行駛時展示間與戶外場景的背景向車尾流動；黑騎士行駛時噴口噴焰 | 單元測試（設定儲存）+ Chromium 截圖 | 已驗證（Chromium）；iPhone 上的流暢度待 iPhone 實測 |
+| 1-2h | 女武神、阿斯拉開門後看得到內裝（座椅、儀表台、方向盤）；車門在車速 5 km/h 以上鎖定並在按鈕上標示 | e2e layout.spec + Chromium 截圖 | 已驗證（Chromium） |
+| 3-0 | 提醒距離改為市區 100 m、快速道路 200 m、道路類型未知 200 m（原 300／500／300）；五條模擬情境已依新距離重新產生 | 單元測試 + 情境 e2e | 已驗證（Node、Chromium）；65 km/h 時超速語音約在相機前 50 m 才開始，實際路上是否來得及需 iPhone 實測 |
 | 1-2b | 7 種車色（含曜黑）、車燈開關 | 設定頁 e2e + 目視 | 已驗證（Chrome demo 截圖） |
 | 1-2d | 外觀列（畫面下方，不遮住車子）：車款、車色、視角（前 45°／後 45°／正後方）、車燈、場景（展示間／山路／城市）、時段（自動／白天／夜晚） | 單元測試（設定儲存）+ Chromium 截圖 | 已驗證（Chromium）；iPhone 上戶外場景的流暢度待 iPhone 實測 |
 | 1-2c | 輪圈隨車速轉動、速度 0 停止 | demo.html 目視 | 已驗證（Chrome demo；iPhone 實測高畫質流暢、不發熱） |
@@ -53,7 +56,7 @@ E2E 指令：`npm run e2e`（webkit；無法安裝時 `E2E_BROWSER=chromium E2E_
 | 3-2b | 反向相機略過，不語音、不進 approach | e2e 情境② | 已驗證（Chromium iPhone 15 模擬） |
 | 3-2c | 方向不明顯示小提示「附近測速點」 | e2e 情境③ | 已驗證（Chromium iPhone 15 模擬） |
 | 3-2d | 只播 APPROACH_ALERT / OVERSPEED_ALERT 的 speechText | e2e 語音記錄 | 已驗證（Chromium iPhone 15 模擬） |
-| 3-3a | 市區 300 m／快速道路 500 m／未知 300 m 由 config 集中設定 | config.js + 設定頁唯讀顯示 e2e | 已驗證（Chromium iPhone 15 模擬） |
+| 3-3a | 市區 100 m／快速道路 200 m／未知 200 m 由 config 集中設定 | config.js + 設定頁顯示 e2e | 已驗證（Chromium iPhone 15 模擬） |
 | 3-4a | 超速：approach 區塊整塊紅底、語音一次 | e2e 情境① | 已驗證（Chromium iPhone 15 模擬） |
 | 3-4b | 速限缺漏顯示「速限未知」且不判超速 | 單元測試 + 目視 | 已驗證（單元測試） |
 | 3-4c | 實際開過 §8.1 五個點的提醒距離、通過後恢復、停紅燈不誤報 | 待 iPhone 實測 | 待 iPhone 實測 |

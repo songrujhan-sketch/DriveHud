@@ -95,6 +95,9 @@ export function createScenery({ layer, toDisplay }) {
     d.position.set(x, 0.004, -DASH_SPAN / 2 + i * DASH_GAP); d.renderOrder = -40;
     outdoor.add(d); dashes.push(d);
   }
+  // 沿路的東西（建築、路燈、路樹、反光導標）都登記在這裡，行駛時向車尾流動，超出範圍就繞回車頭方向
+  const movers = [];
+  const move = (o, span) => { movers.push({ o, half: span / 2 }); return o; };
   const mStar = keep(new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthWrite: false }));
   const stars = new THREE.Group();
   {
@@ -129,6 +132,33 @@ export function createScenery({ layer, toDisplay }) {
     ring(165, 64, 9, 24, mFar, 0);
     ring(120, 34, 3, 9, mNear, 0.12);
   }
+  // 山路兩側：反光導標（每 20 m）與路樹，行駛時用來看出速度
+  const mPost = keep(basic()), mReflector = keep(basic()), mTrunk = keep(basic()), mLeaf = keep(basic({ vertexColors: true }));
+  {
+    const r = rng(41);
+    const postG = keep(new THREE.BoxGeometry(0.1, 0.9, 0.06)), refG = keep(new THREE.BoxGeometry(0.11, 0.14, 0.07));
+    const trunkG = keep(new THREE.CylinderGeometry(0.12, 0.16, 1, 6));
+    const leafG = [keep(mountainGeometry(1.5, 4.2, 7)), keep(mountainGeometry(1.9, 5.6, 7)), keep(mountainGeometry(1.2, 3.2, 6))];
+    for (const s of [1, -1]) {
+      for (let z = -110; z < 110; z += 20) {
+        const g = new THREE.Group();
+        const a = new THREE.Mesh(postG, mPost); a.position.y = 0.45;
+        const b = new THREE.Mesh(refG, mReflector); b.position.y = 0.72;
+        g.add(a, b); g.position.set(s * (ROAD_W / 2 + 4.5), 0, z + (s > 0 ? 0 : 10)); // 放在鏡頭位置之外，流動時才不會從鏡頭前掃過
+        g.traverse((o) => { o.renderOrder = -45; });
+        mountain.add(move(g, 220));
+      }
+      for (let z = -150; z < 150; z += 9 + r() * 14) {
+        const k = Math.floor(r() * 3), h = [4.2, 5.6, 3.2][k], g = new THREE.Group();
+        const t = new THREE.Mesh(trunkG, mTrunk); t.scale.y = h * 0.3; t.position.y = h * 0.15;
+        const l = new THREE.Mesh(leafG[k], mLeaf); l.position.y = h * 0.25 + h / 2; l.rotation.y = r() * 6;
+        g.add(t, l); g.position.set(s * (ROAD_W / 2 + 6.5 + r() * 26), 0, z);
+        g.scale.setScalar(0.8 + r() * 0.6);
+        g.traverse((o) => { o.renderOrder = -48; });
+        mountain.add(move(g, 300));
+      }
+    }
+  }
 
   // ── 城市：人行道、路緣、沿街與後排大樓、路燈 ──
   const mPave = keep(basic()), mCurb = keep(basic());
@@ -148,19 +178,19 @@ export function createScenery({ layer, toDisplay }) {
       city.add(box(0.3, 0.16, 440, mCurb, s * (ROAD_W / 2 + 0.15), 0.06, 0));
       for (let z = -200; z < 200;) {
         const w = 14 + r() * 16, d = 14 + r() * 12, tier = r() < 0.3 ? 2 : r() < 0.6 ? 1 : 0, h = [14, 30, 56][tier] * (0.7 + r() * 0.7);
-        city.add(box(d, h, w, tiers[tier].mat, s * (ROAD_W / 2 + 14 + d / 2 + r() * 8), h / 2, z + w / 2));
+        city.add(move(box(d, h, w, tiers[tier].mat, s * (ROAD_W / 2 + 14 + d / 2 + r() * 8), h / 2, z + w / 2), 400));
         z += w + 3 + r() * 6;
       }
       for (let k = 0; k < 14; k++) {
         const w2 = 18 + r() * 20, h2 = 50 + r() * 70;
-        city.add(box(w2, h2, w2, tiers[2].mat, s * (75 + r() * 40), h2 / 2, -190 + k * 29 + r() * 10));
+        city.add(move(box(w2, h2, w2, tiers[2].mat, s * (75 + r() * 40), h2 / 2, -190 + k * 29 + r() * 10), 406));
       }
       for (let lz = -90; lz <= 90; lz += 30) {
-        const z = lz + s * 6, x = s * (ROAD_W / 2 + 1);
-        city.add(box(0.16, 7, 0.16, mPole, x, 3.5, z));
-        city.add(box(2.2, 0.1, 0.12, mPole, x - s * 1.1, 7, z));
-        city.add(box(0.7, 0.08, 0.3, mLamp, x - s * 2, 6.94, z));
-        const g = new THREE.Sprite(mGlow); g.scale.set(2.6, 2.6, 1); g.position.set(x - s * 2, 6.9, z); g.renderOrder = -30; city.add(g);
+        const z = lz + s * 6, x = s * (ROAD_W / 2 + 4.5); // 燈桿放在鏡頭位置之外，燈臂伸向路面
+        city.add(move(box(0.16, 7, 0.16, mPole, x, 3.5, z), 210));
+        city.add(move(box(3.2, 0.1, 0.12, mPole, x - s * 1.6, 7, z), 210));
+        city.add(move(box(0.7, 0.08, 0.3, mLamp, x - s * 3, 6.94, z), 210));
+        const g = new THREE.Sprite(mGlow); g.scale.set(2.6, 2.6, 1); g.position.set(x - s * 3, 6.9, z); g.renderOrder = -30; city.add(move(g, 210));
       }
     }
   }
@@ -196,16 +226,23 @@ export function createScenery({ layer, toDisplay }) {
       mPave.color.copy(toDisplay(p.pave)); mCurb.color.copy(toDisplay(p.curb));
       mPole.color.copy(toDisplay(p.pole)); mLamp.color.copy(toDisplay(p.lamp)).multiplyScalar(night ? 3 : 1);
       for (const t of tiers) { t.mat.map = night ? t.night : t.day; t.mat.color.setScalar(p.bld); t.mat.needsUpdate = true; }
+      mPost.color.copy(toDisplay(night ? '#6d7078' : '#e6e7ea')); mReflector.color.copy(toDisplay('#d8372c')).multiplyScalar(night ? 2.2 : 1);
+      mTrunk.color.copy(toDisplay(night ? '#0b0c0b' : '#4a3d30')); mLeaf.color.copy(toDisplay(night ? '#0a130d' : '#3f6a3a'));
       mGlow.opacity = p.glow;
       mStar.opacity = scene === 'city' ? p.stars * 0.4 : p.stars;
       stars.visible = p.stars > 0;
     },
-    /** 車道線隨車速向車尾方向流動。 */
+    /** 車道線與沿路的景物隨車速向車尾方向流動。 */
     update(dt, speedMps) {
       if (!root.visible || !(speedMps > 0)) return;
+      const dz = speedMps * dt;
       for (const d of dashes) {
-        d.position.z -= speedMps * dt;
+        d.position.z -= dz;
         if (d.position.z < -DASH_SPAN / 2) d.position.z += DASH_SPAN;
+      }
+      for (const m of movers) {
+        m.o.position.z -= dz;
+        if (m.o.position.z < -m.half) m.o.position.z += m.half * 2;
       }
     },
     dispose() { disposables.forEach((x) => x.dispose()); },

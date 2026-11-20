@@ -27,15 +27,18 @@ function displayColor(hex, exposure) {
 
 // 場景 × 時段的外觀。env 指定車漆反射用的環境貼圖；edge（外圈收斂色）另由頁面明暗決定。
 const THEMES = {
+  // 展示間是一條長廳：兩側牆面有直立燈條、頂上有燈板，地面是有伸縮縫的拋光混凝土。hall 是它專用的顏色
   dark: {
     top: '#0b0e12', horizon: '#1a1f26', bottom: '#060708', glow: '#2a313b', envKind: 'studio-night',
     floor: '#0d1013', floorSpot: '#1c2229', refl: 0.55, env: 1.0, hemi: 0.25, key: 1.6, rim: 1.4,
     bloom: { strength: 0.45, radius: 0.45, threshold: 1.0 }, shadow: 0.92,
+    hall: { wall: '#161a1f', wallLow: '#0c0f12', ceil: '#090b0d', strip: [0.87, 0.92, 1.0], stripK: 1.7, floorStrip: 0.16 },
   },
-  light: {
-    top: '#eceef1', horizon: '#dfe2e6', bottom: '#c3c9d0', glow: '#f0f2f4', envKind: 'studio-day',
-    floor: '#c9cfd6', floorSpot: '#e2e6ea', refl: 0.28, env: 1.15, hemi: 0.45, key: 1.8, rim: 0.9,
-    bloom: { strength: 0.3, radius: 0.4, threshold: 4.0 }, shadow: 0.78,
+  light: { // 白天：灰色底
+    top: '#a9aeb5', horizon: '#989da4', bottom: '#7b8188', glow: '#b4b8be', envKind: 'studio-day',
+    floor: '#7f858c', floorSpot: '#a2a7ae', refl: 0.34, env: 1.15, hemi: 0.45, key: 1.8, rim: 0.9,
+    bloom: { strength: 0.3, radius: 0.4, threshold: 4.0 }, shadow: 0.8,
+    hall: { wall: '#949aa1', wallLow: '#767b82', ceil: '#6b7077', strip: [1.0, 1.0, 1.0], stripK: 1.5, floorStrip: 0.22 },
   },
   'mountain-day': {
     top: '#2f6fc4', horizon: '#dfeaf2', bottom: '#8b9a5b', glow: '#dfeaf2', envKind: 'outdoor-day',
@@ -190,6 +193,81 @@ function makeBackdrop() {
   return m;
 }
 
+const NOISE_GLSL = /* glsl */`
+  float vhash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+  float vnoise(vec2 p) {
+    vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(vhash(i), vhash(i + vec2(1.0, 0.0)), f.x), mix(vhash(i + vec2(0.0, 1.0)), vhash(i + vec2(1.0, 1.0)), f.x), f.y);
+  }
+`;
+
+/** 展示間長廳的牆與天花板：不受光的著色器平面，放在 FX 圖層，邊緣與背景一起淡出。kind 0 = 牆、1 = 天花板。 */
+const HALL_X = 8.5, HALL_H = 6;
+function makeHall() {
+  const uniforms = {
+    uWall: { value: new THREE.Color() }, uWallLow: { value: new THREE.Color() }, uCeil: { value: new THREE.Color() },
+    uStrip: { value: new THREE.Color() }, uHaze: { value: new THREE.Color() }, uScroll: { value: 0 },
+  };
+  const mat = (kind) => new THREE.ShaderMaterial({
+    uniforms, defines: { KIND: kind },
+    vertexShader: /* glsl */`
+      varying vec3 vWorld; varying vec3 vClip;
+      void main() { vec4 w = modelMatrix * vec4(position, 1.0); vWorld = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; vClip = gl_Position.xyw; }
+    `,
+    fragmentShader: /* glsl */`
+      uniform vec3 uWall, uWallLow, uCeil, uStrip, uHaze; uniform float uScroll;
+      varying vec3 vWorld; varying vec3 vClip;
+      ${EDGE_GLSL}
+      void main() {
+        float y = vWorld.y, z = vWorld.z + uScroll;
+        vec3 col;
+        #if KIND == 0
+          col = mix(uWallLow, uWall, smoothstep(0.0, 2.2, y)) * mix(1.0, 0.84, smoothstep(3.6, 6.0, y));
+          float pz = abs(fract(z / 3.0 + 0.5) - 0.5) * 3.0;                       // 每 3 m 一道牆板縫
+          col *= 1.0 - 0.2 * (1.0 - smoothstep(0.012, 0.04, pz));
+          col *= 1.0 - 0.15 * (1.0 - smoothstep(0.01, 0.03, abs(y - 2.7)));
+          col = mix(col, uWallLow * 0.5, 1.0 - smoothstep(0.16, 0.2, y));         // 踢腳板
+          float sz = abs(fract((z - 1.5) / 6.0 + 0.5) - 0.5) * 6.0;               // 每 6 m 一支直立燈條
+          float band = smoothstep(0.45, 0.55, y) * (1.0 - smoothstep(4.5, 4.6, y));
+          col += uStrip * exp(-sz * sz * 5.0) * 0.07 * band;
+          col = mix(col, uStrip, (1.0 - smoothstep(0.05, 0.075, sz)) * band);
+          col = mix(col, uStrip, 1.0 - smoothstep(0.03, 0.06, abs(y - 5.3)));     // 牆頂的間接照明燈槽
+        #else
+          col = uCeil;
+          float px = abs(abs(vWorld.x) - 3.2), pz = abs(fract(z / 6.0 + 0.5) - 0.5) * 6.0;   // 兩排燈板，每 6 m 一塊
+          float panel = (1.0 - smoothstep(0.55, 0.6, px)) * (1.0 - smoothstep(1.7, 1.75, pz));
+          col = mix(col, uStrip, panel);
+          col += uStrip * 0.05 * exp(-px * px * 0.8);
+        #endif
+        col = mix(col, uHaze, smoothstep(12.0, 34.0, abs(vWorld.z)));             // 遠處收進背景
+        gl_FragColor = vec4(col, 1.0);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+        float a = edgeFade(vClip.xy / vClip.z) * (1.0 - smoothstep(30.0, 35.0, abs(vWorld.z)));
+        gl_FragColor = vec4(gl_FragColor.rgb * a, a);
+      }
+    `,
+    depthWrite: false, transparent: true,
+    blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor,
+  });
+  const group = new THREE.Group();
+  const mats = [mat(0), mat(1)];
+  const wallGeo = new THREE.PlaneGeometry(72, HALL_H);
+  for (const s of [1, -1]) {
+    const w = new THREE.Mesh(wallGeo, mats[0]);
+    w.rotation.y = -s * Math.PI / 2;      // 面向廳內
+    w.position.set(s * HALL_X, HALL_H / 2, 0);
+    group.add(w);
+  }
+  const ceilGeo = new THREE.PlaneGeometry(HALL_X * 2, 72);
+  const ceil = new THREE.Mesh(ceilGeo, mats[1]);
+  ceil.rotation.x = Math.PI / 2;           // 面向下方；從上方俯視時是背面，不會擋住車
+  ceil.position.y = HALL_H;
+  group.add(ceil);
+  group.traverse((o) => { o.layers.set(FX_LAYER); o.renderOrder = -90; o.frustumCulled = false; });
+  return { group, uniforms, dispose() { wallGeo.dispose(); ceilGeo.dispose(); mats.forEach((m) => m.dispose()); } };
+}
+
 const FLOOR_VS = /* glsl */`
   uniform mat4 textureMatrix;
   varying vec4 vUv;
@@ -208,14 +286,26 @@ const FLOOR_FS = /* glsl */`
   uniform sampler2D tDiffuse;
   uniform vec3 uFloor, uSpot;
   uniform vec2 uCenter;
-  uniform float uFade, uRefl, uTexel;
+  uniform float uFade, uRefl, uTexel, uScroll, uHall;
+  uniform vec3 uStrip;
   varying vec4 vUv;
   varying vec3 vWorld;
   varying vec3 vClip;
   ${EDGE_GLSL}
+  ${NOISE_GLSL}
   void main() {
     float d = length(vWorld.xz - uCenter);
     vec3 col = mix(uFloor, uSpot, exp(-d * d / 9.0));
+    if (uHall > 0.0) { // 展示間：混凝土的深淺斑、每 2.4 m 一道伸縮縫、靠牆處映出燈條；全部隨車速向車尾流動
+      vec2 g = vec2(vWorld.x, vWorld.z + uScroll);
+      col *= 1.0 + (vnoise(g * 0.8) * 0.6 + vnoise(g * 3.3) * 0.4 - 0.5) * 0.11;
+      vec2 f = abs(fract(g / 2.4 + 0.5) - 0.5) * 2.4;
+      float w = 0.01 + d * 0.0016;
+      float seam = min(1.0, (1.0 - smoothstep(w, w * 2.6, f.x)) + (1.0 - smoothstep(w, w * 2.6, f.y)));
+      col *= 1.0 - 0.24 * seam;
+      float sz = abs(fract((g.y - 1.5) / 6.0 + 0.5) - 0.5) * 6.0;
+      col += uStrip * exp(-sz * sz * 2.2) * smoothstep(3.0, 8.4, abs(vWorld.x)) * uHall;
+    }
     #ifdef USE_REFL
       vec4 p = vUv;
       float o = uTexel * p.w * (1.0 + d * 0.8);
@@ -240,6 +330,7 @@ function floorUniforms() {
     color: { value: new THREE.Color() }, tDiffuse: { value: null }, textureMatrix: { value: new THREE.Matrix4() },
     uFloor: { value: new THREE.Color() }, uSpot: { value: new THREE.Color() }, uCenter: { value: new THREE.Vector2() },
     uFade: { value: 9 }, uRefl: { value: 0.5 }, uTexel: { value: 0.0015 },
+    uScroll: { value: 0 }, uHall: { value: 0 }, uStrip: { value: new THREE.Color() },
   };
 }
 
@@ -375,6 +466,9 @@ export function createStage(renderer, { quality = 'high' } = {}) {
 
   const backdrop = makeBackdrop();
   scene.add(backdrop);
+  const hall = makeHall();
+  scene.add(hall.group);
+  let scroll = 0; // 展示間地面與牆面的流動量（公尺），以 12 m 為週期
   let floor = null;
   let shadow = null;
   const beamTex = beamTexture();
@@ -447,6 +541,20 @@ export function createStage(renderer, { quality = 'high' } = {}) {
     fu.uFloor.value.copy(displayColor(t.floor, ex));
     fu.uSpot.value.copy(displayColor(t.floorSpot, ex));
     fu.uRefl.value = t.refl;
+    const studio = look.scene === 'studio' && !!t.hall;
+    hall.group.visible = studio;
+    fu.uHall.value = studio ? 1 : 0;
+    fu.uFade.value = studio ? 15 : 9;       // 展示間的地面一路鋪到牆腳
+    fu.uScroll.value = scroll;
+    if (studio) {
+      const h = t.hall, hu = hall.uniforms;
+      hu.uWall.value.copy(displayColor(h.wall, ex));
+      hu.uWallLow.value.copy(displayColor(h.wallLow, ex));
+      hu.uCeil.value.copy(displayColor(h.ceil, ex));
+      hu.uStrip.value.setRGB(h.strip[0], h.strip[1], h.strip[2]).multiplyScalar(h.stripK);
+      hu.uHaze.value.copy(displayColor(t.horizon, ex));
+      fu.uStrip.value.setRGB(h.strip[0], h.strip[1], h.strip[2]).multiplyScalar(h.floorStrip);
+    }
     hemi.intensity = t.hemi;
     scene.environmentIntensity = t.env;
     if (shadow) shadow.material.uniforms.uOpacity.value = t.shadow;
@@ -491,7 +599,15 @@ export function createStage(renderer, { quality = 'high' } = {}) {
     get outdoor() { return look.scene !== 'studio'; },
     /** 戶外場景的地平線位置（NDC y），讓天空漸層對齊 3D 地面。 */
     setHorizon(y) { if (look.scene !== 'studio') backdrop.material.uniforms.uHorizonY.value = y; },
-    update(dt, speedMps) { if (scenery) scenery.update(dt, speedMps); },
+    /** 行駛時背景跟著動：展示間的地面、牆面與天花板向車尾流動；戶外場景交給 scenery。 */
+    update(dt, speedMps) {
+      if (speedMps > 0 && look.scene === 'studio') {
+        scroll = (scroll + speedMps * dt) % 12;
+        hall.uniforms.uScroll.value = scroll;
+        if (floor) floor.material.uniforms.uScroll.value = scroll;
+      }
+      if (scenery) scenery.update(dt, speedMps);
+    },
     setCar(group, box) {
       if (shadow) { scene.remove(shadow); shadow.geometry.dispose(); shadow.material.dispose(); shadow.userData.rt.dispose(); }
       shadow = bakeContactShadow(renderer, group, box);
@@ -521,6 +637,7 @@ export function createStage(renderer, { quality = 'high' } = {}) {
       if (floor) { floor.geometry.dispose(); floor.material.dispose(); floor.getRenderTarget?.().dispose(); }
       composer?.dispose(); rt?.dispose(); bloom?.dispose();
       backdrop.geometry.dispose(); backdrop.material.dispose();
+      hall.dispose();
       pool.geometry.dispose(); pool.material.dispose(); beamTex.dispose();
       Object.values(envCache).forEach((e) => e.dispose());
     },
