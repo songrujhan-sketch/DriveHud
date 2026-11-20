@@ -10,8 +10,9 @@ iPhone Safari 專用行車儀表板：台灣固定式測速照相提醒 + 原創
 ## 使用（iPhone Safari）
 1. 以 Safari 開啟 GitHub Pages 連結（請勿「加入主畫面」，Wake Lock 在主畫面模式不生效）。
 2. 按「開始行車」→ 允許定位。首次按下會解鎖語音。
-3. 設定（右上）：車型（女武神／黑暗騎士／阿斯拉）、車色、車燈、極簡模式、測速資料更新／匯入。
-4. 內建資料為警政署 7320 全國快照（2026-11-20，1,905 筆，含國道）。要更新時到 https://data.gov.tw/dataset/7320 下載 CSV，於設定頁「匯入官方 CSV」載入（線上更新在 Safari 會因 CORS 失敗，介面會顯示原因並保留舊資料）。
+3. 畫面下方的外觀列：車款、車色、視角（前 45°／後 45°／正後方）、車燈、場景（展示間／山路／城市）、時段（自動／白天／夜晚）。接近測速點與極簡模式時外觀列會收起。
+4. 設定（右上）：車型（女武神／黑暗騎士／阿斯拉）、車色、車燈、極簡模式、車模低畫質、測速資料更新／匯入。
+5. 內建資料為警政署 7320 全國快照（2026-11-20，1,905 筆，含國道）。要更新時到 https://data.gov.tw/dataset/7320 下載 CSV，於設定頁「匯入官方 CSV」載入（線上更新在 Safari 會因 CORS 失敗，介面會顯示原因並保留舊資料）。
 
 ## 本機啟動
 ```bash
@@ -21,6 +22,12 @@ npm run e2e                       # Playwright webkit + iPhone 15；無 webkit �
 E2E_BROWSER=chromium E2E_CHROMIUM_PATH=<chrome 路徑> npm run e2e
 node scripts/build-snapshot.mjs   # 由 data/snapshots/*.csv 重建 cameras.json
 ```
+
+## 介面設計
+
+介面沿用「Plan & Print」的設計語言：藍灰底色、系統字體、8px 圓角、以色相區分功能的淡色按鈕、橘色主要動作。色彩 token 在 `styles/app.css` 的 `:root`；`--bg` 若調整，請同步 `src/car/stage.js` 的 `PAGE_EDGE`。
+
+戶外場景（山路、城市）在 `src/car/scenery.js`，場景與時段的外觀參數在 `src/car/stage.js` 的 `THEMES`。
 
 ## 結構
 ```

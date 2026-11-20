@@ -8,6 +8,7 @@ import { UnrealBloomPass } from '../../vendor/three-addons/UnrealBloomPass.js';
 import { OutputPass } from '../../vendor/three-addons/OutputPass.js';
 import { Reflector } from '../../vendor/three-addons/Reflector.js';
 import { FullScreenQuad } from '../../vendor/three-addons/Pass.js';
+import { createScenery } from './scenery.js';
 
 const FX_LAYER = 1; // 背景／陰影／光斑：不進入反射
 
@@ -24,18 +25,44 @@ function displayColor(hex, exposure) {
   return new THREE.Color(invAces(c.r, exposure), invAces(c.g, exposure), invAces(c.b, exposure));
 }
 
+// 場景 × 時段的外觀。env 指定車漆反射用的環境貼圖；edge（外圈收斂色）另由頁面明暗決定。
 const THEMES = {
   dark: {
-    top: '#0b0e12', horizon: '#1a1f26', bottom: '#060708', glow: '#2a313b', edge: '#07090c',
+    top: '#0b0e12', horizon: '#1a1f26', bottom: '#060708', glow: '#2a313b', envKind: 'studio-night',
     floor: '#0d1013', floorSpot: '#1c2229', refl: 0.55, env: 1.0, hemi: 0.25, key: 1.6, rim: 1.4,
     bloom: { strength: 0.45, radius: 0.45, threshold: 1.0 }, shadow: 0.92,
   },
   light: {
-    top: '#eceef1', horizon: '#dfe2e6', bottom: '#c3c9d0', glow: '#f0f2f4', edge: '#f1f3f5',
+    top: '#eceef1', horizon: '#dfe2e6', bottom: '#c3c9d0', glow: '#f0f2f4', envKind: 'studio-day',
     floor: '#c9cfd6', floorSpot: '#e2e6ea', refl: 0.28, env: 1.15, hemi: 0.45, key: 1.8, rim: 0.9,
     bloom: { strength: 0.3, radius: 0.4, threshold: 4.0 }, shadow: 0.78,
   },
+  'mountain-day': {
+    top: '#2f6fc4', horizon: '#dfeaf2', bottom: '#8b9a5b', glow: '#dfeaf2', envKind: 'outdoor-day',
+    floor: '#2d3035', floorSpot: '#353a40', refl: 0.36, env: 1.05, hemi: 0.5,
+    bloom: { strength: 0.25, radius: 0.4, threshold: 6.0 }, shadow: 0.8,
+  },
+  'mountain-night': {
+    top: '#03050a', horizon: '#4a4f80', bottom: '#10160f', glow: '#2b3260', envKind: 'outdoor-night',
+    floor: '#0c0e11', floorSpot: '#15191e', refl: 0.5, env: 0.95, hemi: 0.22,
+    bloom: { strength: 0.45, radius: 0.45, threshold: 1.0 }, shadow: 0.9,
+  },
+  'city-day': {
+    top: '#3f82d4', horizon: '#e0e8ee', bottom: '#9a9da2', glow: '#e0e8ee', envKind: 'outdoor-day',
+    floor: '#2d3035', floorSpot: '#353a40', refl: 0.36, env: 1.05, hemi: 0.5,
+    bloom: { strength: 0.25, radius: 0.4, threshold: 6.0 }, shadow: 0.8,
+  },
+  'city-night': {
+    top: '#05060c', horizon: '#5d4f7c', bottom: '#16181c', glow: '#3a3260', envKind: 'city-night',
+    floor: '#0c0e11', floorSpot: '#161a20', refl: 0.55, env: 1.0, hemi: 0.22,
+    bloom: { strength: 0.5, radius: 0.5, threshold: 1.0 }, shadow: 0.9,
+  },
 };
+const PAGE_EDGE = { dark: '#14171c', light: '#f3f5f8' }; // 與 styles/app.css 的 --bg 一致
+function themeFor(scene, night) {
+  if (scene === 'mountain' || scene === 'city') return THEMES[`${scene}-${night ? 'night' : 'day'}`];
+  return night ? THEMES.dark : THEMES.light;
+}
 
 const EDGE_GLSL = /* glsl */`
   float edgeFade(vec2 ndc) {
@@ -43,6 +70,49 @@ const EDGE_GLSL = /* glsl */`
     return q.x * q.y;
   }
 `;
+
+/** 戶外 HDR 環境：天空穹頂 + 太陽（白天）或路燈、霓虹（夜晚）。車漆反射的就是這些光源。 */
+function buildOutdoorEnv(renderer, kind) {
+  const env = new THREE.Scene();
+  const night = kind !== 'outdoor-day';
+  const sky = new THREE.SphereGeometry(40, 32, 16);
+  const cols = [];
+  const p = sky.attributes.position;
+  const top = new THREE.Color(night ? 0x03050a : 0x3f82d4).multiplyScalar(night ? 1 : 1.3);
+  const hor = new THREE.Color(night ? (kind === 'city-night' ? 0x4b3f66 : 0x3a4070) : 0xe6eff5).multiplyScalar(night ? 0.6 : 1.5);
+  const bot = new THREE.Color(night ? 0x050607 : 0x3a3d40);
+  for (let i = 0; i < p.count; i++) {
+    const y = p.getY(i) / 40;
+    const c = y > 0 ? hor.clone().lerp(top, Math.pow(y, 0.5)) : hor.clone().lerp(bot, Math.min(1, -y * 5));
+    cols.push(c.r, c.g, c.b);
+  }
+  sky.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+  env.add(new THREE.Mesh(sky, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide })));
+  const panel = (w, h, k, pos, tint = 0xffffff) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: new THREE.Color(tint).multiplyScalar(k), side: THREE.DoubleSide }));
+    m.position.set(...pos);
+    m.lookAt(0, 0.6, 0);
+    env.add(m);
+  };
+  if (!night) {
+    panel(7, 7, 30, [14, 22, 16], 0xfff1d6); // 太陽
+    panel(30, 6, 1.6, [0, 8, -30], 0xeaf2f8);
+  } else {
+    panel(1.6, 0.6, 26, [4.5, 7, 6], 0xffe0a8); // 路燈
+    panel(1.6, 0.6, 26, [-4.5, 7, -8], 0xffe0a8);
+    panel(1.6, 0.6, 20, [4.5, 7, 18], 0xffe0a8);
+    if (kind === 'city-night') {
+      panel(5, 2.4, 9, [16, 9, 10], 0xff3d9a);
+      panel(5, 2.4, 9, [-16, 11, -12], 0x35d6ff);
+      panel(3, 6, 7, [18, 12, -4], 0xffc04d);
+    }
+  }
+  const pm = new THREE.PMREMGenerator(renderer);
+  const rt = pm.fromScene(env, 0.02);
+  pm.dispose();
+  env.traverse((o) => { if (o.isMesh) { o.geometry.dispose(); o.material.dispose(); } });
+  return rt;
+}
 
 /** 自製攝影棚 HDR 環境：深色漸層穹頂 + 頂部柔光箱 + 長條燈 + 側光板。 */
 function buildEnv(renderer, dark) {
@@ -295,7 +365,7 @@ function bakeContactShadow(renderer, group, box) {
 
 export function createStage(renderer, { quality = 'high' } = {}) {
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(28, 1, 0.1, 80);
+  const camera = new THREE.PerspectiveCamera(28, 1, 0.1, 500);
   camera.layers.enable(FX_LAYER);
 
   const envCache = {};
@@ -329,6 +399,8 @@ export function createStage(renderer, { quality = 'high' } = {}) {
 
   let composer = null, bloom = null, rt = null;
   let theme = THEMES.dark;
+  let look = { scene: 'studio', night: true, pageDark: true };
+  let scenery = null; // 第一次切到戶外場景時才建立
   let q = quality === 'low' ? 'low' : 'high';
   let size = { w: 1, h: 1, pr: 1 };
 
@@ -370,7 +442,7 @@ export function createStage(renderer, { quality = 'high' } = {}) {
     u.uHorizon.value.copy(displayColor(t.horizon, ex));
     u.uBottom.value.copy(displayColor(t.bottom, ex));
     u.uGlow.value.copy(displayColor(t.glow, ex));
-    u.uEdge.value.copy(displayColor(t.edge, ex));
+    u.uEdge.value.copy(displayColor(look.pageDark ? PAGE_EDGE.dark : PAGE_EDGE.light, ex));
     const fu = floor.material.uniforms;
     fu.uFloor.value.copy(displayColor(t.floor, ex));
     fu.uSpot.value.copy(displayColor(t.floorSpot, ex));
@@ -400,14 +472,26 @@ export function createStage(renderer, { quality = 'high' } = {}) {
     scene, camera,
     get quality() { return q; },
     setQuality(v) { const n = v === 'low' ? 'low' : 'high'; if (n !== q) { q = n; buildPipeline(); } },
-    setDark(dark) {
-      theme = dark ? THEMES.dark : THEMES.light;
-      const k = dark ? 'dark' : 'light';
-      if (!envCache[k]) envCache[k] = buildEnv(renderer, dark);
+    /** 場景（studio／mountain／city）、時段（night）與頁面明暗（pageDark，決定外圈收斂色）。 */
+    setLook(next) {
+      look = { ...look, ...next };
+      theme = themeFor(look.scene, look.night);
+      const k = theme.envKind;
+      if (!envCache[k]) envCache[k] = k.startsWith('studio') ? buildEnv(renderer, k === 'studio-night') : buildOutdoorEnv(renderer, k);
       scene.environment = envCache[k].texture;
-      backdrop.material.uniforms.uHorizonY.value = 0.05;
+      if (look.scene !== 'studio' && !scenery) {
+        scenery = createScenery({ layer: FX_LAYER, toDisplay: (hex) => displayColor(hex, renderer.toneMappingExposure) });
+        scene.add(scenery.group);
+      }
+      if (scenery) scenery.apply(look.scene, look.night);
+      if (look.scene === 'studio') backdrop.material.uniforms.uHorizonY.value = 0.05;
       applyTheme();
     },
+    setDark(dark) { this.setLook({ scene: 'studio', night: !!dark, pageDark: !!dark }); },
+    get outdoor() { return look.scene !== 'studio'; },
+    /** 戶外場景的地平線位置（NDC y），讓天空漸層對齊 3D 地面。 */
+    setHorizon(y) { if (look.scene !== 'studio') backdrop.material.uniforms.uHorizonY.value = y; },
+    update(dt, speedMps) { if (scenery) scenery.update(dt, speedMps); },
     setCar(group, box) {
       if (shadow) { scene.remove(shadow); shadow.geometry.dispose(); shadow.material.dispose(); shadow.userData.rt.dispose(); }
       shadow = bakeContactShadow(renderer, group, box);
@@ -432,6 +516,7 @@ export function createStage(renderer, { quality = 'high' } = {}) {
       else renderer.render(scene, camera);
     },
     dispose() {
+      if (scenery) { scene.remove(scenery.group); scenery.dispose(); }
       if (shadow) { shadow.geometry.dispose(); shadow.material.dispose(); shadow.userData.rt.dispose(); }
       if (floor) { floor.geometry.dispose(); floor.material.dispose(); floor.getRenderTarget?.().dispose(); }
       composer?.dispose(); rt?.dispose(); bloom?.dispose();

@@ -14,7 +14,25 @@ export const CAR_COLORS = [
   { hex: '#2e9e5b', name: '森綠' },
   { hex: '#7a3fd1', name: '紫' },
 ];
-export const DEFAULT_SETTINGS = { model: 'valkyrie', color: CAR_COLORS[0].hex, headlights: false, minimal: false, lowQuality: false };
+export const CAR_VIEWS = [
+  { id: 'front', name: '前 45°' },
+  { id: 'rear', name: '後 45°' },
+  { id: 'back', name: '正後方' },
+];
+export const CAR_SCENES = [
+  { id: 'studio', name: '展示間' },
+  { id: 'mountain', name: '山路' },
+  { id: 'city', name: '城市' },
+];
+export const CAR_TIMES = [
+  { id: 'auto', name: '自動' }, // 跟隨系統明暗模式
+  { id: 'day', name: '白天' },
+  { id: 'night', name: '夜晚' },
+];
+export const DEFAULT_SETTINGS = {
+  model: 'valkyrie', color: CAR_COLORS[0].hex, headlights: false, minimal: false, lowQuality: false,
+  view: 'front', scene: 'studio', time: 'auto',
+};
 const KEY = 'drivehud.settings.v1';
 
 export function createSettingsStore({ storage } = {}) {
@@ -29,6 +47,10 @@ export function createSettingsStore({ storage } = {}) {
       if (CAR_COLORS.some((c) => c.hex === p.color)) cur.color = p.color;
       if (typeof p.headlights === 'boolean') cur.headlights = p.headlights;
       if (typeof p.minimal === 'boolean') cur.minimal = p.minimal;
+      if (typeof p.lowQuality === 'boolean') cur.lowQuality = p.lowQuality;
+      if (CAR_VIEWS.some((v) => v.id === p.view)) cur.view = p.view;
+      if (CAR_SCENES.some((v) => v.id === p.scene)) cur.scene = p.scene;
+      if (CAR_TIMES.some((v) => v.id === p.time)) cur.time = p.time;
     }
   } catch (_) { /* 損毀或無法存取：使用預設 */ }
   const subs = [];

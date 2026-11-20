@@ -11,6 +11,9 @@ import { countTriangles } from './models/parts.js';
 import { createStage } from './stage.js';
 
 const WHEEL_RADIUS_M = 0.33; // 輪徑 0.66 m（以此換算角速度）
+// 視角方位角（由車頭 +Z 起算、朝車身左側 +X 為正）：前 45°、後 45°、正後方
+const VIEW_AZ = { front: Math.PI / 4, rear: Math.PI * 3 / 4, back: Math.PI };
+const VIEW_SPEED = 3.2; // 視角轉換的角速度（rad/s）
 const COMPACT_SCALE = 0.4;
 const COMPACT_MS = 280;
 const MAX_PIXEL_RATIO = 2;
@@ -35,6 +38,10 @@ export function createCarView(canvas, opts = {}) {
     darkMode: !!opts.darkMode,
     compact: !!opts.compact,
     quality: opts.quality === 'low' ? 'low' : 'high',
+    view: VIEW_AZ[opts.view] != null ? opts.view : 'front',
+    scene: ['studio', 'mountain', 'city'].includes(opts.scene) ? opts.scene : 'studio',
+    time: ['auto', 'day', 'night'].includes(opts.time) ? opts.time : 'auto',
+    az: VIEW_AZ[opts.view] != null ? VIEW_AZ[opts.view] : VIEW_AZ.front,
     speedMps: 0,
     compactT: opts.compact ? 1 : 0, // 0 = 全尺寸，1 = compact
     triangles: 0,
@@ -63,8 +70,8 @@ export function createCarView(canvas, opts = {}) {
     for (const x of [carBox.min.x, carBox.max.x])
       for (const y of [0, carBox.max.y])
         for (const z of [carBox.min.z, carBox.max.z]) corners.push(new THREE.Vector3(x, y, z));
-    const camY = carBox.max.y + 0.45; // 略高於車頂
-    const az = Math.PI / 4; // 車頭(+Z)左側(+X) 45°
+    const camY = stage.outdoor ? carBox.max.y * 0.95 : carBox.max.y + 0.45; // 展示間略高於車頂；戶外壓低，讓出天空
+    const az = state.az;
     const target = new THREE.Vector3(center.x, size.y * 0.36, center.z + size.z * 0.04);
     let d = 9;
     const place = () => {
@@ -80,10 +87,15 @@ export function createCarView(canvas, opts = {}) {
         ex = Math.max(ex, Math.abs(p.x));
         ey = Math.max(ey, Math.abs(p.y));
       }
-      // 車輛偏大：水平佔 90%、垂直佔 78%（下方留給地面反射）
-      d *= Math.max(ex / 0.9, ey / 0.78);
+      // 車輛偏大：水平佔 90%、垂直佔 78%（下方留給地面反射）；戶外縮小一些，留出場景
+      d *= Math.max(ex / (stage.outdoor ? 0.78 : 0.9), ey / (stage.outdoor ? 0.6 : 0.78));
     }
     place();
+    if (stage.outdoor) { // 地平線：沿視線水平方向極遠處、高度 0 的點
+      const f = new THREE.Vector3(target.x - camera.position.x, 0, target.z - camera.position.z).normalize();
+      const h = new THREE.Vector3(camera.position.x + f.x * 5000, 0, camera.position.z + f.z * 5000).project(camera);
+      stage.setHorizon(h.y);
+    }
   }
 
   function applyHeadlights() {
@@ -101,8 +113,11 @@ export function createCarView(canvas, opts = {}) {
     car.bodyMaterials.forEach((m) => m.color.set(state.color));
   }
 
+  // 時段「自動」跟隨頁面明暗；頁面明暗另外決定畫面外圈的收斂色
   function applyDarkMode() {
-    stage.setDark(state.darkMode);
+    const night = state.time === 'auto' ? state.darkMode : state.time === 'night';
+    stage.setLook({ scene: state.scene, night, pageDark: state.darkMode });
+    fitCamera();
   }
 
   function loadModel(id) {
@@ -154,7 +169,7 @@ export function createCarView(canvas, opts = {}) {
 
   function needsFrames() {
     const target = state.compact ? 1 : 0;
-    return state.speedMps > 0 || state.compactT !== target || dirty;
+    return state.speedMps > 0 || state.compactT !== target || state.az !== VIEW_AZ[state.view] || dirty;
   }
 
   function frame(now) {
@@ -167,6 +182,13 @@ export function createCarView(canvas, opts = {}) {
       const omega = state.speedMps / WHEEL_RADIUS_M;
       for (const w of car.wheels) w.rotation.x = (w.rotation.x + omega * dt) % (Math.PI * 2);
     }
+    const azTarget = VIEW_AZ[state.view];
+    if (state.az !== azTarget) { // 視角轉換
+      const step = VIEW_SPEED * dt, diff = azTarget - state.az;
+      state.az = Math.abs(diff) <= step ? azTarget : state.az + Math.sign(diff) * step;
+      fitCamera();
+    }
+    stage.update(dt, state.speedMps);
     const target = state.compact ? 1 : 0;
     if (state.compactT !== target) {
       const step = dt * 1000 / COMPACT_MS;
@@ -222,7 +244,10 @@ export function createCarView(canvas, opts = {}) {
     },
     setColor(hex) { state.color = hex; applyColor(); kick(); },
     setHeadlights(on) { state.headlights = !!on; applyHeadlights(); kick(); },
-    setModel(id) { loadModel(id); kick(); },
+    setModel(id) { if (getModel(id).id === state.modelId) return; loadModel(id); kick(); },
+    setView(v) { if (VIEW_AZ[v] != null && v !== state.view) { state.view = v; kick(); } },
+    setScene(s) { if (['studio', 'mountain', 'city'].includes(s) && s !== state.scene) { state.scene = s; applyDarkMode(); kick(); } },
+    setTime(t) { if (['auto', 'day', 'night'].includes(t) && t !== state.time) { state.time = t; applyDarkMode(); kick(); } },
     setCompact(on) {
       state.compact = !!on;
       canvas.classList.toggle('car-compact', state.compact);
@@ -239,7 +264,7 @@ export function createCarView(canvas, opts = {}) {
     getInfo() {
       return {
         model: state.modelId, triangles: state.triangles, compact: state.compact, speedMps: state.speedMps,
-        models: MODELS.map((m) => m.id), quality: state.quality, frames, ...lastStats,
+        models: MODELS.map((m) => m.id), quality: state.quality, view: state.view, scene: state.scene, time: state.time, frames, ...lastStats,
       };
     },
     dispose() {

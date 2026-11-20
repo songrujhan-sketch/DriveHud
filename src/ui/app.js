@@ -1,6 +1,6 @@
 // DriveHUD UI 外殼：live（真實 GPS）與 sim（模擬）共用同一組元件，差別只在餵資料的來源。
 import { CONFIG, createCarView } from './deps.js';
-import { createSettingsPanel } from './settings.js';
+import { createSettingsPanel, CAR_MODELS, CAR_COLORS, CAR_VIEWS, CAR_SCENES, CAR_TIMES } from './settings.js';
 import { openGoogleMaps } from '../adapters/maps.js';
 
 export const GPS_LABEL = {
@@ -54,6 +54,14 @@ export const SHELL_HTML = `
       <div class="ap-addr" id="addr"></div>
       <div class="ap-over" id="over-label" hidden>超速</div>
     </section>
+    <div class="carbar" id="carbar" role="group" aria-label="車輛外觀">
+      <button type="button" class="cb-btn" id="cb-model">車款</button>
+      <div class="cb-swatches" id="cb-colors" role="radiogroup" aria-label="車色"></div>
+      <button type="button" class="cb-btn" id="cb-view">視角</button>
+      <button type="button" class="cb-btn" id="cb-lights" aria-pressed="false">車燈</button>
+      <button type="button" class="cb-btn" id="cb-scene">場景</button>
+      <button type="button" class="cb-btn" id="cb-time">時段</button>
+    </div>
     <div class="nearby-hint" id="nearby-hint" hidden>附近測速點</div>
     <div class="sim-badge" id="sim-badge" hidden>模擬</div>
   </div>
@@ -88,6 +96,28 @@ export function createApp({
   const panel = createSettingsPanel({ el: $('#settings-panel'), store, config });
   $('#btn-settings').addEventListener('click', () => panel.toggle());
 
+  // 外觀列：車款、車色、視角、車燈、場景、時段都在畫面下方，不遮住車子；與設定面板共用同一個 store。
+  const bar = { model: $('#cb-model'), colors: $('#cb-colors'), view: $('#cb-view'), lights: $('#cb-lights'), scene: $('#cb-scene'), time: $('#cb-time') };
+  bar.colors.innerHTML = CAR_COLORS.map((c) => `<button type="button" role="radio" class="cb-swatch" data-color="${c.hex}" aria-label="${c.name}" title="${c.name}" style="--sw:${c.hex}"></button>`).join('');
+  const nextOf = (list, id) => list[(list.findIndex((x) => x.id === id) + 1) % list.length].id;
+  const nameOf = (list, id) => (list.find((x) => x.id === id) || list[0]).name;
+  function syncBar(s) {
+    bar.model.textContent = `車款：${nameOf(CAR_MODELS, s.model)}`;
+    bar.view.textContent = `視角：${nameOf(CAR_VIEWS, s.view)}`;
+    bar.scene.textContent = `場景：${nameOf(CAR_SCENES, s.scene)}`;
+    bar.time.textContent = `時段：${nameOf(CAR_TIMES, s.time)}`;
+    bar.lights.textContent = `車燈：${s.headlights ? '開' : '關'}`;
+    bar.lights.setAttribute('aria-pressed', String(!!s.headlights));
+    bar.colors.querySelectorAll('[data-color]').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.color === s.color)));
+  }
+  bar.model.addEventListener('click', () => store.set({ model: nextOf(CAR_MODELS, store.get().model) }));
+  bar.view.addEventListener('click', () => store.set({ view: nextOf(CAR_VIEWS, store.get().view) }));
+  bar.scene.addEventListener('click', () => store.set({ scene: nextOf(CAR_SCENES, store.get().scene) }));
+  bar.time.addEventListener('click', () => store.set({ time: nextOf(CAR_TIMES, store.get().time) }));
+  bar.lights.addEventListener('click', () => store.set({ headlights: !store.get().headlights }));
+  bar.colors.addEventListener('click', (e) => { const b = e.target.closest('[data-color]'); if (b) store.set({ color: b.dataset.color }); });
+  syncBar(store.get());
+
   const dark = globalThis.matchMedia ? globalThis.matchMedia('(prefers-color-scheme: dark)') : null;
   const car = createCarView(els.canvas, { ...pick(store.get()), darkMode: !!(dark && dark.matches) });
   if (dark && dark.addEventListener) dark.addEventListener('change', (e) => car.setDarkMode(e.matches));
@@ -102,7 +132,7 @@ export function createApp({
   const renderCbs = [];
   const eventCbs = [];
 
-  function pick(s) { return { model: s.model, color: s.color, headlights: s.headlights, quality: s.lowQuality ? 'low' : 'high' }; }
+  function pick(s) { return { model: s.model, color: s.color, headlights: s.headlights, quality: s.lowQuality ? 'low' : 'high', view: s.view, scene: s.scene, time: s.time }; }
 
   function gpsKey(state) {
     if (adapterStatus === 'DENIED') return 'DENIED';
@@ -122,6 +152,7 @@ export function createApp({
     els.gpsText.textContent = GPS_LABEL[g] || g;
 
     els.speed.textContent = state.speedKmh == null ? '—' : String(Math.round(state.speedKmh));
+    els.speed.classList.toggle('empty', state.speedKmh == null);
     els.heading.textContent = headingText(state.headingDeg);
     car.setSpeedKmh(state.speedKmh || 0);
     car.setCompact(layout === 'approach');
@@ -202,6 +233,10 @@ export function createApp({
   store.subscribe((s) => {
     car.setModel(s.model); car.setColor(s.color); car.setHeadlights(s.headlights);
     if (car.setQuality) car.setQuality(s.lowQuality ? 'low' : 'high');
+    if (car.setView) car.setView(s.view);
+    if (car.setScene) car.setScene(s.scene);
+    if (car.setTime) car.setTime(s.time);
+    syncBar(s);
     render();
   });
 
