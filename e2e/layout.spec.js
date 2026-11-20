@@ -50,11 +50,11 @@ test('極簡模式（手動）優先於 approach；關閉後恢復', async ({ pa
   await expect(page.locator('#app')).toHaveClass(/layout-normal/);
 });
 
-test('設定頁：三款車、六色、車燈、提醒距離（唯讀）、#settings-data 容器、localStorage', async ({ page }, info) => {
+test('設定頁：四款車、六色、車燈、提醒距離（唯讀）、#settings-data 容器、localStorage', async ({ page }, info) => {
   const errors = await openSim(page);
   await page.locator('#btn-settings').click();
-  await expect(page.locator('#sp-models [data-model]')).toHaveText(['女武神', '黑暗騎士', '阿斯拉']);
-  await expect(page.locator('#sp-models [data-model]')).toHaveCount(3);
+  await expect(page.locator('#sp-models [data-model]')).toHaveText(['女武神', '黑暗騎士', '阿斯拉', '裝甲越野']);
+  await expect(page.locator('#sp-models [data-model]')).toHaveCount(4);
   await expect(page.locator('#sp-colors [data-color]')).toHaveCount(6);
   await expect(page.locator('#sp-radius')).toContainText('300');
   await expect(page.locator('#sp-radius')).toContainText('500');
