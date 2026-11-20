@@ -2,7 +2,9 @@
 
 狀態：已驗證／待 iPhone 實測／未完成。雲端驗證以 Chromium 模擬 iPhone 15（WebKit 下載被環境擋下），實機行為一律以 iPhone 實測為準。
 
-**未完成**：全國完整快照（目前內建僅臺中市 192 筆，請用設定頁「匯入官方 CSV」載入全國檔）；國道固定式測速資料集尚未納入。
+**內建資料**：警政署 7320 全國快照（2026-11-20 抓取，1,909 筆 → 去重後 1,901 筆，含國道 169 筆；方向未知 330 筆，其中 192 筆為未註明方位的「雙向」）。
+
+**未完成**：無（第一階段範圍內）。方向未知的點目前只顯示「附近測速點」、不語音，是否改為語音提醒待決定。
 E2E 指令：`npm run e2e`（webkit；無法安裝時 `E2E_BROWSER=chromium E2E_CHROMIUM_PATH=<chrome> npm run e2e`）。
 
 ## 規格 §1 畫面
@@ -13,9 +15,9 @@ E2E 指令：`npm run e2e`（webkit；無法安裝時 `E2E_BROWSER=chromium E2E_
 | 1-1c | 車速為畫面最大元素，tabular-nums | e2e layout.spec（字級比較） | 已驗證（Chromium iPhone 15 模擬） |
 | 1-1d | 顯示方向（N/NE/E… 加中文） | e2e 截圖 | 已驗證（Chromium iPhone 15 模擬） |
 | 1-1e | GPS 狀態列：定位中／定位正常／訊號不佳／權限遭拒／重新定位中 | e2e + 待 iPhone 實測 | 已驗證（iPhone 實測：定位正常與車速顯示）；其餘狀態切換待實測 |
-| 1-2a | 三款車模（女武神／黑暗騎士／阿斯拉）可切換 | 設定頁 e2e + src/car/demo.html 目視 | 已驗證（功能）；V1.6b 已升級為 ~3 萬三角形 + 展示廳渲染（clearcoat 車漆、反射地板、bloom）；iPhone fps 待實測，設定頁可切低畫質 |
+| 1-2a | 三款車模（女武神／黑暗騎士／阿斯拉）可切換 | 設定頁 e2e + src/car/demo.html 目視 | 已驗證（功能）；V1.6b 已升級為 ~3 萬三角形 + 展示廳渲染（clearcoat 車漆、反射地板、bloom）；iPhone 實測流暢不發熱，設定頁可切低畫質 |
 | 1-2b | 6 種車色、車燈開關 | 設定頁 e2e + 目視 | 已驗證（Chrome demo 截圖） |
-| 1-2c | 輪圈隨車速轉動、速度 0 停止 | demo.html 目視 | 已驗證（Chrome demo）；iPhone 60 fps 待 iPhone 實測 |
+| 1-2c | 輪圈隨車速轉動、速度 0 停止 | demo.html 目視 | 已驗證（Chrome demo；iPhone 實測高畫質流暢、不發熱） |
 | 1-3a | 跟隨 prefers-color-scheme（明／暗） | e2e colorScheme light/dark | 已驗證（Chromium iPhone 15 模擬） |
 | 1-3b | 極簡模式（手動）隱藏車模 | e2e layout.spec | 已驗證（Chromium iPhone 15 模擬） |
 | 1-4a | 接近時自動切 approach：車模縮小、速限＋剩餘距離放大、地址一行 | e2e 情境① | 已驗證（Chromium iPhone 15 模擬） |
@@ -56,7 +58,7 @@ E2E 指令：`npm run e2e`（webkit；無法安裝時 `E2E_BROWSER=chromium E2E_
 ## 規格 §4 資料
 | 項目 | 內容 | 驗證方式 | 狀態 |
 |---|---|---|---|
-| 4-1a | 資料來源：警政署 7320（100855 視 Fable 決定是否納入） | test/data + stats | 已驗證（僅 7320；100855 剔除） |
+| 4-1a | 資料來源：警政署 7320（100855 視 Fable 決定是否納入） | test/data + stats | 已驗證（7320 全國 1,901 筆，含國道；100855 非測速資料已剔除） |
 | 4-1b | 去重（15 m／30°）、同座標多方向不視為重複 | test/data | 已驗證（單元測試） |
 | 4-2a | 設定頁 #settings-data：來源、上次更新時間、有效筆數、速限缺漏、方向未知 | e2e（整合後） | 已驗證（Chromium 目視） |
 | 4-2b | 「更新測速資料」按鈕與結果顯示 | e2e（整合後） | 已驗證（Chromium：顯示 CORS 失敗原因並保留舊版） |

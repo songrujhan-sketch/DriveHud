@@ -2,10 +2,19 @@
   "npa7320": {
     "sourceUrl": "https://data.gov.tw/dataset/7320",
     "downloadUrl": "https://opdadm.moi.gov.tw/api/v1/no-auth/resource/api/dataset/EA5E6FCD-B82D-43B7-A5CF-E9893253187E/resource/7957B67D-2191-46CB-BD5D-63312764E1E8/download",
-    "fetchedAt": "2026-11-20T00:05:00+08:00",
-    "totalRowsAtFetch": 1910,
-    "files": { "taichungSubset": "npa7320-taichung.csv", "full": "npa7320.csv (待補)" },
-    "notes": ["第1列英文欄名、第2列中文欄名", "同座標多筆代表不同拍攝方向", "從 data.gov.tw 頁面以 fetch 取得會被 CORS 擋"]
+    "fetchedAt": "2026-11-20T12:38:00+08:00",
+    "totalRowsAtFetch": 1909,
+    "files": {
+      "full": "npa7320.csv",
+      "taichungSubset": "npa7320-taichung.csv（測試用固定樣本）"
+    },
+    "notes": [
+      "第1列英文欄名、第2列中文欄名",
+      "同座標多筆代表不同拍攝方向",
+      "從 data.gov.tw 頁面以 fetch 取得會被 CORS 擋",
+      "全國檔已含國道點位（CityName 為「國道一號」等，共 169 筆）",
+      "build-snapshot 後：保留 1,901、去重 8、方向未知 330（多為無方位的「雙向」192 筆與地名式方向）"
+    ]
   },
   "npa100855": {
     "sourceUrl": "https://data.gov.tw/dataset/100855",
