@@ -1,6 +1,6 @@
 // 阿斯拉（asurada）— 原創流線電動雙門跑車：長軸距、單弧 fastback 全景玻璃頂、
 // 前後貫穿式燈條、封閉式前臉、隱藏式門把、空力輪蓋。全部為原創幾何。
-import { bodyLoft, cabinLoft, regionHelpers, curve, smooth } from './kit.js';
+import { bodyLoft, cabinLoft, loftDoors, regionHelpers, curve, smooth } from './kit.js';
 import { makeMaterials, multiMesh, placeWheels, makeMirror, makeHeadSpot, roundBox, mesh, mirrored } from './parts.js';
 
 export const meta = { id: 'asurada', displayName: '阿斯拉', roofY: 1.3 };
@@ -36,7 +36,7 @@ export function build(THREE, { color = '#e8eaed' } = {}) {
     },
   });
   const R = regionHelpers(body);
-  group.add(multiMesh(THREE, body.geometry((q) => {
+  const bodyKey = (q) => {
     if (q.cap) return q.cap === 'end' ? 'gblack' : 'paint';
     if (q.tag === 'under' || q.tag === 'well') return 'under';
     if (R.isSide(q)) {
@@ -49,7 +49,8 @@ export function build(THREE, { color = '#e8eaed' } = {}) {
     if (R.isTop(q) && q.zr > 2.3 && q.zr < 2.41 && R.topIdx(q) >= 3 && R.topIdx(q) <= 7) return 'housing'; // 主燈座
     if (q.zr < tailZ) return 'housing';
     return 'paint';
-  }, ['paint', 'under', 'gap', 'gblack', 'housing']), M));
+  };
+  group.add(multiMesh(THREE, body.geometry(bodyKey, ['paint', 'under', 'gap', 'gblack', 'housing']), M));
 
   // ── 前後貫穿燈條（由車身曲面偏移取出，自然包覆轉角）──
   const frontBar = new THREE.Mesh(body.extract((q) => R.isTop(q) && q.zr > 2.24 && q.zr < 2.27, 0.004), M.drl);
@@ -76,7 +77,7 @@ export function build(THREE, { color = '#e8eaed' } = {}) {
     slant: (z) => -0.5 * smooth((z - 0.25) / 0.45) + 0.7 * smooth((-1.0 - z) / 0.4),
   });
   const zS0 = 0.9, zS1 = -1.42;
-  group.add(multiMesh(THREE, cab.geometry((q) => {
+  const cabKey = (q) => {
     if (q.tag === 'cabLow') return 'paint';
     if (q.tag === 'beltTrim' || q.tag === 'glass' || q.tag === 'frame') {
       if (q.zr < zS0 && q.zr > zS1) {
@@ -89,10 +90,17 @@ export function build(THREE, { color = '#e8eaed' } = {}) {
     if (q.tag === 'rail') return 'gblack';
     if (q.zr < -1.96) return 'paint';
     return 'glass'; // 前擋 → 車頂 → 後窗 一體玻璃
-  }, ['paint', 'glass', 'gblack', 'chrome']), M));
+  };
+  group.add(multiMesh(THREE, cab.geometry(cabKey, ['paint', 'glass', 'gblack', 'chrome']), M));
+  // 車門：鉸鏈在門前緣，向外平開
+  const D = loftDoors(THREE, group, M, { body, cab, bodyKey, cabKey, zF: doorF, zR: doorR, topXf: 0.86, hinge: { point: [0.93, 0.5, doorF - 0.01], axis: [0, 1, 0], angle: -1.0 } });
 
   // ── 隱藏式門把、後視鏡（小型）、尾部小鴨尾、擴散器 ──
-  mirrored(group, () => mesh(THREE, roundBox(THREE, 0.015, 0.022, 0.2, 0.008), M.chrome, [0.945, 0.69, 0.25]));
+  for (const d of D.doors) { // 隱藏式門把跟著車門
+    const h = mesh(THREE, roundBox(THREE, 0.015, 0.022, 0.2, 0.008), M.chrome, [d.sign * 0.955, 0.69, 0.25]);
+    h.position.sub(d.pivot.position);
+    d.pivot.add(h);
+  }
   mirrored(group, () => { const m = makeMirror(THREE, M, { len: 0.17, h: 0.075, w: 0.09, arm: 0.11 }); m.position.set(0.8, 0.82, 0.62); m.rotation.y = -0.1; return m; });
   group.add(mesh(THREE, roundBox(THREE, 1.5, 0.025, 0.5, 0.01), M.gblack, [0, 0.21, -2.18], [-0.22, 0, 0]));
   for (let i = -1.5; i <= 1.5; i += 1) group.add(mesh(THREE, roundBox(THREE, 0.016, 0.09, 0.45, 0.006), M.gblack, [i * 0.28, 0.24, -2.18], [-0.22, 0, 0]));
@@ -104,5 +112,5 @@ export function build(THREE, { color = '#e8eaed' } = {}) {
     { ...RW, radius: RW.r, width: RW.w, spokes: 5, spokeW: [0.075, 0.055], concave: 0.03, rimRatio: 0.74, aeroCover: true },
   ]);
 
-  return { group, wheels, bodyMaterials: [M.paint], headlights: { meshes: heads, drl: [frontBar], light }, taillights: [tailBar], meta };
+  return { group, wheels, bodyMaterials: [M.paint, D.paint], headlights: { meshes: heads, drl: [frontBar], light }, taillights: [tailBar], doors: D.doors, meta };
 }
