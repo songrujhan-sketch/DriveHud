@@ -65,12 +65,23 @@ export function toCamera(row, source = 'npa7320', config) {
 }
 
 /** 批次轉換，回傳 { cameras, dropped } */
+const PER_DIR_LIMIT = /^(東北|東南|西北|西南|東|西|南|北)向(\d+)(東北|東南|西北|西南|東|西|南|北)向(\d+)$/;
+
 export function normalizeRows(rows, source, config) {
   const cameras = [];
   let dropped = 0;
   for (const row of rows) {
-    const c = toCamera(row, source, config);
-    if (c) cameras.push(c); else dropped++;
+    // direct 內寫兩個方向各自速限（如「南向60北向70」）→ 拆成兩筆單向相機，各帶自己的速限。
+    const split = String(row.direct ?? '').replace(/\s+/g, '').match(PER_DIR_LIMIT);
+    const parts = split
+      ? [{ ...row, direct: `${split[1]}向`, limit: split[2] }, { ...row, direct: `${split[3]}向`, limit: split[4] }]
+      : [row];
+    let made = 0;
+    for (const r of parts) {
+      const c = toCamera(r, source, config);
+      if (c) { cameras.push(c); made++; }
+    }
+    if (made === 0) dropped++;
   }
   return { cameras, dropped };
 }

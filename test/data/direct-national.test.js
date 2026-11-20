@@ -34,3 +34,17 @@ for (const [raw, bearings, bidirectional, interval] of cases) {
     assert.equal(r.known, bearings.length > 0);
   });
 }
+
+test('normalizeRows：「南向60北向70」拆成兩筆單向相機，各帶自己的速限', async () => {
+  const { normalizeRows } = await import('../../src/data/normalize.js');
+  const row = { CityName: '屏東縣', RegionName: '萬丹鄉', Address: '台27線62.1K公館外環道', DeptNm: '', BranchNm: '', Longitude: '120.48206', Latitude: '22.61914', direct: '南向60北向70', limit: '60' };
+  const { cameras, dropped } = normalizeRows([row], 'npa7320', CONFIG);
+  assert.equal(dropped, 0);
+  assert.equal(cameras.length, 2);
+  const south = cameras.find((c) => c.bearings[0] === 180);
+  const north = cameras.find((c) => c.bearings[0] === 0);
+  assert.equal(south.limit, 60);
+  assert.equal(north.limit, 70);
+  assert.notEqual(south.id, north.id);
+  assert.equal(south.bidirectional, false);
+});
