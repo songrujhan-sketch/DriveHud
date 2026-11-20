@@ -12,8 +12,8 @@ E2E 指令：`npm run e2e`（webkit；無法安裝時 `E2E_BROWSER=chromium E2E_
 | 1-1b | 直向（393×852）可用 | e2e portrait 截圖 | 已驗證（Chromium iPhone 15 模擬） |
 | 1-1c | 車速為畫面最大元素，tabular-nums | e2e layout.spec（字級比較） | 已驗證（Chromium iPhone 15 模擬） |
 | 1-1d | 顯示方向（N/NE/E… 加中文） | e2e 截圖 | 已驗證（Chromium iPhone 15 模擬） |
-| 1-1e | GPS 狀態列：定位中／定位正常／訊號不佳／權限遭拒／重新定位中 | e2e + 待 iPhone 實測 | 部分已驗證（模擬）；實機狀態切換待 iPhone 實測 |
-| 1-2a | 三款車模（女武神／黑暗騎士／阿斯拉）可切換 | 設定頁 e2e + src/car/demo.html 目視 | 已驗證（Chrome demo 截圖） |
+| 1-1e | GPS 狀態列：定位中／定位正常／訊號不佳／權限遭拒／重新定位中 | e2e + 待 iPhone 實測 | 已驗證（iPhone 實測：定位正常與車速顯示）；其餘狀態切換待實測 |
+| 1-2a | 三款車模（女武神／黑暗騎士／阿斯拉）可切換 | 設定頁 e2e + src/car/demo.html 目視 | 已驗證（功能）；視覺品質使用者評為過於粗糙，V1.6b 升級中 |
 | 1-2b | 6 種車色、車燈開關 | 設定頁 e2e + 目視 | 已驗證（Chrome demo 截圖） |
 | 1-2c | 輪圈隨車速轉動、速度 0 停止 | demo.html 目視 | 已驗證（Chrome demo）；iPhone 60 fps 待 iPhone 實測 |
 | 1-3a | 跟隨 prefers-color-scheme（明／暗） | e2e colorScheme light/dark | 已驗證（Chromium iPhone 15 模擬） |
@@ -27,8 +27,8 @@ E2E 指令：`npm run e2e`（webkit；無法安裝時 `E2E_BROWSER=chromium E2E_
 ## 規格 §2 定位與系統行為
 | 項目 | 內容 | 驗證方式 | 狀態 |
 |---|---|---|---|
-| 2-1a | 「開始行車」依序 speech.unlock → wakeLock.request → geo.start | 程式審查 + 待 iPhone 實測 | 已驗證（程式審查）；實機流程待 iPhone 實測 |
-| 2-1b | 權限提示後狀態 SEARCHING→OK；拒絕→「權限遭拒」；accuracy>30 m→「訊號不佳」 | 待 iPhone 實測 | 待 iPhone 實測 |
+| 2-1a | 「開始行車」依序 speech.unlock → wakeLock.request → geo.start | 程式審查 + 待 iPhone 實測 | 已驗證（iPhone 實測：開始行車流程正常） |
+| 2-1b | 權限提示後狀態 SEARCHING→OK；拒絕→「權限遭拒」；accuracy>30 m→「訊號不佳」 | 待 iPhone 實測 | 部分已驗證（iPhone：允許定位後顯示定位正常）；拒絕／訊號不佳待實測 |
 | 2-1c | enableHighAccuracy:true、maximumAge:0 | 程式審查 | 已驗證（程式審查） |
 | 2-2a | 無效定位（accuracy 大／過期）車速顯示「—」 | e2e 情境⑤ + 單元測試 | 已驗證（Chromium iPhone 15 模擬） + 單元測試 |
 | 2-2b | 停車定位漂移不誤報、不改變 phase | e2e 情境④ | 已驗證（Chromium iPhone 15 模擬） + 單元測試 |
@@ -36,8 +36,8 @@ E2E 指令：`npm run e2e`（webkit；無法安裝時 `E2E_BROWSER=chromium E2E_
 | 2-3a | Google Maps 按鈕先顯示自製提示「離開 DriveHUD 後，測速提醒可能暫停」（非 window.confirm） | e2e／待 iPhone 實測 | 已驗證（程式審查）；待 iPhone 實測 |
 | 2-3b | 確認後開 maps.google.com/?q=lat,lon；無定位開 maps.google.com | 待 iPhone 實測 | 待 iPhone 實測 |
 | 2-3c | 返回頁面（visibilitychange）→ engine.reset()、顯示「重新定位中」，有效定位後恢復 | 待 iPhone 實測 | 待 iPhone 實測 |
-| 2-3d | Wake Lock 回前景自動重新取得；不支援時不報錯 | 待 iPhone 實測 | 待 iPhone 實測 |
-| 2-3e | 語音 zh-TW；找不到 voice 時退回預設；播放失敗顯示「語音無法播放」 | 待 iPhone 實測 | 待 iPhone 實測 |
+| 2-3d | Wake Lock 回前景自動重新取得；不支援時不報錯 | 待 iPhone 實測 | 已驗證（iPhone 實測：螢幕保持常亮）；回前景重新取得待實測 |
+| 2-3e | 語音 zh-TW；找不到 voice 時退回預設；播放失敗顯示「語音無法播放」 | 待 iPhone 實測 | 已驗證（iPhone 實測：語音有播出） |
 
 ## 規格 §3 提醒邏輯
 | 項目 | 內容 | 驗證方式 | 狀態 |
@@ -61,7 +61,7 @@ E2E 指令：`npm run e2e`（webkit；無法安裝時 `E2E_BROWSER=chromium E2E_
 | 4-2a | 設定頁 #settings-data：來源、上次更新時間、有效筆數、速限缺漏、方向未知 | e2e（整合後） | 已驗證（Chromium 目視） |
 | 4-2b | 「更新測速資料」按鈕與結果顯示 | e2e（整合後） | 已驗證（Chromium：顯示 CORS 失敗原因並保留舊版） |
 | 4-3a | 更新失敗保留舊版並顯示原因（含 CORS） | e2e + 待 iPhone 實測 | 已驗證（Chromium）；iPhone Safari 待 iPhone 實測 |
-| 4-3b | 「匯入官方 CSV」自動判斷格式並顯示筆數 | 待 iPhone 實測 | 待 iPhone 實測 |
+| 4-3b | 「匯入官方 CSV」自動判斷格式並顯示筆數 | 待 iPhone 實測 | 已驗證（iPhone 實測：匯入成功約 1,910 筆） |
 
 ## 規格 §5 模擬
 | 項目 | 內容 | 驗證方式 | 狀態 |
@@ -82,4 +82,6 @@ E2E 指令：`npm run e2e`（webkit；無法安裝時 `E2E_BROWSER=chromium E2E_
 | 6-4 | 主畫面與 sim.html 載入無 console error | e2e | 已驗證（Chromium iPhone 15 模擬） |
 
 ## 待 iPhone 實測（併自 prompts §9）
-1. 語音（zh-TW、音量、靜音鍵）。2. Wake Lock（Safari 分頁）。3. 切到 Google Maps 再返回的「重新定位中」。4. 更新（預期 CORS 失敗）與匯入 CSV。5. 橫／直向、暗色、極簡。6. 實開 §8.1 五個點。
+2026-11-20 08:50 iPhone 實測通過：定位與車速、匯入 CSV（約 1,910 筆）、語音播出、螢幕常亮。
+
+仍待實測：1. 切到 Google Maps 再返回的「重新定位中」。2. 線上更新按鈕在 Safari 的失敗訊息。3. 橫／直向、暗色、極簡於實機。4. 實開 §8.1 五個點（提醒距離、通過後恢復、停紅燈不誤報）。5. 權限拒絕／訊號不佳的狀態顯示。
