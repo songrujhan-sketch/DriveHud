@@ -71,6 +71,24 @@ test('設定頁：四款車、六色、車燈、提醒距離（唯讀）、#sett
   expect(errors).toEqual([]);
 });
 
+test('車門按鈕：只在有車門動作的車款出現，可開關，換車後收起', async ({ page }) => {
+  const errors = await openSim(page);
+  await page.evaluate(() => localStorage.removeItem('drivehud.settings.v1'));
+  await page.reload();
+  await expect(page.locator('#cb-model')).toHaveText('車款：女武神');
+  await expect(page.locator('#cb-doors')).toBeHidden();
+  await page.locator('#cb-model').click();
+  await expect(page.locator('#cb-model')).toHaveText('車款：黑暗騎士');
+  await expect(page.locator('#cb-doors')).toBeVisible();
+  await expect(page.locator('#cb-doors')).toHaveText('車門：關');
+  await page.locator('#cb-doors').click();
+  await expect(page.locator('#cb-doors')).toHaveText('車門：開');
+  await expect(page.locator('#cb-doors')).toHaveAttribute('aria-pressed', 'true');
+  await page.locator('#cb-model').click();
+  await expect(page.locator('#cb-doors')).toBeHidden();
+  expect(errors).toEqual([]);
+});
+
 test('主畫面模板可載入且無 console error（開始行車按鈕存在）', async ({ page }) => {
   const errors = [];
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
