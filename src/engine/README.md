@@ -59,6 +59,7 @@ stateDiagram-v2
 | `alert.radiusUrbanM` / `radiusExpresswayM` / `radiusUnknownM` | 依 `camera.roadClass` 決定 APPROACH_ALERT／NEARBY 的觸發距離。語音距離 = 觸發當下距離四捨五入到 50 m，1 Hz 下通常比半徑少 0–25 m。 |
 | `alert.candidateBufferM` | 進入 CANDIDATE 的額外距離；需 ≥ `approachMinFixes × 每秒行駛距離`，否則到達半徑時接近計數尚未湊滿、提醒會延後。150 m 足以支撐約 180 km/h。 |
 | `alert.sameDirMaxDeg` / `oppositeMinDeg` | heading 與最接近 bearing 的夾角分類；中間區段為 AMBIGUOUS（例如十字路口橫向道路上的相機 → NEARBY）。 |
+| `alert.bidirectionalUnknownAxisAsSame` | direct 只寫「雙向」而沒有方位的相機（全國 192 筆）是否視為同向。`true`（預設）：在前方且持續接近時發 `APPROACH_ALERT` 並可判超速；`false`：只發 `NEARBY`。地名式寫法（「往大溪方向」）不受影響，一律 AMBIGUOUS。 |
 | `alert.aheadMaxDeg` | 相機方位角與 heading 夾角上限；過小時彎道上會漏報，過大時平行道路／路旁已通過的相機可能誤報。 |
 | `alert.approachMinFixes` | 連續距離遞減筆數；越大越不怕抖動但越晚提醒。 |
 | `alert.passedMinFixes` | 連續距離遞增筆數 → PASSED；越大越晚恢復一般版面。 |

@@ -35,7 +35,7 @@ describe('方向關係分類（direct → SAME/OPPOSITE/AMBIGUOUS）', () => {
     ['南北雙向', 90, 'AMBIGUOUS'],
     ['東西雙向', 270, 'SAME'],
     ['南北雙向(區間測速)', 185, 'SAME'],
-    ['雙向', 90, 'AMBIGUOUS'],
+    ['雙向', 90, 'SAME'],          // 無方位的雙向：預設視為同向（config.alert.bidirectionalUnknownAxisAsSame）
     ['往大溪方向', 90, 'AMBIGUOUS'],
     ['', 90, 'AMBIGUOUS'],
   ];
@@ -50,9 +50,10 @@ describe('方向關係分類（direct → SAME/OPPOSITE/AMBIGUOUS）', () => {
     assert.equal(classifyRelation(c, 136, A), 'AMBIGUOUS');
     assert.equal(classifyRelation(c, 225, A), 'OPPOSITE');
   });
-  test('heading 為 null → AMBIGUOUS；bidirectional 且 bearings=[] → AMBIGUOUS', () => {
+  test('heading 為 null → AMBIGUOUS；bidirectional 且 bearings=[] → 預設 SAME，關閉旗標則 AMBIGUOUS', () => {
     assert.equal(classifyRelation(cam({ bearings: [90] }), null, A), 'AMBIGUOUS');
-    assert.equal(classifyRelation(cam({ bearings: [], bidirectional: true }), 90, A), 'AMBIGUOUS');
+    assert.equal(classifyRelation(cam({ bearings: [], bidirectional: true }), 90, A), 'SAME');
+    assert.equal(classifyRelation(cam({ bearings: [], bidirectional: true }), 90, { ...A, bidirectionalUnknownAxisAsSame: false }), 'AMBIGUOUS');
   });
   test('directSemantics=facing 時方向反轉', () => {
     const cfg = { ...CONFIG, data: { ...CONFIG.data, directSemantics: 'facing' } };

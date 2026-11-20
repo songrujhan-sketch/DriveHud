@@ -13,6 +13,7 @@ export const CONFIG = {
     cooldownM: 450,             // 通過後離開此距離才允許再次提醒
     overspeedToleranceKmh: 0,   // 超速判定容忍
     overspeedMinFixes: 3,
+    bidirectionalUnknownAxisAsSame: true, // direct 只寫「雙向」（無方位）的點：在前方且接近時照常語音
   },
   fix: {
     maxAccuracyM: 30,           // accuracy 超過視為訊號不佳

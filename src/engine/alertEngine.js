@@ -18,7 +18,11 @@ export const SCAN_RADIUS_M = 2000;
 export function classifyRelation(camera, headingDeg, alertCfg) {
   if (headingDeg == null || !Number.isFinite(headingDeg)) return 'AMBIGUOUS';
   const bearings = Array.isArray(camera.bearings) ? camera.bearings : [];
-  if (camera.directionKnown === false || bearings.length === 0) return 'AMBIGUOUS';
+  if (camera.directionKnown === false || bearings.length === 0) {
+    // 只寫「雙向」而沒有方位：兩個方向都拍，視為同向（仍須通過「相機在前方、持續接近」兩道條件）。
+    if (camera.bidirectional === true && alertCfg.bidirectionalUnknownAxisAsSame) return 'SAME';
+    return 'AMBIGUOUS';
+  }
   let best = 180;
   for (const b of bearings) best = Math.min(best, angleDiffDeg(headingDeg, b));
   if (best <= alertCfg.sameDirMaxDeg) return 'SAME';
