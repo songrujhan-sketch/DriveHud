@@ -224,7 +224,7 @@ body.sim-page { height: auto; min-height: 100%; }
 .micro{display:block;font:650 12px/1.5 Consolas,monospace;letter-spacing:2px;color:var(--muted)}
 .console-heading .micro:before{content:"";display:inline-block;width:20px;height:2px;background:var(--control);vertical-align:middle;margin-right:8px}
 .console-heading h1{margin:2px 0;font-size:clamp(26px,3.4cqw,42px);line-height:1.2;letter-spacing:-.05em}
-.console-heading .start-btn,.top-actions .start-btn{position:static;transform:none;box-shadow:none;background:var(--fg);color:var(--bg);font-family:inherit;font-weight:700;font-size:16px;padding:10px 18px;border-radius:8px}
+.console-heading .start-btn,.top-actions .start-btn{position:static;transform:none;box-shadow:none;background:var(--accent-soft);color:var(--accent);border:1px solid var(--line);font-family:inherit;font-weight:700;font-size:16px;padding:10px 18px;border-radius:8px}
 .app .frame{width:min(1240px,100%);margin:0 auto}
 .app.layout-normal .frame{overflow:auto;align-content:start;grid-template-columns:1fr 1fr;grid-template-rows:auto clamp(310px,52cqh,610px) auto auto auto;grid-template-areas:"top top" "car car" "bar bar" "speed radar" "foot foot";padding:clamp(14px,2.4cqw,32px);gap:clamp(10px,1.25cqw,18px)}
 .layout-normal .car-zone{border:1px solid var(--line);border-radius:15px;background:var(--bg);overflow:hidden}
@@ -238,9 +238,8 @@ body.sim-page { height: auto; min-height: 100%; }
 .cb-btn,.cb-swatches{height:40px;background:var(--panel);color:var(--fg)}
 .cb-btn[aria-pressed=true]{border-color:var(--control);background:var(--panel);color:var(--fg)}
 .cb-swatch{width:20px;height:20px}
-.layout-normal .speed-zone,.radar-idle,.shortcuts{border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:clamp(16px,2cqw,28px);align-items:flex-start;text-align:left}
-.meter-label{font-size:14px;font-weight:650;color:var(--fg);display:flex;align-items:center;gap:7px}
-.meter-label:before{content:"";display:block;width:4px;height:12px;border-radius:2px;background:var(--control)}
+.layout-normal .speed-zone,.radar-idle{padding:clamp(16px,2cqw,28px);align-items:flex-start;text-align:left}
+.meter-label{font-size:14px;font-weight:650;color:var(--muted);line-height:1.4}
 .speed-line{display:flex;gap:.55em;align-items:baseline}
 .speed-unit{font:14px Consolas,monospace;color:var(--muted)}
 .layout-normal .speed{font-size:clamp(56px,7cqw,84px);line-height:1.1}
@@ -248,9 +247,7 @@ body.sim-page { height: auto; min-height: 100%; }
 .gps{font-size:14px;background:transparent;border:0;padding:0;color:var(--muted)}
 .gps .dot{width:6px;height:6px}
 .radar-idle{grid-area:radar;display:flex;flex-direction:column;gap:8px;position:relative;overflow:hidden}
-.radar-idle:after{content:"";position:absolute;inset:-20px -60px auto auto;width:150px;height:150px;border-radius:50%;background:repeating-radial-gradient(circle,transparent 0 18px,#80aa9029 19px 20px);pointer-events:none}
 .radar-idle strong{font-size:clamp(18px,2vw,26px)}
-.radar-idle .meter-label:before{background:#6bb798}
 #radar-detail{color:var(--muted);font-size:14px}
 .shortcuts{grid-area:shortcuts;display:grid;gap:6px}
 .console-foot button,.console-foot a{color:inherit;background:none;border:0;cursor:pointer;font:inherit;text-align:left}
@@ -277,12 +274,28 @@ body.sim-page { height: auto; min-height: 100%; }
 .layout-normal #nav-maps{display:none}
 @container app (orientation:landscape) and (max-height:520px){.layout-normal #nav-maps{display:inline-block}}
 
-.meter-label:before{display:none}.radar-idle:after{opacity:.5}.layout-normal .car-zone{border-radius:12px}.topbar .top-actions{align-items:center}.layout-normal .speed-zone,.radar-idle{justify-content:center}.topbar .start-btn{min-height:40px}
+.layout-normal .car-zone{border-radius:12px}.topbar .top-actions{align-items:center}.layout-normal .speed-zone,.radar-idle{justify-content:flex-start}.topbar .start-btn{min-height:40px}
 
 .appearance { grid-area: bar; min-width: 0; border-block: 1px solid var(--line); }
-.appearance summary { cursor: pointer; padding: 12px 4px; font-weight: 650; }
+.appearance summary, .garage-controls #cb-model { font-size: 1rem; font-weight: 650; color: var(--fg); }
+.appearance summary { cursor: pointer; min-height: 44px; padding: 11px 4px; }
 .appearance summary span { margin-inline-start: 12px; color: var(--muted); font-size: 0.85em; font-weight: 400; }
-.appearance .carbar { padding: 2px 0 12px; }
+.appearance .carbar {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0,1fr));
+  grid-template-areas: "colors colors" "scene time" "lights doors" "jet .";
+  grid-auto-rows: auto;
+  gap: 6px;
+  padding: 2px 0 12px;
+}
+#cb-colors { grid-area: colors; }
+#cb-scene { grid-area: scene; }
+#cb-time { grid-area: time; }
+#cb-lights { grid-area: lights; }
+#cb-doors { grid-area: doors; }
+#cb-jet { grid-area: jet; }
+.appearance .cb-btn { height: 42px; padding: 2px 4px; line-height: 1.25; }
+.appearance .cb-btn[hidden] { display: block !important; visibility: hidden; }
 .appearance .cb-swatches { max-width: 100%; height: auto; min-height: 40px; flex-wrap: wrap; }
 .app:not(.layout-normal) .appearance { display: none; }
 .sd-source { align-self: center; color: var(--fg); padding: 8px; }
@@ -295,8 +308,7 @@ button.car-zone { display: block; padding: 0; border: 0; background: transparent
 
 .garage-controls #cb-model {
   width: 7.5rem; height: 44px; padding: 0 12px;
-  display: inline-flex; justify-content: space-between; align-items: center;
-  background: var(--fg); color: var(--bg); border: 1px solid var(--fg);
-  font-size: 1rem; font-weight: 750; letter-spacing: .04em;
+  display: inline-flex; align-items: center; gap: 7px;
+  background: transparent; border-color: var(--line);
 }
-#cb-model::after { content: '›'; font-size: 1.3rem; }
+#cb-model::before { content: ''; width: 0; height: 0; border-block: .26em solid transparent; border-inline-start: .36em solid currentColor; }

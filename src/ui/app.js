@@ -61,7 +61,7 @@ export const SHELL_HTML = `
       <div class="cb-swatches" id="cb-colors" role="radiogroup" aria-label="車色"></div>
       <button type="button" class="cb-btn" id="cb-lights" aria-pressed="false">車燈</button>
       <button type="button" class="cb-btn" id="cb-doors" aria-pressed="false" hidden>車門</button>
-      <button type="button" class="cb-btn" id="cb-jet" hidden>停車噴射預覽</button>
+      <button type="button" class="cb-btn" id="cb-jet" title="停車時預覽噴焰" hidden>噴射</button>
       <button type="button" class="cb-btn" id="cb-scene">場景</button>
       <button type="button" class="cb-btn" id="cb-time">時段</button>
     </div>
