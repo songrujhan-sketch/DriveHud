@@ -1,6 +1,6 @@
 import { mesh } from './parts.js';
 
-export function makePilot(T, M, {x=.40, grip=.14, handY=1.12, handZ=.32, footY=.94, footZ=.09}={}) {
+export function makePilot(T, M, {x=.40, grip=.14, handY=1.12, handZ=.32, footY=.94, footZ=.09, motorcycle=false}={}) {
   const pilot=new T.Group();
   const suit = new T.MeshStandardMaterial({color:0xe4e9e7,metalness:.35,roughness:.32});
   const visor = new T.MeshPhysicalMaterial({color:0x164655,metalness:.65,roughness:.12,clearcoat:1});
@@ -31,7 +31,21 @@ export function makePilot(T, M, {x=.40, grip=.14, handY=1.12, handZ=.32, footY=.
     ball(M.darkChrome,elbow,[.061,.061,.061]);
     rod(elbow,hand,.051,suit);
     ball(M.trim,hand,[.055,.051,.06]);
-    rod([x+s*.09,.95,-.50],[x+s*.11,footY,footZ],.082,M.trim);
+    if (motorcycle) {
+      const hip=[x+s*.16,.98,-.56];
+      const knee=[x+s*.385,.83,-.14];
+      const ankle=[x+s*.31,footY,footZ];
+      ball(M.darkChrome,hip,[.083,.083,.083]);
+      rod(hip,knee,.082,suit);
+      ball(M.trim,knee,[.085,.087,.088]);
+      ball(suit,[knee[0],knee[1]+.012,knee[2]+.054],[.072,.070,.038]);
+      rod(knee,ankle,.061,M.darkChrome);
+      rod([knee[0],.77,-.19],[ankle[0],footY+.065,footZ+.036],.048,suit);
+      ball(M.trim,ankle,[.058,.06,.058]);
+      ball(M.trim,[ankle[0],footY-.032,footZ+.054],[.073,.049,.129]);
+    } else {
+      rod([x+s*.09,.95,-.50],[x+s*.11,footY,footZ],.082,M.trim);
+    }
     ball(M.darkChrome,[x+s*.15,1.50,-.52],[.029,.064,.064]);
   }
   return pilot;

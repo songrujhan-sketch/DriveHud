@@ -57,10 +57,10 @@ test('設定頁只留極簡、低畫質、提醒距離與資料；車款、車�
   await expect(page.locator('#cb-model')).toBeVisible();
   await expect(page.locator('#cb-colors')).toBeHidden();
   await page.locator('.appearance summary').click();
-  await expect(page.locator('#cb-colors [data-color]')).toHaveCount(15);
+  await expect(page.locator('#cb-colors [data-color]')).toHaveCount(16);
   await page.locator('#cb-model').click();
   await expect(page.locator('#cb-model')).toHaveText('黑騎士');
-  await page.locator('#cb-colors [data-color]').nth(6).click();
+  await page.getByRole('radio', {name:'曜黑',exact:true}).click();
   await page.locator('#cb-lights').click();
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('drivehud.settings.v1')));
   expect(saved).toMatchObject({ model: 'darkknight', color: '#15171a', headlights: true });

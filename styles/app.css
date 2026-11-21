@@ -293,7 +293,10 @@ body.sim-page { height: auto; min-height: 100%; }
 #cb-jet { grid-area: jet; }
 .appearance .cb-btn { height: 42px; padding: 2px 4px; line-height: 1.25; }
 .appearance .cb-btn[hidden] { display: block !important; visibility: hidden; }
-.appearance .cb-swatches { max-width: 100%; height: auto; min-height: 40px; flex-wrap: wrap; }
+.appearance .cb-swatches {
+  display: grid; grid-template-columns: repeat(8, minmax(0,1fr));
+  justify-items: center; height: auto; min-height: 40px; padding-block: 9px;
+}
 .app:not(.layout-normal) .appearance { display: none; }
 .sd-source { align-self: center; color: var(--fg); padding: 8px; }
 

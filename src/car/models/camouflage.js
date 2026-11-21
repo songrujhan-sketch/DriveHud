@@ -1,4 +1,5 @@
 export const CAMOUFLAGE = {
+  '#657174': ['#273238','#4e5c58','#aeb6b0'],
   '#68734c': ['#353f33','#536346','#a8a17a'],
   '#b39a75': ['#7d6349','#a28360','#dfc9a2'],
 };
@@ -13,6 +14,9 @@ export function applyCamouflage(THREE, material, palette) {
       vCamoPosition=(modelMatrix*vec4(transformed,1.0)).xyz;
       #include <project_vertex>
     `);
+    const coordinates = palette === CAMOUFLAGE['#657174']
+      ? '(floor(vCamoPosition * 19.0) + .5) / 19.0'
+      : 'vCamoPosition';
     shader.fragmentShader = `
       varying vec3 vCamoPosition;
       uniform vec3 camo0,camo1,camo2;
@@ -29,7 +33,7 @@ export function applyCamouflage(THREE, material, palette) {
       }
     ` + shader.fragmentShader.replace('#include <color_fragment>', `
       #include <color_fragment>
-      float patternValue = .76*camoNoise(vCamoPosition*4.0)+.24*camoNoise(vCamoPosition*10.0);
+      float patternValue = .76*camoNoise(${coordinates}*4.0)+.24*camoNoise(${coordinates}*10.0);
       diffuseColor.rgb=mix(diffuseColor.rgb,camo0,smoothstep(.54,.56,patternValue));
       diffuseColor.rgb=mix(diffuseColor.rgb,camo1,1.0-smoothstep(.36,.38,patternValue));
       diffuseColor.rgb=mix(diffuseColor.rgb,camo2,smoothstep(.66,.68,patternValue));
