@@ -112,6 +112,39 @@ test('車門按鈕：九款車都能開關車門，換車後自動關上', async
   expect(errors).toEqual([]);
 });
 
+test('窄視窗展開外觀時，速度數值、單位、GPS 與雷達內容仍完整可見', async ({ page }, info) => {
+  await page.setViewportSize(info.project.name === 'portrait'
+    ? {width: 393, height: 620}
+    : {width: 852, height: 310});
+  await page.goto('/');
+  await expect(page.locator('#gps-status')).toContainText('GPS 待命');
+
+  await page.waitForFunction(() => window.__drivehud?.app.car.getInfo().frames > 0);
+  const readouts = ['#speed-value', '.speed-unit', '#gps-status', '#radar-state', '#radar-detail'];
+  const positions = () => page.locator('.frame').evaluate((frame, selectors) => {
+    const viewport = frame.getBoundingClientRect();
+    return selectors.map(selector => {
+      const el = frame.querySelector(selector);
+      const rect = el.getBoundingClientRect();
+      const hit = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
+      return { top: rect.top, bottom: rect.bottom, visible: viewport.top <= rect.top &&
+        viewport.bottom >= rect.bottom && el.contains(hit) };
+    });
+  }, readouts);
+
+  const before = await positions();
+  await page.locator('.appearance summary').click();
+  await expect(page.locator('#cb-colors')).toBeVisible();
+  const after = await positions();
+  const menu = await page.locator('.appearance').boundingBox();
+
+  for (const [index, rect] of after.entries()) {
+    expect(rect.visible, readouts[index]).toBe(true);
+    expect(rect.bottom, readouts[index]).toBeLessThanOrEqual(menu.y);
+    expect(Math.abs(rect.top - before[index].top), readouts[index]).toBeLessThanOrEqual(2);
+  }
+});
+
 test('主畫面模板可載入且無 console error（開始行車按鈕存在）', async ({ page }) => {
   const errors = [];
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
