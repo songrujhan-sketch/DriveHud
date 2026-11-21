@@ -44,11 +44,11 @@ export function createCarView(canvas, opts = {}) {
     compact: !!opts.compact,
     quality: opts.quality === 'low' ? 'low' : 'high',
     view: VIEW_AZ[opts.view] != null ? opts.view : 'front',
-    scene: ['studio', 'mountain', 'city'].includes(opts.scene) ? opts.scene : 'studio',
+    scene: ['studio', 'mountain', 'city', 'track', 'coast'].includes(opts.scene) ? opts.scene : 'studio',
     time: ['auto', 'day', 'night'].includes(opts.time) ? opts.time : 'auto',
     az: VIEW_AZ[opts.view] != null ? VIEW_AZ[opts.view] : VIEW_AZ.front,
     el: VIEW_EL[opts.view] || 0,
-    speedMps: 0,
+    speedMps: 0, turn: 0, turnTarget: 0,
     doorsOpen: false,
     doorT: 0, // 0 = 關，1 = 全開
     fx: false, // 車模自己的動畫（例如噴焰）還沒結束
@@ -195,7 +195,7 @@ export function createCarView(canvas, opts = {}) {
 
   function needsFrames() {
     const target = state.compact ? 1 : 0;
-    return state.speedMps > 0 || state.fx || state.compactT !== target || state.az !== VIEW_AZ[state.view] || state.el !== (VIEW_EL[state.view] || 0) || state.doorT !== (state.doorsOpen ? 1 : 0) || dirty;
+    return state.turn !== state.turnTarget || state.speedMps > 0 || state.fx || state.compactT !== target || state.az !== VIEW_AZ[state.view] || state.el !== (VIEW_EL[state.view] || 0) || state.doorT !== (state.doorsOpen ? 1 : 0) || dirty;
   }
 
   function frame(now) {
@@ -208,6 +208,12 @@ export function createCarView(canvas, opts = {}) {
       const omega = state.speedMps / WHEEL_RADIUS_M;
       for (const w of car.wheels) w.rotation.x = (w.rotation.x + omega * dt) % (Math.PI * 2);
     }
+    state.turn = THREE.MathUtils.damp(state.turn,state.turnTarget,6,dt);
+    if (Math.abs(state.turn-state.turnTarget)<.001) state.turn=state.turnTarget;
+    for (const w of car.wheels) if(w.position.z>0) {
+      w.rotation.order='YXZ'; w.rotation.y=state.turn;
+    }
+    car.group.rotation.y=state.turn*.20;
     const azTarget = VIEW_AZ[state.view], elTarget = VIEW_EL[state.view] || 0;
     if (state.az !== azTarget || state.el !== elTarget) { // 視角轉換
       const step = VIEW_SPEED * dt, diff = azTarget - state.az;
@@ -272,6 +278,7 @@ export function createCarView(canvas, opts = {}) {
   kick();
 
   return {
+    setTurn(angle) { state.turnTarget=angle; kick(); },
     setSpeedKmh(v) {
       const k = Number(v);
       state.speedMps = Number.isFinite(k) && k > 0 ? k / 3.6 : 0;
@@ -291,7 +298,7 @@ export function createCarView(canvas, opts = {}) {
       return state.doorsOpen;
     },
     setView(v) { if (VIEW_AZ[v] != null && v !== state.view) { state.view = v; kick(); } },
-    setScene(s) { if (['studio', 'mountain', 'city'].includes(s) && s !== state.scene) { state.scene = s; applyDarkMode(); kick(); } },
+    setScene(s) { if (['studio', 'mountain', 'city', 'track', 'coast'].includes(s) && s !== state.scene) { state.scene = s; applyDarkMode(); kick(); } },
     setTime(t) { if (['auto', 'day', 'night'].includes(t) && t !== state.time) { state.time = t; applyDarkMode(); kick(); } },
     setCompact(on) {
       state.compact = !!on;
@@ -309,7 +316,7 @@ export function createCarView(canvas, opts = {}) {
     getInfo() {
       return {
         model: state.modelId, triangles: state.triangles, compact: state.compact, speedMps: state.speedMps,
-        models: MODELS.map((m) => m.id), quality: state.quality, view: state.view, scene: state.scene, time: state.time, frames, ...lastStats,
+        steeringRad: state.turn, models: MODELS.map((m) => m.id), quality: state.quality, view: state.view, scene: state.scene, time: state.time, frames, ...lastStats,
       };
     },
     dispose() {

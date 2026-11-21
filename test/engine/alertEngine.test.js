@@ -137,6 +137,17 @@ describe('停車', () => {
 });
 
 describe('提醒與超速', () => {
+  for (const [roadClass, radius] of [['urban', 200], ['expressway', 300], ['unknown', 300]]) {
+    test(`${roadClass}：首次進入 ${radius} m 時提醒`, () => {
+      const { engine, clock } = makeEngine([cam({ roadClass })]);
+      const fixes = line({ startBeforeM: radius + 55, mps: 10, n: 8 });
+      const { events } = run(engine, clock, fixes);
+      const alerts = events.filter(event => event.type === 'APPROACH_ALERT');
+      assert.equal(alerts.length, 1);
+      assert.equal(alerts[0].index, 6); // 前一筆在半徑外 5 m，這一筆在半徑內 5 m。
+    });
+  }
+
   test('同向通過：APPROACH_ALERT 與 PASSED 各一次，speechText 正確，通過後 focus=null', () => {
     const c = cam();
     const { engine, clock } = makeEngine([c]);
@@ -144,7 +155,7 @@ describe('提醒與超速', () => {
     assert.deepEqual(alertTypes(events), ['FIX_VALID', 'APPROACH_ALERT', 'PASSED']);
     const a = events.find((e) => e.type === 'APPROACH_ALERT');
     assert.ok(a.distanceM <= A.radiusUrbanM);
-    assert.equal(a.speechText, '前方一百公尺有測速照相，速限五十');
+    assert.equal(a.speechText, '前方兩百公尺有測速照相，速限五十');
     assert.equal(a.camera.id, c.id);
     assert.equal(states.at(-1).focus, null);
   });
@@ -262,7 +273,7 @@ describe('定位有效性', () => {
     const c = cam();
     const { engine, clock } = makeEngine([c]);
     const fixes = line({ n: 90, mps: 13 });
-    const r1 = run(engine, clock, fixes.slice(0, 42)); // 第 39 筆進入 100 m，第 47 筆通過
+    const r1 = run(engine, clock, fixes.slice(0, 42)); // 此段已進入提醒範圍，尚未通過相機
     assert.deepEqual(alertTypes(r1.events), ['FIX_VALID', 'APPROACH_ALERT']);
     engine.reset();
     assert.equal(engine.getState().gps, 'SEARCHING');

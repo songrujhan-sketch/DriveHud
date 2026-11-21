@@ -20,7 +20,7 @@ E2E 指令：`npm run e2e`（webkit；無法安裝時 `E2E_BROWSER=chromium E2E_
 | 1-2f | 四款車都能開關車門：女武神蝶翼門、黑騎士鷗翼門、阿斯拉與豹勇士前門外開；有車速時自動關上 | e2e layout.spec（車門按鈕）+ Chromium 截圖 | 已驗證（Chromium）；iPhone 待實測 |
 | 1-2g | 視角五種（前 45°／正面／後 45°／正後方／上方）；展示間改為有牆面燈條與天花燈板的長廳、白天灰色底；行駛時展示間與戶外場景的背景向車尾流動；黑騎士行駛時噴口噴焰 | 單元測試（設定儲存）+ Chromium 截圖 | 已驗證（Chromium）；iPhone 上的流暢度待 iPhone 實測 |
 | 1-2h | 女武神、阿斯拉開門後看得到內裝（座椅、儀表台、方向盤）；車門在車速 5 km/h 以上鎖定並在按鈕上標示 | e2e layout.spec + Chromium 截圖 | 已驗證（Chromium） |
-| 3-0 | 提醒距離改為市區 100 m、快速道路 200 m、道路類型未知 200 m（原 300／500／300）；五條模擬情境已依新距離重新產生 | 單元測試 + 情境 e2e | 已驗證（Node、Chromium）；65 km/h 時超速語音約在相機前 50 m 才開始，實際路上是否來得及需 iPhone 實測 |
+| 3-0 | 提醒距離改為市區 200 m、快速道路 300 m、道路類型未知 300 m；五條模擬情境已依新距離重新產生 | 單元測試 + 情境 e2e | Node 模擬驗證；實際道路上的語音時間仍需 iPhone 實測 |
 | 1-2b | 7 種車色（含曜黑）、車燈開關 | 設定頁 e2e + 目視 | 已驗證（Chrome demo 截圖） |
 | 1-2d | 外觀列（畫面下方，不遮住車子）：車款、車色、視角（前 45°／後 45°／正後方）、車燈、場景（展示間／山路／城市）、時段（自動／白天／夜晚） | 單元測試（設定儲存）+ Chromium 截圖 | 已驗證（Chromium）；iPhone 上戶外場景的流暢度待 iPhone 實測 |
 | 1-2c | 輪圈隨車速轉動、速度 0 停止 | demo.html 目視 | 已驗證（Chrome demo；iPhone 實測高畫質流暢、不發熱） |
@@ -41,8 +41,6 @@ E2E 指令：`npm run e2e`（webkit；無法安裝時 `E2E_BROWSER=chromium E2E_
 | 2-2a | 無效定位（accuracy 大／過期）車速顯示「—」 | e2e 情境⑤ + 單元測試 | 已驗證（Chromium iPhone 15 模擬） + 單元測試 |
 | 2-2b | 停車定位漂移不誤報、不改變 phase | e2e 情境④ | 已驗證（Chromium iPhone 15 模擬） + 單元測試 |
 | 2-2c | 每秒呼叫 engine.tick() 以偵測過期 | 程式審查 | 已驗證（程式審查） |
-| 2-3a | Google Maps 按鈕先顯示自製提示「離開 DriveHUD 後，測速提醒可能暫停」（非 window.confirm） | e2e／待 iPhone 實測 | 已驗證（程式審查）；待 iPhone 實測 |
-| 2-3b | 確認後開 maps.google.com/?q=lat,lon；無定位開 maps.google.com | 待 iPhone 實測 | 待 iPhone 實測 |
 | 2-3c | 返回頁面（visibilitychange）→ engine.reset()、顯示「重新定位中」，有效定位後恢復 | 待 iPhone 實測 | 待 iPhone 實測 |
 | 2-3d | Wake Lock 回前景自動重新取得；不支援時不報錯 | 待 iPhone 實測 | 已驗證（iPhone 實測：螢幕保持常亮）；回前景重新取得待實測 |
 | 2-3e | 語音 zh-TW；找不到 voice 時退回預設；播放失敗顯示「語音無法播放」 | 待 iPhone 實測 | 已驗證（iPhone 實測：語音有播出） |
@@ -56,7 +54,7 @@ E2E 指令：`npm run e2e`（webkit；無法安裝時 `E2E_BROWSER=chromium E2E_
 | 3-2b | 反向相機略過，不語音、不進 approach | e2e 情境② | 已驗證（Chromium iPhone 15 模擬） |
 | 3-2c | 方向不明顯示小提示「附近測速點」 | e2e 情境③ | 已驗證（Chromium iPhone 15 模擬） |
 | 3-2d | 只播 APPROACH_ALERT / OVERSPEED_ALERT 的 speechText | e2e 語音記錄 | 已驗證（Chromium iPhone 15 模擬） |
-| 3-3a | 市區 100 m／快速道路 200 m／未知 200 m 由 config 集中設定 | config.js + 設定頁顯示 e2e | 已驗證（Chromium iPhone 15 模擬） |
+| 3-3a | 市區 200 m／快速道路 300 m／未知 300 m 由 config 集中設定 | config.js + 設定頁顯示 e2e | Node 規則已驗證，設定頁已更新驗收條件 |
 | 3-4a | 超速：approach 區塊整塊紅底、語音一次 | e2e 情境① | 已驗證（Chromium iPhone 15 模擬） |
 | 3-4b | 速限缺漏顯示「速限未知」且不判超速 | 單元測試 + 目視 | 已驗證（單元測試） |
 | 3-4c | 實際開過 §8.1 五個點的提醒距離、通過後恢復、停紅燈不誤報 | 待 iPhone 實測 | 待 iPhone 實測 |
@@ -92,4 +90,4 @@ E2E 指令：`npm run e2e`（webkit；無法安裝時 `E2E_BROWSER=chromium E2E_
 ## 待 iPhone 實測（併自 prompts §9）
 2026-11-20 08:50 iPhone 實測通過：定位與車速、匯入 CSV（約 1,910 筆）、語音播出、螢幕常亮。
 
-仍待實測：1. 切到 Google Maps 再返回的「重新定位中」。2. 線上更新按鈕在 Safari 的失敗訊息。3. 橫／直向、暗色、極簡於實機。4. 實開 §8.1 五個點（提醒距離、通過後恢復、停紅燈不誤報）。5. 權限拒絕／訊號不佳的狀態顯示。
+仍待實測：1. 切到其他 App 再返回的「重新定位中」。2. 線上更新按鈕在 Safari 的失敗訊息。3. 橫／直向、暗色、極簡於實機。4. 實開 §8.1 五個點（提醒距離、通過後恢復、停紅燈不誤報）。5. 權限拒絕／訊號不佳的狀態顯示。

@@ -1,7 +1,7 @@
 {
  "id": "03-parallel-unknown-dir",
  "title": "平行道路（相機方向未知）",
- "expectation": "相機同福科路617號但方向設為未知（directionKnown=false）。車輛沿福科路北側 40 m 的平行道路由西往東以 50 km/h 行駛：只在 100 m 內出現一次「附近測速點」提示（NEARBY），不播接近語音、不切換接近版面。",
+ "expectation": "相機同福科路617號但方向設為未知（directionKnown=false）。車輛沿福科路北側 40 m 的平行道路由西往東以 50 km/h 行駛：只在 200 m 內出現一次「附近測速點」提示（NEARBY），不播接近語音、不切換接近版面。",
  "cameras": [
   {
    "id": "npa7320|24.186693|120.612840|na",

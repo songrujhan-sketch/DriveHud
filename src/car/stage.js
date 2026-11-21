@@ -61,9 +61,16 @@ const THEMES = {
     bloom: { strength: 0.5, radius: 0.5, threshold: 1.0 }, shadow: 0.9,
   },
 };
+// Each exterior has its own sky, ambient intensity and road-reflection balance.
+Object.assign(THEMES, {
+  'track-day': {...THEMES['city-day'],top:'#4a80ad',horizon:'#d4d8cb',glow:'#d5d4bd',floor:'#444749',floorSpot:'#515254',refl:.18},
+  'track-night': {...THEMES['city-night'],top:'#121a2b',horizon:'#566171',glow:'#64666a',floor:'#252930',floorSpot:'#404248',refl:.29,envKind:'outdoor-night'},
+  'coast-day': {...THEMES['mountain-day'],top:'#3587b2',horizon:'#d4e3da',glow:'#ffecd0',bottom:'#83a69e',floor:'#4a4e50',floorSpot:'#535557',refl:.18},
+  'coast-night': {...THEMES['mountain-night'],top:'#081429',horizon:'#52617a',glow:'#82747d',bottom:'#223e4a',floor:'#25282e',floorSpot:'#34383e',refl:.30}
+});
 const PAGE_EDGE = { dark: '#101313', light: '#edf0ec' }; // 與 styles/app.css 的 --bg 一致
 function themeFor(scene, night) {
-  if (scene === 'mountain' || scene === 'city') return THEMES[`${scene}-${night ? 'night' : 'day'}`];
+  if (scene !== 'studio' && THEMES[`${scene}-day`]) return THEMES[`${scene}-${night ? 'night' : 'day'}`];
   return night ? THEMES.dark : THEMES.light;
 }
 
@@ -158,6 +165,7 @@ function makeBackdrop() {
   const mat = new THREE.ShaderMaterial({
     uniforms: {
       uTop: { value: new THREE.Color() }, uHorizon: { value: new THREE.Color() }, uBottom: { value: new THREE.Color() },
+      uOutdoor: {value:0}, uNight: {value:0}, uCameraWorld:{value:new THREE.Matrix4()}, uInverseProjection:{value:new THREE.Matrix4()},
       uGlow: { value: new THREE.Color() }, uEdge: { value: new THREE.Color() }, uHorizonY: { value: 0.05 },
     },
     vertexShader: /* glsl */`
@@ -165,7 +173,13 @@ function makeBackdrop() {
       void main() { vNdc = position.xy; gl_Position = vec4(position.xy, 0.9999, 1.0); }
     `,
     fragmentShader: /* glsl */`
-      uniform vec3 uTop, uHorizon, uBottom, uGlow, uEdge; uniform float uHorizonY;
+      uniform vec3 uTop, uHorizon, uBottom, uGlow, uEdge; uniform float uHorizonY,uOutdoor,uNight;
+      uniform mat4 uCameraWorld,uInverseProjection;
+      float skyHash(vec2 p){return fract(sin(dot(p,vec2(75.1,98.3)))*43758.5453);}
+      float skyNoise(vec2 p){
+        vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
+        return mix(mix(skyHash(i),skyHash(i+vec2(1,0)),f.x),mix(skyHash(i+vec2(0,1)),skyHash(i+1.),f.x),f.y);
+      }
       varying vec2 vNdc;
       ${EDGE_GLSL}
       void main() {
@@ -173,6 +187,21 @@ function makeBackdrop() {
         vec3 c = y > uHorizonY ? mix(uHorizon, uTop, smoothstep(uHorizonY, 1.0, y)) : mix(uHorizon, uBottom, smoothstep(uHorizonY, -1.0, y));
         float g = exp(-pow(length(vec2(vNdc.x * 0.8, (y - 0.15) * 1.4)), 2.0) * 1.6);
         c = mix(c, uGlow, g * 0.55);
+        if(uOutdoor>.5){
+          vec4 p=uInverseProjection*vec4(vNdc,1.,1.);
+          vec3 ray=normalize((uCameraWorld*vec4(normalize(p.xyz/p.w),0.)).xyz);
+          float height=max(ray.y,0.);
+          vec2 sky=ray.xz/max(height+.16,.16)*2.1;
+          float cloud=.56*skyNoise(sky)+.27*skyNoise(sky*2.3)+.13*skyNoise(sky*5.1)+.04*skyNoise(sky*11.3);
+          float cover=smoothstep(.53,.73,cloud)*smoothstep(.012,.145,height);
+          c=mix(c,mix(vec3(.91,.94,.93),vec3(.075,.084,.11),uNight),cover*mix(.72,.41,uNight));
+          vec3 lightDir=normalize(mix(vec3(-.65,.28,-.93),vec3(.43,.35,-.88),uNight));
+          float angle=max(0.,1.-dot(ray,lightDir));
+          float halo=exp(-angle*51.);
+          float disc=1.-smoothstep(.00010,.00022,angle);
+          c+=mix(vec3(.43,.26,.13),vec3(.07,.095,.16),uNight)*halo;
+          c=mix(c,mix(vec3(2.6,2.1,1.5),vec3(.86,.92,1.05),uNight),disc*(1.-cover*.84));
+        }
         // 外圈逐漸收斂到頁面底色，再淡出成透明，嵌入任何版面都不會有框線
         vec2 q2 = smoothstep(vec2(1.0), vec2(0.55), abs(vNdc));
         c = mix(uEdge, c, q2.x * q2.y);
@@ -532,6 +561,8 @@ export function createStage(renderer, { quality = 'high' } = {}) {
     const t = theme;
     const ex = renderer.toneMappingExposure;
     const u = backdrop.material.uniforms;
+    u.uOutdoor.value = look.scene === 'studio' ? 0 : 1;
+    u.uNight.value = look.night ? 1 : 0;
     u.uTop.value.copy(displayColor(t.top, ex));
     u.uHorizon.value.copy(displayColor(t.horizon, ex));
     u.uBottom.value.copy(displayColor(t.bottom, ex));
@@ -623,6 +654,8 @@ export function createStage(renderer, { quality = 'high' } = {}) {
     setSize,
     /** viewport：CSS 像素（原點左下）；畫面上其餘部分保持透明。 */
     render(vp) {
+      backdrop.material.uniforms.uCameraWorld.value.copy(camera.matrixWorld);
+      backdrop.material.uniforms.uInverseProjection.value.copy(camera.projectionMatrixInverse);
       renderer.setRenderTarget(null);
       renderer.setScissorTest(false);
       renderer.setViewport(0, 0, size.w, size.h);

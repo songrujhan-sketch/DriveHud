@@ -33,6 +33,8 @@ export const CAR_SCENES = [
   { id: 'studio', name: '展示間' },
   { id: 'mountain', name: '山路' },
   { id: 'city', name: '城市' },
+  { id: 'track', name: '賽車場' },
+  { id: 'coast', name: '海邊' },
 ];
 export const CAR_TIMES = [
   { id: 'auto', name: '自動' }, // 跟隨系統明暗模式
@@ -81,6 +83,9 @@ export function createSettingsPanel({ el, store, config = CONFIG }) {
     <div class="sp-head"><h2>設定</h2><button type="button" class="dh-btn" id="sp-close">關閉</button></div>
     <div class="sp-body">
       <section class="sp-switches">
+        <label class="sp-switch"><input type="checkbox" id="sp-music"><span>背景音樂</span></label>
+        <label>音量 <input id="sp-volume" type="range" min="0" max="1" step="0.05" value="0.35"></label>
+        <small role="status" id="music-status"></small>
         <label class="sp-switch"><input type="checkbox" id="sp-minimal"><span>極簡模式（隱藏車模）</span></label>
         <label class="sp-switch"><input type="checkbox" id="sp-lowq"><span>車模低畫質（卡頓或發熱時開啟）</span></label>
       </section>
@@ -95,6 +100,33 @@ export function createSettingsPanel({ el, store, config = CONFIG }) {
     </div>`;
   const $ = (s) => el.querySelector(s);
   // 車款、車色、車燈在首頁下方的外觀列選，這裡不重複
+  const music = new Audio(new URL('../../assets/night-drive.wav', import.meta.url));
+  music.loop=true; music.preload='none';
+  let duckTimer, audioContext, gain, source;
+  function level(duck=false) {
+    if(gain) gain.gain.setTargetAtTime(Number($('#sp-volume').value)*(duck ? .15 : 1),audioContext.currentTime,.08);
+  }
+  function duckMusic(){
+    if(music.paused) return;
+    clearTimeout(duckTimer); level(true);
+    const restore=()=>{if(globalThis.speechSynthesis?.speaking) duckTimer=setTimeout(restore,250); else level();};
+    duckTimer=setTimeout(restore,3500);
+  }
+  $('#sp-volume').oninput=()=>level(!!globalThis.speechSynthesis?.speaking);
+  $('#sp-music').onchange=async e=>{
+    if(!e.target.checked){music.pause();return;}
+    try{
+      if(!gain){
+        audioContext=new (window.AudioContext||window.webkitAudioContext)();
+        source=audioContext.createMediaElementSource(music);
+        gain=audioContext.createGain();source.connect(gain);gain.connect(audioContext.destination);
+      }
+      level();await Promise.all([audioContext.resume(),music.play()]);$('#music-status').textContent='';
+    }catch{music.pause();$('#sp-music').checked=false;$('#music-status').textContent='音樂未能播放，請再試一次';}
+  };
+  function pauseHidden(){if(document.hidden){music.pause();$('#sp-music').checked=false;}}
+  document.addEventListener('visibilitychange',pauseHidden);
+  function destroy(){document.removeEventListener('visibilitychange',pauseHidden);clearTimeout(duckTimer);music.pause();audioContext?.close();}
   function sync(s) {
     $('#sp-minimal').checked = s.minimal;
     $('#sp-lowq').checked = !!s.lowQuality;
@@ -109,5 +141,5 @@ export function createSettingsPanel({ el, store, config = CONFIG }) {
 
   function open() { el.classList.add('open'); el.setAttribute('aria-hidden', 'false'); }
   function close() { el.classList.remove('open'); el.setAttribute('aria-hidden', 'true'); }
-  return { open, close, toggle: () => (el.classList.contains('open') ? close() : open()) };
+  return { open, close, duckMusic, destroy, toggle: () => (el.classList.contains('open') ? close() : open()) };
 }

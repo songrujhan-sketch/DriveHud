@@ -1,7 +1,7 @@
 // DriveHUD UI 外殼：live（真實 GPS）與 sim（模擬）共用同一組元件，差別只在餵資料的來源。
 import { CONFIG, createCarView } from './deps.js';
 import { createSettingsPanel, CAR_MODELS, CAR_COLORS, CAR_VIEWS, CAR_SCENES, CAR_TIMES } from './settings.js';
-import { openGoogleMaps } from '../adapters/maps.js';
+import { estimateTurn } from '../car/turn.js';
 
 export const GPS_LABEL = {
   SEARCHING: '定位中',
@@ -36,19 +36,16 @@ export const SHELL_HTML = `
     <header class="topbar">
       <div class="console-brand"><span class="brand-stripes" aria-hidden="true">///</span> Drive<i>HUD</i></div><span class="build-tag">V1.7</span>
       <div class="top-actions"><span class="voice-warn" id="voice-warn" hidden>語音無法播放</span>
-      <button type="button" class="dh-btn" id="nav-maps">地圖</button><button type="button" class="dh-btn" id="btn-settings">設定</button></div>
+      <button type="button" class="start-btn" id="btn-start">開始行車</button><button type="button" class="dh-btn" id="btn-settings">設定</button></div>
     </header>
-    <div class="console-heading"><div><span class="micro">DRIVE CONSOLE</span><h1>行車儀表板</h1></div>
-      <button type="button" class="start-btn" id="btn-start">開始行車</button></div>
     <div class="car-zone"><canvas id="car-canvas" aria-label="車輛"></canvas>
-      <span class="studio-tag">3D 車庫</span><div class="studio-title"><span class="micro">VEHICLE STUDIO</span><strong id="studio-model"></strong></div>
+      
     </div>
     <div class="speed-zone"><span class="meter-label">即時速度</span>
       <div class="speed-line"><div class="speed" id="speed-value" aria-live="off">—</div><span class="speed-unit">km/h</span></div>
       <div class="speed-meta"><div class="gps" id="gps-status" data-status="SEARCHING"><span class="dot"></span><span class="gps-text">定位中</span></div><span class="heading" id="heading">—</span></div>
     </div>
     <section class="radar-idle"><span class="meter-label">測速雷達</span><strong id="radar-state">等待定位</strong><span id="radar-detail">開始行車後偵測前方測速點</span></section>
-    <section class="shortcuts"><span class="meter-label">快捷控制</span><button type="button" id="btn-maps">Google Maps 導航 ↗</button><button type="button" id="btn-minimal">極簡模式</button></section>
     <section class="approach" id="approach" hidden aria-live="polite">
       <div class="ap-main">
         <div class="ap-limit"><span class="ap-label">速限</span><span class="ap-limit-val" id="limit-value">—</span></div>
@@ -83,7 +80,6 @@ export function createApp({
   wakeLock,
   geo,
   autoTick = mode === 'live',
-  maps = { openGoogleMaps },
   config = CONFIG,
 } = {}) {
   root.innerHTML = SHELL_HTML;
@@ -99,7 +95,6 @@ export function createApp({
   if (mode === 'sim') { els.badge.hidden = false; els.start.hidden = true; }
 
   const panel = createSettingsPanel({ el: $('#settings-panel'), store, config });
-  $('#btn-minimal').addEventListener('click', () => store.set({ minimal: !store.get().minimal }));
   $('#btn-data').addEventListener('click', () => { panel.open(); $('#settings-data').scrollIntoView({block:'center'}); });
   $('#btn-settings').addEventListener('click', () => panel.toggle());
 
@@ -109,7 +104,6 @@ export function createApp({
   const nextOf = (list, id) => list[(list.findIndex((x) => x.id === id) + 1) % list.length].id;
   const nameOf = (list, id) => (list.find((x) => x.id === id) || list[0]).name;
   function syncBar(s) {
-    $('#studio-model').textContent = nameOf(CAR_MODELS, s.model);
     $('#cb-jet').hidden = s.model !== 'tumbler';
     bar.model.textContent = `車款：${nameOf(CAR_MODELS, s.model)}`;
     bar.view.textContent = `視角：${nameOf(CAR_VIEWS, s.view)}`;
@@ -151,7 +145,19 @@ export function createApp({
   let running = mode === 'sim';
   let relocating = false;
   let adapterStatus = null; // geolocation adapter 回報的狀態（用於 DENIED）
-  let lastFix = null;
+  let previousCourse = null, turnTimeout;
+  function resetTurn() {
+    clearTimeout(turnTimeout); previousCourse = null; car.setTurn(0);
+  }
+  function updateTurn(fix) {
+    const state = eng?.getState();
+    if (state?.gps !== 'OK' || !(state.speedKmh >= 8) || !Number.isFinite(state.headingDeg)) {
+      resetTurn(); return;
+    }
+    const course = { t:fix.t, heading:state.headingDeg, speed:state.speedKmh/3.6 };
+    car.setTurn(estimateTurn(previousCourse,course)); previousCourse=course;
+    clearTimeout(turnTimeout); turnTimeout=setTimeout(resetTurn,2500);
+  }
   let tickTimer = null;
   let eng = engine;
   const renderCbs = [];
@@ -171,8 +177,6 @@ export function createApp({
     const layout = computeLayout(state, settings, config);
     appEl.className = `app layout-${layout}`;
     appEl.dataset.layout = layout;
-    const startHost = $(layout === 'normal' ? '.console-heading' : '.top-actions');
-    if (els.start.parentElement !== startHost) startHost.append(els.start);
 
     const g = gpsKey(state);
     els.gps.dataset.status = g;
@@ -214,6 +218,7 @@ export function createApp({
   function ingest(events = []) {
     for (const e of events) {
       if ((e.type === 'APPROACH_ALERT' || e.type === 'OVERSPEED_ALERT') && e.speechText) {
+        panel.duckMusic();
         const ok = speech ? speech.speak(e.speechText) : false;
         els.voiceWarn.hidden = ok !== false ? true : false;
         e.__spoken = ok;
@@ -225,9 +230,9 @@ export function createApp({
   }
 
   function onFix(fix) {
-    lastFix = fix;
     if (!eng) return;
     ingest(eng.pushFix(fix));
+    updateTurn(fix);
   }
 
   function startTick() {
@@ -250,7 +255,7 @@ export function createApp({
     running = false;
     geo?.stop(); wakeLock?.release(); speech?.cancel?.();
     clearInterval(tickTimer); tickTimer = null;
-    eng?.reset(); adapterStatus = null; lastFix = null; relocating = false;
+    eng?.reset(); adapterStatus = null; resetTurn(); relocating = false;
     els.start.textContent = '開始行車'; els.voiceWarn.hidden = true;
     render();
   }
@@ -258,15 +263,10 @@ export function createApp({
 
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && running && mode === 'live' && eng) {
-      eng.reset();
+      resetTurn(); eng.reset();
       relocating = true;
       render();
     }
-  });
-
-  $('#nav-maps').addEventListener('click', () => $('#btn-maps').click());
-  $('#btn-maps').addEventListener('click', () => {
-    maps.openGoogleMaps(lastFix ? { lat: lastFix.lat, lon: lastFix.lon } : null, { root: appEl });
   });
 
   store.subscribe((s) => {
@@ -285,10 +285,10 @@ export function createApp({
   return {
     el: appEl,
     start, render, ingest, onFix, panel, car,
-    setEngine(e) { eng = e; relocating = false; render(); },
-    setLastFix(f) { lastFix = f; },
+    setEngine(e) { resetTurn(); eng = e; relocating = false; render(); },
+    setLastFix(f) { updateTurn(f); },
     onRender(cb) { renderCbs.push(cb); },
     onEvents(cb) { eventCbs.push(cb); },
-    destroy() { clearInterval(tickTimer); car.dispose(); },
+    destroy() { resetTurn(); panel.destroy(); clearInterval(tickTimer); car.dispose(); },
   };
 }

@@ -1,9 +1,9 @@
 // DriveHUD V1.6 — 所有可調參數集中於此（原型測試值，實測後調整）
 export const CONFIG = {
   alert: {
-    radiusUrbanM: 100,          // 市區提醒距離
-    radiusExpresswayM: 200,     // 快速道路提醒距離
-    radiusUnknownM: 200,        // 道路類型未知
+    radiusUrbanM: 200,          // 市區提醒距離
+    radiusExpresswayM: 300,     // 快速道路提醒距離
+    radiusUnknownM: 300,        // 道路類型未知
     candidateBufferM: 150,      // 進入候選狀態的額外緩衝
     sameDirMaxDeg: 45,          // |Δbearing| ≤ 45 → SAME
     oppositeMinDeg: 135,        // |Δbearing| ≥ 135 → OPPOSITE

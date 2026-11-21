@@ -65,8 +65,8 @@ test('設定頁只留極簡、低畫質、提醒距離與資料；車款、車�
   await expect(page.locator('#sp-models, #sp-colors, #sp-lights')).toHaveCount(0);
   await expect(page.locator('#sp-minimal')).toHaveCount(1);
   await expect(page.locator('#sp-lowq')).toHaveCount(1);
-  await expect(page.locator('#sp-radius')).toContainText('100');
-  await expect(page.locator('#sp-radius')).toContainText('200');
+  await expect(page.locator('#sp-radius li')).toHaveText(['市區：200 m', '快速道路：300 m', '道路類型未知：300 m']);
+
   await expect(page.locator('#settings-data')).toHaveCount(1);
   await page.screenshot({ path: path.join(SHOTS, `${info.project.name}-settings.png`) });
   await page.reload();
