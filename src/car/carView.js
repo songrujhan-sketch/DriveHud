@@ -188,12 +188,48 @@ export function createCarView(canvas, opts = {}) {
     fitCamera();
   }
 
+  let previousFrame=null, fade=null;
+  function clearModelFade() {
+    if(fade){ fade.onfinish=null; fade.cancel(); fade=null; }
+    previousFrame?.remove();
+    previousFrame=null;
+  }
+  function holdModelFrame() {
+    if(!inView || !pageVisible() || !canvas.clientWidth || !canvas.clientHeight) return;
+    const shot=document.createElement('canvas');
+    shot.width=canvas.width; shot.height=canvas.height;
+    const ctx=shot.getContext('2d');
+    if(!ctx) return;
+    // WebGL may discard its drawing buffer after presentation. Capture a fresh render.
+    stage.render(viewportRect());
+    ctx.fillStyle=getComputedStyle(canvas).getPropertyValue('--bg').trim() || '#111';
+    ctx.fillRect(0,0,shot.width,shot.height);
+    ctx.drawImage(canvas,0,0);
+    if(previousFrame){
+      ctx.globalAlpha=Number(getComputedStyle(previousFrame).opacity);
+      ctx.drawImage(previousFrame,0,0,shot.width,shot.height);
+    }
+    clearModelFade();
+    shot.className='model-transition';
+    shot.setAttribute('aria-hidden','true');
+    Object.assign(shot.style,{position:'absolute',inset:'0',width:'100%',height:'100%',pointerEvents:'none'});
+    canvas.after(shot);
+    previousFrame=shot;
+  }
+  function revealModel() {
+    if(!previousFrame || fade) return;
+    const duration=window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 100 : 360;
+    fade=previousFrame.animate([{opacity:1},{opacity:0}],{duration,easing:'ease-in-out',fill:'forwards'});
+    fade.onfinish=clearModelFade;
+  }
+
   function loadModel(id) {
     const def = getModel(id);
     if (car) {
       scene.remove(car.group);
       disposeObject(car.group);
     }
+    state.fx = false;
     car = def.build(THREE, { color: state.color });
     state.doorsOpen = false;
     state.doorT = 0;
@@ -290,6 +326,7 @@ export function createCarView(canvas, opts = {}) {
     if (cssW && cssH) {
       renderer.info.reset();
       stage.render(viewportRect());
+      revealModel();
       lastStats = { drawCalls: renderer.info.render.calls, frameTriangles: renderer.info.render.triangles };
     }
     frames++;
@@ -339,7 +376,7 @@ export function createCarView(canvas, opts = {}) {
     },
     setColor(hex) { state.color = hex; applyColor(); kick(); },
     setHeadlights(on) { state.headlights = !!on; applyHeadlights(); kick(); },
-    setModel(id) { if (getModel(id).id === state.modelId) return; loadModel(id); kick(); },
+    setModel(id) { if (getModel(id).id === state.modelId) return; holdModelFrame(); loadModel(id); kick(); },
     canPreviewJet() { return !!car?.setJetPreview && state.speedMps === 0; },
     previewJet() { if(car?.setJetPreview && state.speedMps === 0){ car.setJetPreview(true); kick(); } },
     hasDoors() { return !!(car && car.doors && car.doors.length); },
@@ -360,7 +397,9 @@ export function createCarView(canvas, opts = {}) {
     },
     setDarkMode(on) { state.darkMode = !!on; applyDarkMode(); kick(); },
     setQuality(v) {
-      state.quality = v === 'low' ? 'low' : 'high';
+      const next = v === 'low' ? 'low' : 'high';
+      if (next === state.quality) return;
+      state.quality = next;
       stage.setQuality(state.quality);
       if (car) stage.setCar(car.group, carBox, car.headlights);
       kick();
@@ -374,6 +413,7 @@ export function createCarView(canvas, opts = {}) {
     },
     dispose() {
       disposed = true;
+      clearModelFade();
       if (raf) cancelAnimationFrame(raf);
       raf = 0;
       io?.disconnect();
