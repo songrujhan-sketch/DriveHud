@@ -171,6 +171,8 @@ export function createApp({
     const layout = computeLayout(state, settings, config);
     appEl.className = `app layout-${layout}`;
     appEl.dataset.layout = layout;
+    const startHost = $(layout === 'normal' ? '.console-heading' : '.top-actions');
+    if (els.start.parentElement !== startHost) startHost.append(els.start);
 
     const g = gpsKey(state);
     els.gps.dataset.status = g;

@@ -58,6 +58,7 @@ export function createSpeech({
   return {
     unlock,
     speak,
+    cancel() { if (supported) synth.cancel(); },
     supported,
     get voiceFallback() { return voiceFallback; },
   };
