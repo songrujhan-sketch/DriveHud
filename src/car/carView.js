@@ -24,6 +24,11 @@ const DOOR_MS = 700;
 const DOOR_LOCK_MPS = 5 / 3.6; // 車速到 5 km/h 才鎖門；低於這個值視為停車（GPS 靜止時也會回報零星的小車速）
 const MAX_PIXEL_RATIO = 2;
 
+// Half-extents in metres for the road vehicles (doors open) and the four-horse team.
+const FLEET_ENVELOPES = [[2.12, 1.63, 3.25], [1.84, 1.44, 4.35]].map(([x,y,z]) =>
+  [-x,x].flatMap(px=>[-y,y].flatMap(py=>[-z,z].map(pz=>new THREE.Vector3(px,py,pz)))));
+
+
 function disposeObject(root) {
   const mats = new Set();
   const geos = new Set();
@@ -97,11 +102,11 @@ export function createCarView(canvas, opts = {}) {
   function fitCamera() {
     if (!car) return;
     const corners = outline;
+    const center = carBox.getCenter(new THREE.Vector3());
     const frameBox=subjectBounds.setFromPoints(corners);
     const exhaust=car.meta?.id==='darkknight' ? 1.25 : .9;
-    if(car.setJetPreview && (state.speedMps>0 || state.fx)) frameBox.min.z-=exhaust;
+    if(car.setJetPreview) frameBox.min.z=Math.min(frameBox.min.z,carBox.min.z-exhaust);
     if(stage.outdoor) stage.setSubjectBounds(frameBox.clone().expandByScalar(.45));
-    const center = frameBox.getCenter(new THREE.Vector3());
     const az = state.az;
     const target = center.clone();
     const e = state.el * state.el * (3 - 2 * state.el);
@@ -110,38 +115,38 @@ export function createCarView(canvas, opts = {}) {
     const right=new THREE.Vector3(back.z,0,-back.x).normalize(), up=new THREE.Vector3().crossVectors(back,right);
     const v=new THREE.Vector3(), tanY=Math.tan(THREE.MathUtils.degToRad(camera.fov/2));
     const tanX=tanY*camera.aspect;
-    // Fit the projected span, not its distance from a guessed screen centre.
-    // Cap landscape width by canvas height so a wide low car cannot dwarf an SUV.
-    const horizontal=Math.min(.82,1.09/camera.aspect), vertical=.83;
-    const projected=corners.map(p=>{
-      v.copy(p).sub(target);
-      return [v.dot(right)/tanX,v.dot(up)/tanY,v.dot(back)];
-    });
-    if(car.setJetPreview) {
-      v.set(center.x,.55,frameBox.min.z).sub(target);
-      projected.push([v.dot(right)/tanX,v.dot(up)/tanY,v.dot(back)]);
+    const horizontal=Math.min(.84,1.85/camera.aspect), vertical=.82;
+    function project(p) {
+      return [p.dot(right)/tanX,p.dot(up)/tanY,p.dot(back)];
     }
-    function span(distance){
+    function span(points,distance){
       let left=Infinity,right=-Infinity,bottom=Infinity,top=-Infinity;
-      for(const [x,y,z] of projected){
+      for(const [x,y,z] of points){
         const depth=Math.max(.001,distance-z);
         left=Math.min(left,x/depth);right=Math.max(right,x/depth);
         bottom=Math.min(bottom,y/depth);top=Math.max(top,y/depth);
       }
       return {left,right,bottom,top};
     }
-    let near=Math.max(...projected.map(p=>p[2]))+.02;
-    let far=near+frameBox.getSize(v).length()*(2+1/Math.min(horizontal*tanX,vertical*tanY));
-    for(let i=0;i<15;i++){
-      const mid=(near+far)/2,b=span(mid);
-      if(b.right-b.left>2*horizontal || b.top-b.bottom>2*vertical) near=mid;
-      else far=mid;
+    // All models share the same camera distance for a given angle and canvas size.
+    const envelopes=FLEET_ENVELOPES.map(points=>points.map(project));
+    let near=6, far=6+14/Math.min(horizontal*tanX,vertical*tanY);
+    for(let i=0;i<16;i++){
+      const mid=(near+far)/2;
+      const fits=envelopes.every(points=>{
+        const b=span(points,mid);
+        return b.right-b.left<=2*horizontal && b.top-b.bottom<=2*vertical;
+      });
+      if(fits) far=mid;
+      else near=mid;
     }
+    const projected=corners.map(p=>project(v.copy(p).sub(target)));
+    if(car.setJetPreview) projected.push(project(v.set(center.x,.55,frameBox.min.z).sub(target)));
     camera.position.copy(target).addScaledVector(back,far);
     camera.lookAt(target);
     camera.updateMatrixWorld();
     camera.updateProjectionMatrix();
-    const bounds=span(far);
+    const bounds=span(projected,far);
     camera.projectionMatrix.elements[8]=(bounds.left+bounds.right)/2;
     camera.projectionMatrix.elements[9]=(bounds.bottom+bounds.top)/2;
     camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
@@ -317,9 +322,7 @@ export function createCarView(canvas, opts = {}) {
       applyDoors();
     }
     stage.update(dt, state.speedMps);
-    const wasAnimating=state.fx;
     state.fx = !!(car && car.animate && car.animate(dt, state.speedMps));
-    if(wasAnimating!==state.fx && car?.setJetPreview) fitCamera();
     const target = state.compact ? 1 : 0;
     if (state.compactT !== target) {
       const step = dt * 1000 / COMPACT_MS;

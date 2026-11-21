@@ -1,3 +1,4 @@
+import { curve } from './loft.js';
 import {mesh,roundBox,makeMaterials,merge} from './parts.js';
 
 export const meta={id:'carriage',displayName:'馬車',roofY:2.75};
@@ -43,14 +44,52 @@ export function build(T,{color='#304850'}={}){
   egg(horse,ivory,0,1.29,.39,.255,.41,.31,.09);
   egg(horse,ivory,0,1.62,.55,.172,.46,.237,.46);
   egg(horse,mane,0,1.70,.418,.098,.41,.145,.48);
-  egg(horse,ivory,0,1.961,.79,.147,.189,.27,-.55);
-  egg(horse,ivory,0,1.845,1.00,.116,.133,.22,-.52);
-  egg(horse,mane,0,1.77,1.132,.114,.087,.104);
+  const muzzle=mat(0xbeb6ae,.03,.63), eye=mat(0x211b19,.07,.23), earInner=mat(0xb3928c);
+  // The skull tapers from the poll and cheek to a broad, rounded muzzle.
+  const headProfiles=[
+    [.61,1.97,.015,.018],[.68,1.989,.109,.158],[.78,1.959,.154,.198],
+    [.88,1.909,.133,.174],[.98,1.848,.103,.134],
+    [1.085,1.798,.097,.105],[1.167,1.771,.107,.084],[1.221,1.766,.085,.066],
+    [1.248,1.775,.005,.007],
+  ];
+  const profile=[1,2,3].map(i=>curve(headProfiles.map(row=>[row[0],row[i]])));
+  const facial=new T.BufferGeometry(), positions=[], indices=[], tones=[];
+  const rows=26, sides=24;
+  for(let row=0;row<=rows;row++){
+    const z=.61+.638*row/rows;
+    const [y,w,h]=profile.map(sample=>sample(z));
+    for(let j=0;j<=sides;j++){
+      const angle=2*Math.PI*j/sides;
+      positions.push(w*Math.cos(angle),y+h*Math.sin(angle),z);
+      const fade=T.MathUtils.smoothstep(z,1.075,1.23)*(.66+.32*Math.max(0,-Math.sin(angle)));
+      tones.push(...ivory.color.clone().lerp(muzzle.color,fade).toArray());
+      if(row<rows && j<sides){
+        const i=row*(sides+1)+j,k=i+sides+1;
+        indices.push(i,i+1,k,i+1,k+1,k);
+      }
+    }
+  }
+  facial.setAttribute('position',new T.Float32BufferAttribute(positions,3));
+  facial.setAttribute('color',new T.Float32BufferAttribute(tones,3));
+  facial.setIndex(indices);
+  facial.computeVertexNormals();
+  const facialMat=mat(0xffffff);facialMat.vertexColors=true;
+  // Leave vertex colours on this mesh; the rigid harness batch uses position/normal/UV only.
+  const headMesh=new T.Mesh(facial,facialMat);
+  const faceDetails=new T.Group();faceDetails.add(headMesh);horse.add(faceDetails);
   for(const s of [-1,1]){
-    egg(horse,ivory,s*.083,2.135,.73,.052,.13,.052,-.15);
-    egg(horse,leather,s*.138,2.009,.851,.023,.028,.033);
-    egg(horse,hoof,s*.088,1.79,1.192,.018,.021,.026);
-    cord(horse,leather,[[s*.13,2.08,.75],[s*.147,1.98,.84],[s*.121,1.81,1.04]],.018);
+    const ear=egg(horse,ivory,s*.086,2.193,.715,.047,.125,.045,-.16);
+    ear.rotation.z=-s*.22;
+    const inside=egg(horse,earInner,s*.101,2.208,.744,.027,.084,.018,-.16);
+    inside.rotation.z=-s*.22;
+    egg(horse,ivory,s*.132,2.025,.838,.027,.046,.055,-.36);
+    egg(horse,eye,s*.151,2.034,.846,.014,.025,.033,-.34);
+    egg(horse,muzzle,s*.090,1.805,1.179,.033,.038,.052,-.47);
+    const nostril=egg(horse,eye,s*.107,1.811,1.195,.012,.024,.033,-.54);
+    nostril.rotation.y=s*.35;
+    cord(horse,muzzle,[[s*.094,1.743,1.109],[s*.104,1.724,1.172],[s*.084,1.723,1.221]],.006);
+    cord(horse,leather,[[s*.111,2.081,.716],[s*.141,1.955,.851],[s*.104,1.783,1.086]],.013);
+    egg(horse,gold,s*.105,1.783,1.09,.014,.025,.025);
     cord(horse,leather,[[s*.15,1.78,.57],[s*.246,1.42,.50],[s*.23,1.09,.28]],.035);
     egg(horse,gold,s*.248,1.37,.48,.023,.044,.041);
     cord(horse,leather,[[s*.16,1.43,.49],[s*.278,1.34,-.10],[s*.261,1.29,-.63]],.024);
@@ -75,7 +114,7 @@ export function build(T,{color='#304850'}={}){
     animal.children.filter(o=>o.name==='leg').forEach((joint,i)=>legs.push({joint,phase:(i===0||i===3?0:Math.PI)+pair*.73+s*.43}));
     // Driving reins lead back from each bit to the driver's hands.
     const x=s*.51;
-    cord(group,leather,[[x+s*.12,1.82,z+1.04],[x+s*.22,1.48,z+.04],[s*.58,1.40,-.25],[s*.13,1.81,-1.18]],.009);
+    cord(group,leather,[[x+s*.106,1.783,z+1.09],[x+s*.22,1.48,z+.04],[s*.58,1.40,-.25],[s*.13,1.81,-1.18]],.009);
     cord(group,leather,[[x+s*.22,1.29,z+.3],[x+s*.22,1.15,z-.70],[s*.69,1.02,pair?.60:-1.1]],.021);
   }
   const cab=-2.70;
@@ -124,7 +163,16 @@ export function build(T,{color='#304850'}={}){
   block(group,leather,0,1.20,-3.88,1.17,.41,.37,.07);
   for(const x of [-.38,.38])block(group,gold,x,1.20,-4.073,.040,.34,.022);
   egg(group,coat,0,1.74,-1.48,.21,.30,.15);
-  egg(group,mat(0xbc8f71),0,2.12,-1.46,.124,.153,.12);
+  egg(group,mat(0xdce3e4,.32,.32),0,2.12,-1.46,.126,.147,.125);
+  const face=mat(0x173b49,.64,.18);
+  egg(group,face,0,2.137,-1.371,.116,.086,.07);
+  const faceLight=mat(0xb8e9ed,.15,.23);
+  faceLight.emissive.setHex(0x34bbd2);
+  for(const side of [-1,1]){
+    block(group,faceLight,side*.042,2.15,-1.306,.061,.015,.006,.002);
+    egg(group,M.darkChrome,side*.116,2.126,-1.458,.024,.047,.044);
+  }
+  block(group,M.darkChrome,0,2.078,-1.348,.116,.031,.048,.013);
   block(group,coat,0,2.254,-1.46,.36,.04,.30);
   block(group,coat,0,2.345,-1.46,.236,.16,.22,.04);
   for(const s of [-1,1]){

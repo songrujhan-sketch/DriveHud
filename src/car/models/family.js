@@ -10,11 +10,21 @@ export function build(T,{color='#804235'}={}){
   const width=curve([[-2.31,.82],[-1.75,.93],[0,.94],[1.55,.96],[2.31,.81]]);
   const belt=curve([[-2.31,1.04],[-1.6,1.12],[.75,1.04],[1.6,1.03],[2.31,.87]]);
   const roof=curve([[-2.18,1.13],[-1.93,1.51],[-1.61,1.67],[-.55,1.70],[.28,1.65],[.73,1.49],[1.15,1.13]]);
+  const hoodCrown=curve([[-2.31,.064],[-1.65,.12],[.7,.074],[1.20,.116],[1.75,.116],[2.31,.022]]);
   const axles=[-1.39,1.41];
   const spans=[{front:.90,rear:-.15},{front:-.16,rear:-1.18}];
   const seams=spans.flatMap(d=>[d.front,d.rear]);
   const body=bodyLoft(T,{z0:-2.31,z1:2.31,wheels:axles.map(z=>({z,R:.42,y:.36,wellX:.68})),
-    endR:[.09,.13],extraZ:seams,p:{hw:width,yBot:.23,yBelt:belt,yTop:z=>belt(z)+.074,n:2.6,tuck:.12,bump:.025,bumpX:.76,bumpW:.25}});
+    endR:[.09,.13],extraZ:seams,crease:true,
+    p:{hw:width,yBot:.23,yBelt:belt,yTop:z=>belt(z)+hoodCrown(z),n:3.05,tuck:.16,bump:.042,bumpX:.68,bumpW:.14},
+    deform(point,z){
+      if(point.tag==='side'){
+        const height=point.y/belt(z);
+        const fade=Math.max(0,Math.min(1,(2.28-Math.abs(z))*2.6));
+        point.x-=fade*.072*Math.exp(-Math.pow((height-.65)/.13,2));
+      }
+      return point;
+    }});
   const cab=cabinLoft(T,{z0:-2.18,z1:1.15,yc:roof,yr:z=>roof(z)-.035,rw:.65,cb:.875,yb:z=>belt(z)-.02,ys:z=>belt(z)+.045,n:2.7,bow:.025,extraZ:[...seams,-1.73],caps:true});
   const side=regionHelpers(body);
   const bodyKey=q=>q.tag==='well'||q.tag==='under'||(side.isSide(q)&&q.y<.40)?'trim':'paint';
@@ -77,7 +87,11 @@ export function build(T,{color='#804235'}={}){
     {x:0,z:-1.30,yBase:.40,w:1.49,back:.57,recline:.16,headrests:[-.48,0,.48]}],
     dash:{w:1.55,y:.99,z:.87,h:.17,len:.32},wheel:{x:.41,y:1.02,z:.60,r:.17},
     screen:{y:1.11,z:.73},console:{w:.23,h:.26,len:.85,y:.55,z:.20}});
-  const heads=[],tails=[];
+  function strip(points, radius, material) {
+    const path=new T.CatmullRomCurve3(points.map(point=>new T.Vector3(...point)));
+    group.add(new T.Mesh(new T.TubeGeometry(path,24,radius,6,false),material));
+  }
+  const heads=[],markers=[],tails=[];
   // Original tapering aperture with a bright lower edge and three recessed slats.
   const shape=new T.Shape();
   shape.moveTo(-.55,.834);shape.quadraticCurveTo(0,.868,.55,.834);
@@ -87,16 +101,34 @@ export function build(T,{color='#804235'}={}){
   const inset=mesh(T,new T.ShapeGeometry(shape),M.grille,[0,.037,2.338]);
   inset.scale.set(.94,.945,1);group.add(inset);
   for(let i=0;i<3;i++)box(group,M.gblack,[0,.666+i*.053,2.344],[.74+i*.055,.013,.015],.004);
-  box(group,M.trim,[0,.40,2.286],[1.40,.11,.10],.04);
+  box(group,M.trim,[0,.385,2.286],[1.42,.18,.105],.043);
+  box(group,M.grille,[0,.397,2.344],[.79,.079,.026],.022);
+  box(group,M.darkChrome,[0,.278,2.322],[1.34,.048,.075],.018);
   for(const s of [-1,1]){
+    const scoop=box(group,M.grille,[s*.657,.543,2.295],[.265,.108,.071],.026);
+    scoop.rotation.set(0,s*.22,s*.10);
+    markers.push(box(group,M.drl,[s*.651,.560,2.335],[.154,.019,.021],.006));
+    box(group,M.trim,[s*.885,.304,.03],[.125,.103,1.98],.038);
+    box(group,M.darkChrome,[s*.953,.318,.03],[.032,.028,1.83],.010);
+    for(const axle of axles){
+      const points=Array.from({length:13},(_,i)=>{
+        const angle=Math.PI*i/12,z=axle+.435*Math.cos(angle);
+        return [s*(width(z)-.012),.362+.444*Math.sin(angle),z];
+      });
+      strip(points,.021,M.trim);
+    }
     const lamp=box(group,M.head,[s*.633,.833,2.293],[.347,.062,.084],.024);
     lamp.rotation.z=s*.12; heads.push(lamp);
-    tails.push(box(group,M.tail,[s*.75,.976,-2.326],[.133,.068,.06],.025));
+    box(group,M.housing,[s*.749,.985,-2.328],[.159,.107,.053],.021);
+    tails.push(box(group,M.tail,[s*.752,.998,-2.361],[.131,.031,.035],.012));
+    tails.push(hatchPanel(M.tail,[s*.591,.998,-2.355],[.146,.025,.021],.008));
+    box(group,M.tail,[s*.60,.431,-2.337],[.131,.026,.015],.007);
+    box(group,M.darkChrome,[s*.54,.310,-2.334],[.194,.065,.038],.017);
     box(group,M.chrome,[s*.64,1.673,-.66],[.034,.037,1.44]);
   }
   hatchPanel(M.paint,[0,1.566,-1.93],[1.34,.054,.35]);
   hatchPanel(M.darkChrome,[0,.73,-2.350],[.39,.116,.022]);
   hatchPanel(M.trim,[0,.845,-2.350],[.21,.025,.027],.008);
   const wheels=placeWheels(T,group,M,axles.map(z=>({z,x:.83,radius:.368,width:.226,spokes:8,rimRatio:.69})));
-  return {group,wheels,doors,meta,bodyMaterials:[M.paint],headlights:{meshes:heads,drl:[],light:makeHeadSpot(T,group,{y:.83,z:2.32})},taillights:tails};
+  return {group,wheels,doors,meta,bodyMaterials:[M.paint],headlights:{meshes:heads,drl:markers,light:makeHeadSpot(T,group,{y:.83,z:2.32})},taillights:tails};
 }
