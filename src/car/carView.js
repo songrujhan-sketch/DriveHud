@@ -154,13 +154,13 @@ export function createCarView(canvas, opts = {}) {
   function applyHeadlights() {
     if (!car) return;
     const on = state.headlights;
-    new Set(car.headlights.meshes.map((m) => m.material)).forEach((m) => { m.emissiveIntensity = on ? 7.0 : 0.08; });
+    new Set(car.headlights.meshes.map((m) => m.material)).forEach((m) => { m.emissiveIntensity = on ? (car.headlights.emission ?? 7) : 0.08; });
     new Set((car.headlights.drl || []).map((m) => m.material)).forEach((m) => { m.emissiveIntensity = on ? 5.0 : 1.4; });
     new Set(car.taillights.map((m) => m.material)).forEach((m) => { m.emissiveIntensity = on ? 4.0 : 0.7; });
     for (const spot of car.headlights.spots || [car.headlights.light]) {
-      spot.intensity = on ? (car.headlights.beam ? 70 : 40) : 0;
+      spot.intensity = on ? (car.headlights.intensity ?? (car.headlights.beam ? 70 : 40)) : 0;
     }
-    stage.setHeadlights(on);
+    stage.setHeadlights(on && car.headlights.roadBeam !== false);
   }
 
   function applyDoors() {

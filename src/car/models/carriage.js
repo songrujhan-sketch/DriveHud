@@ -1,8 +1,8 @@
-import {mesh,roundBox,makeMaterials,makeHeadSpot,merge} from './parts.js';
+import {mesh,roundBox,makeMaterials,merge} from './parts.js';
 
-export const meta={id:'carriage',displayName:'馬車',roofY:2.78};
+export const meta={id:'carriage',displayName:'馬車',roofY:2.75};
 export function build(T,{color='#304850'}={}){
-  const group=new T.Group(),M=makeMaterials(T,color),doors=[],wheels=[],lamps=[];
+  const group=new T.Group(),M=makeMaterials(T,color),doors=[],wheels=[],lamps=[],lanternLights=[];
   const mat=(color,metalness=0,roughness=.68)=>new T.MeshStandardMaterial({color,metalness,roughness});
   const gold=mat(0xcda557,.72,.29),wood=mat(0x40231b),leather=mat(0x30231f),velvet=mat(0x7b2936);
   const ivory=mat(0xeee8db),mane=mat(0xc5bdb0),hoof=mat(0x635953),coat=mat(0x18242b);
@@ -80,39 +80,46 @@ export function build(T,{color='#304850'}={}){
   }
   const cab=-2.70;
   // Lacquered enclosed saloon, contrasting roof, leather luggage trunk and coachman's box.
-  block(group,wood,0,.82,cab,1.40,.18,2.48,.07);
-  block(group,M.paint,0,1.08,cab,1.37,.46,2.01,.11);
-  block(group,wood,0,1.32,cab,1.36,.065,1.98);
-  for(const end of [-.93,.91]){
-    block(group,M.paint,0,1.56,cab+end,1.40,.48,.105,.048);
-    block(group,glass,0,2.04,cab+end,1.24,.48,.048);
-    for(const x of [-.66,.66])block(group,wood,x,2.06,cab+end,.078,.57,.11,.021);
-    block(group,gold,0,1.816,cab+end,1.39,.028,.111,.009);
+  // Usable floor at .90 m; the centre aisle is clear down to the door sill.
+  block(group,wood,0,.80,cab,1.64,.14,2.27,.055);
+  block(group,wood,0,.875,cab,1.58,.05,2.20,.018);
+  for(const end of [-1.06,1.06]){
+    block(group,M.paint,0,1.31,cab+end,1.64,.82,.10,.05);
+    block(group,glass,0,2.11,cab+end,1.46,.74,.045);
+    for(const x of [-.77,.77])block(group,wood,x,2.12,cab+end,.08,.82,.10,.018);
+    block(group,gold,0,1.75,cab+end,1.62,.027,.11,.008);
   }
   for(const s of [-1,1]){
-    for(const z of [-.79,.77]){
-      block(group,M.paint,s*.70,1.83,cab+z,.080,1.03,.34,.045);
-      block(group,gold,s*.746,1.55,cab+z,.018,.019,.33,.005);
+    for(const z of [-.82,.82]){
+      block(group,M.paint,s*.80,1.34,cab+z,.08,.85,.47,.03);
+      block(group,glass,s*.80,2.12,cab+z,.044,.72,.43);
+      block(group,wood,s*.80,2.13,cab+z+Math.sign(z)*.20,.07,.80,.06);
+      block(group,gold,s*.843,1.66,cab+z,.018,.019,.43,.005);
     }
-    block(group,velvet,0,1.40,cab+s*.58,1.22,.17,.43,.065);
-    block(group,velvet,0,1.60,cab+s*.80,1.21,.45,.12,.06);
-    const door=new T.Group();door.position.set(s*.73,1.36,cab+.60);
-    block(door,M.paint,0,.20,-.60,.074,.48,1.18,.04);
-    block(door,glass,0,.72,-.60,.033,.53,1.11);
-    for(const z of [-1.17,-.03])block(door,wood,0,.72,z,.070,.60,.052,.012);
-    for(const y of [.45,1.0])block(door,gold,0,y,-.60,.080,.034,1.18,.008);
-    block(door,gold,s*.054,.35,-1.02,.048,.04,.13,.012);
-    egg(door,gold,s*.046,.23,-.58,.014,.058,.041);
+    // Each inward-facing bench has two independent cushions and backrests.
+    block(group,wood,0,1.075,cab+s*.73,1.44,.35,.49,.035);
+    for(const x of [-.36,.36]){
+      block(group,velvet,x,1.30,cab+s*.73,.704,.12,.51,.053);
+      const back=block(group,velvet,x,1.58,cab+s*.966,.704,.50,.12,.055);
+      back.rotation.x=s*.10;
+    }
+    const door=new T.Group();door.position.set(s*.82,.92,cab+.58);
+    block(door,M.paint,0,.415,-.58,.073,.82,1.15,.036);
+    block(door,glass,0,1.20,-.58,.032,.73,1.08);
+    for(const z of [-1.13,-.03])block(door,wood,0,1.20,z,.071,.80,.048,.012);
+    for(const y of [.82,1.59])block(door,gold,0,y,-.58,.079,.032,1.15,.008);
+    block(door,gold,s*.055,.69,-.96,.047,.038,.13,.012);
+    egg(door,gold,s*.047,.47,-.58,.014,.058,.041);
     group.add(door);doors.push({pivot:door,axis:new T.Vector3(0,1,0),sign:-s,max:1.12});
-    block(group,wood,s*.86,.59,cab,.39,.066,1.26);
-    cord(group,wood,[[s*.88,.59,cab-1.15],[s*.88,.87,cab-.82],[s*.88,.98,cab],[s*.88,.8,cab+.92]],.051);
+    block(group,wood,s*.93,.58,cab,.40,.068,1.10);
+    cord(group,wood,[[s*.88,.59,cab-1.15],[s*.88,.83,cab-.82],[s*.88,.83,cab+.60],[s*.88,.76,cab+.92]],.047);
   }
-  block(group,leather,0,2.41,cab,1.56,.16,2.23,.077);
-  block(group,gold,0,2.345,cab,1.48,.035,2.12,.014);
+  block(group,leather,0,2.59,cab,1.74,.16,2.34,.077);
+  block(group,gold,0,2.52,cab,1.68,.033,2.27,.014);
   block(group,wood,0,1.14,-1.34,1.12,.18,.63);
   block(group,leather,0,1.38,-1.49,.98,.21,.46,.08);
   for(const side of [-1,1]){
-    cord(group,gold,[[side*.68,2.48,-3.65],[side*.68,2.56,-3.57],[side*.68,2.56,-3.04],[side*.68,2.48,-2.96]],.018);
+    cord(group,gold,[[side*.68,2.67,-3.65],[side*.68,2.75,-3.57],[side*.68,2.75,-3.04],[side*.68,2.67,-2.96]],.018);
   }
   block(group,leather,0,1.20,-3.88,1.17,.41,.37,.07);
   for(const x of [-.38,.38])block(group,gold,x,1.20,-4.073,.040,.34,.022);
@@ -126,6 +133,10 @@ export function build(T,{color='#304850'}={}){
     rod(group,coat,[s*.12,1.48,-1.40],[s*.15,1.34,-1.04],.09);
     rod(group,leather,[s*.15,1.34,-1.04],[s*.15,1.01,-1.04],.072);
     rod(group,gold,[s*.74,1.76,-1.78],[s*.90,1.88,-1.78],.029);
+    const lantern = new T.PointLight(0xffb665,0,1.85,2);
+    lantern.position.set(s*.90,1.99,-1.78);
+    group.add(lantern);
+    lanternLights.push(lantern);
     lamps.push(block(group,globe,s*.90,1.99,-1.78,.16,.23,.16));
     block(group,wood,s*.90,2.135,-1.78,.21,.06,.21);
     for(const dx of [-.078,.078])rod(group,gold,[s*.90+dx,1.88,-1.70],[s*.90+dx,2.105,-1.70],.012);
@@ -155,5 +166,5 @@ export function build(T,{color='#304850'}={}){
     for(const {joint,phase} of legs)joint.rotation.x=.27*amplitude*Math.sin(cycle+phase);
     return amplitude>0;
   }
-  return {group,doors,wheels,bodyMaterials:[M.paint],headlights:{meshes:lamps,drl:[],light:makeHeadSpot(T,group,{y:1.99,z:-1.77})},taillights:[],animate,meta};
+  return {group,doors,wheels,bodyMaterials:[M.paint],headlights:{meshes:lamps,drl:[],spots:lanternLights,intensity:2.3,emission:1.1,roadBeam:false},taillights:[],animate,meta};
 }
