@@ -1,7 +1,7 @@
 import {bodyLoft,cabinLoft,loftDoorPreds,loftDoors,regionHelpers,cabinInterior,interiorMaterials,curve} from './kit.js';
 import {mesh,makeMaterials,multiMesh,roundBox,placeWheels,makeMirror,makeHeadSpot} from './parts.js';
 
-export const meta={id:'family',displayName:'好爸爸',roofY:1.70};
+export const meta={id:'family',displayName:'休旅車',roofY:1.70};
 
 export function build(T,{color='#804235'}={}){
   const group=new T.Group(), M=makeMaterials(T,color,{rim:0xa2a7ac,caliper:0x404449});

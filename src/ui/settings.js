@@ -9,7 +9,7 @@ export const CAR_MODELS = [
   { id: 'tumbler', name: '重騎兵' },
   { id: 'daystar', name: '明日之星' },
   {id:'carriage',name:'馬車'},
-  {id:'family',name:'好爸爸'},
+  {id:'family',name:'休旅車'},
   { id: 'motorcycle', name: '重型機車' },
 ];
 export const CAR_COLORS = [

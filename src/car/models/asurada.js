@@ -143,6 +143,7 @@ export function build(THREE, { color = '#e8eaed' } = {}) {
     plumes.push(plume);
   }
   const wing = mesh(THREE, roundBox(THREE,1.48,.045,.22,.02), M.paint, [0,.82,-2.26]);
+  wing.name = 'Active rear wing';
   group.add(wing);
   const struts = [-.46,.46].map(x => {
     const strut = mesh(THREE, roundBox(THREE,.045,.35,.08,.012), M.darkChrome, [x,.64,-2.26]);
@@ -152,9 +153,10 @@ export function build(THREE, { color = '#e8eaed' } = {}) {
   let lift = 0, power = 0, elapsed = 0, previewSeconds = 0;
   function animate(dt, speed) {
     elapsed += dt;
-    const target = previewSeconds > 0 ? 1 : Math.min(1, Math.max(0,(speed-1)/18));
+    const previewing = previewSeconds > 0;
+    const target = previewing ? 1 : Math.min(1, Math.max(0,(speed-1)/18));
     previewSeconds = Math.max(0,previewSeconds-dt);
-    const deployed = speed > .3 ? 1 : 0;
+    const deployed = previewing || speed > .3 ? 1 : 0;
     lift = THREE.MathUtils.damp(lift,deployed,3,dt);
     power = THREE.MathUtils.damp(power,target,5,dt);
     if (Math.abs(lift-deployed)<.002) lift=deployed;

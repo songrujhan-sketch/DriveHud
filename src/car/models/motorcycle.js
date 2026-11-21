@@ -57,6 +57,8 @@ export function build(T, {color='#d32f2f'}={}) {
   facets(M.paint,[[-1.55,.15,.87,.93],[-1.22,.27,.86,1.08],[-.76,.26,.88,1.09],[-.52,.20,.89,1.01]]);
   facets(M.paint,[[.90,.058,.76,.80],[1.03,.11,.79,.88],[1.25,.12,.80,.88],[1.55,.09,.73,.78],[1.59,.046,.72,.75]]);
   box(M.trim,[0,1.007,-.52],[.42,.105,.65],.047);
+  const gripY=1.35, gripZ=.44, gripX=.32;
+  const pilotOffset=[0,.10,.12];
   for(const side of [-1,1]){
     tube(M.chrome,[side*.15,.43,1.19],[side*.24,1.09,.73],.043);
     tube(M.trim,[side*.17,.48,1.16],[side*.22,.83,.91],.064);
@@ -71,8 +73,8 @@ export function build(T, {color='#d32f2f'}={}) {
     tube(M.gblack,[side*.314,.687,-1.02],[side*.32,.76,-1.49],.116);
     for(const z of [-1.18,-.96])box(M.chrome,[side*.392,.723,z],[.03,.04,.09],.008);
     for(let i=0;i<4;i++) box(M.darkChrome,[side*.313,.53+i*.055,-.15],[.053,.020,.36],.008);
-    tube(M.trim,[0,1.21,.56],[side*.34,1.26,.44],.025);
-    tube(M.gblack,[side*.26,1.26,.44],[side*.37,1.26,.44],.034);
+    tube(M.trim,[0,1.25,.56],[side*gripX,gripY,gripZ],.025);
+    tube(M.gblack,[side*(gripX-.055),gripY,gripZ],[side*(gripX+.055),gripY,gripZ],.034);
     tube(M.darkChrome,[side*.27,1.19,.72],[side*.46,1.34,.78],.019);
     shell(M.gblack,[side*.46,1.34,.78],[.10,.044,.065]);
     box(M.darkChrome,[side*.31,.564,-.36],[.19,.04,.27],.015);
@@ -84,8 +86,9 @@ export function build(T, {color='#d32f2f'}={}) {
   const glass=new T.MeshPhysicalMaterial({color:0x79afbc,transparent:true,opacity:.36,roughness:.11,metalness:.14,clearcoat:1,side:T.DoubleSide,depthWrite:false});
   const windscreen=mesh(T,new T.ShapeGeometry(shield,20),glass,[0,1.14,1.00],[-.42,0,0]);
   group.add(windscreen);
-  const pilot=makePilot(T,M,{x:0,grip:.31,handY:1.16,handZ:.32,footY:.55,footZ:-.53,motorcycle:true});
-  pilot.position.set(0,.10,.12);
+  const pilot=makePilot(T,M,{x:0,grip:gripX,handY:gripY-pilotOffset[1],handZ:gripZ-pilotOffset[2],
+    footY:.55,footZ:-.53,motorcycle:true});
+  pilot.position.set(...pilotOffset);
   group.add(pilot);
   const headlights=[];
   for(const side of [-1,1]){

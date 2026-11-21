@@ -25,7 +25,9 @@ export function makePilot(T, M, {x=.40, grip=.14, handY=1.12, handZ=.32, footY=.
   ball(visor,[x,1.515,-.459],[.157,.103,.132]);
   ball(beacon,[x,1.531,-.331],[.091,.009,.009]);
   for(const s of [-1,1]) {
-    const shoulder=[x+s*.18,1.24,-.52], elbow=[x+s*.235,1.02,-.19], hand=[x+s*grip,handY,handZ];
+    const shoulder=[x+s*.18,1.24,-.52];
+    const elbow=motorcycle ? [x+s*.39,1.22,-.16] : [x+s*.235,1.02,-.19];
+    const hand=[x+s*grip,handY,handZ];
     ball(suit,shoulder,[.084,.082,.08]);
     rod(shoulder,elbow,.058,M.trim);
     ball(M.darkChrome,elbow,[.061,.061,.061]);

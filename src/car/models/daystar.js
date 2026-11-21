@@ -65,6 +65,7 @@ export function build(T, {color='#c8d0d5'}={}) {
   box(hull,I.trim,[0,.76,-.22],[1.57,.13,1.63]);
   const heads=[],tails=[],jets=[],spots=[];
   const wing = new T.Group();
+  wing.name = 'Active rear wing';
   hull.add(wing);
   const mounts=[];
   const cockpit=new T.Group();
@@ -150,7 +151,8 @@ export function build(T, {color='#c8d0d5'}={}) {
   let elapsed=0,preview=0,lift=0;
   function animate(dt,speed) {
     elapsed+=dt;
-    lift=T.MathUtils.damp(lift,speed>.3 ? 1 : 0,3,dt);
+    const previewing=preview>0;
+    lift=T.MathUtils.damp(lift,previewing || speed>.3 ? 1 : 0,3,dt);
     wing.position.y=-.20+.49*lift;
     for(const post of mounts) {
       const top=1.34+wing.position.y;
@@ -158,7 +160,7 @@ export function build(T, {color='#c8d0d5'}={}) {
       post.position.y=(top+.95)/2;
     }
     preview=Math.max(0,preview-dt);
-    const power=preview>0 ? 1 : Math.min(1,speed/16);
+    const power=previewing ? 1 : Math.min(1,speed/16);
     hull.position.y=.018*Math.sin(elapsed*2.1);
     for(const {fire,down} of jets) {
       fire.visible=down || power>.01;

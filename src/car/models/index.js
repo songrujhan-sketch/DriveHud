@@ -18,7 +18,7 @@ export const MODELS = [
   { id: 'tumbler', displayName: '重騎兵', build: tumbler.build },
   { id: 'daystar', displayName: '明日之星', build: daystar.build },
   {id:'carriage',displayName:'馬車',build:carriage.build},
-  {id:'family',displayName:'好爸爸',build:family.build},
+  {id:'family',displayName:'休旅車',build:family.build},
   { id: 'motorcycle', displayName: '重型機車', build: motorcycle.build },
 ];
 
