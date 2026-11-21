@@ -61,7 +61,7 @@ const THEMES = {
     bloom: { strength: 0.5, radius: 0.5, threshold: 1.0 }, shadow: 0.9,
   },
 };
-const PAGE_EDGE = { dark: '#14171c', light: '#f3f5f8' }; // 與 styles/app.css 的 --bg 一致
+const PAGE_EDGE = { dark: '#101313', light: '#edf0ec' }; // 與 styles/app.css 的 --bg 一致
 function themeFor(scene, night) {
   if (scene === 'mountain' || scene === 'city') return THEMES[`${scene}-${night ? 'night' : 'day'}`];
   return night ? THEMES.dark : THEMES.light;

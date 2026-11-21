@@ -6,6 +6,7 @@ export const CAR_MODELS = [
   { id: 'darkknight', name: '黑騎士' },
   { id: 'asurada', name: '阿斯拉' },
   { id: 'rover', name: '豹勇士' },
+  { id: 'tumbler', name: '重騎兵' },
 ];
 export const CAR_COLORS = [
   { hex: '#d32f2f', name: '赤紅' },
@@ -15,6 +16,11 @@ export const CAR_COLORS = [
   { hex: '#2e9e5b', name: '森綠' },
   { hex: '#7a3fd1', name: '紫' },
   { hex: '#15171a', name: '曜黑' },
+  { hex: '#82ed20', name: '亮綠' },
+  { hex: '#f37639', name: '熔岩橘' },
+  { hex: '#c9a44f', name: '金色' },
+  { hex: '#c8d0d5', name: '銀色' },
+  { hex: '#00594f', name: '深賽車綠' },
 ];
 export const CAR_VIEWS = [
   { id: 'front', name: '前 45°' },

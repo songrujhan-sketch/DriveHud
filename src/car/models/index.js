@@ -4,11 +4,14 @@ import * as darkknight from './darkknight.js';
 import * as asurada from './asurada.js';
 import * as rover from './rover.js';
 
+import * as tumbler from './tumbler.js';
+
 export const MODELS = [
   { id: 'valkyrie', displayName: '女武神', build: valkyrie.build },
   { id: 'darkknight', displayName: '黑騎士', build: darkknight.build },
   { id: 'asurada', displayName: '阿斯拉', build: asurada.build },
   { id: 'rover', displayName: '豹勇士', build: rover.build },
+  { id: 'tumbler', displayName: '重騎兵', build: tumbler.build },
 ];
 
 export function getModel(id) {

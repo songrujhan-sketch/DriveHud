@@ -54,7 +54,7 @@ test('設定頁只留極簡、低畫質、提醒距離與資料；車款、車�
   const errors = await openSim(page);
   await page.evaluate(() => localStorage.removeItem('drivehud.settings.v1'));
   await page.reload();
-  await expect(page.locator('#cb-colors [data-color]')).toHaveCount(7);
+  await expect(page.locator('#cb-colors [data-color]')).toHaveCount(12);
   await page.locator('#cb-model').click();
   await expect(page.locator('#cb-model')).toHaveText('車款：黑騎士');
   await page.locator('#cb-colors [data-color]').nth(6).click();
@@ -75,11 +75,11 @@ test('設定頁只留極簡、低畫質、提醒距離與資料；車款、車�
   expect(errors).toEqual([]);
 });
 
-test('車門按鈕：四款車都能開關車門，換車後自動關上', async ({ page }) => {
+test('車門按鈕：五款車都能開關車門，換車後自動關上', async ({ page }) => {
   const errors = await openSim(page);
   await page.evaluate(() => localStorage.removeItem('drivehud.settings.v1'));
   await page.reload();
-  for (const name of ['女武神', '黑騎士', '阿斯拉', '豹勇士']) {
+  for (const name of ['女武神', '黑騎士', '阿斯拉', '豹勇士', '重騎兵']) {
     await expect(page.locator('#cb-model')).toHaveText(`車款：${name}`);
     await expect(page.locator('#cb-doors')).toBeVisible();
     await expect(page.locator('#cb-doors')).toHaveText('車門：關'); // 換車後一律是關的
@@ -97,6 +97,6 @@ test('主畫面模板可載入且無 console error（開始行車按鈕存在）
   page.on('pageerror', (e) => errors.push(String(e)));
   await page.goto('/src/ui/index.template.html');
   await expect(page.locator('#btn-start')).toBeVisible();
-  await expect(page.locator('#gps-status')).toContainText('定位中');
+  await expect(page.locator('#gps-status')).toContainText('GPS 待命');
   expect(errors).toEqual([]);
 });

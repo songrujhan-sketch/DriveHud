@@ -127,7 +127,14 @@ export function createCarView(canvas, opts = {}) {
 
   function applyColor() {
     if (!car) return;
-    car.bodyMaterials.forEach((m) => m.color.set(state.color));
+    const metallic = ['#c9a44f', '#c8d0d5'].includes(state.color);
+    car.bodyMaterials.forEach((m) => {
+      m.color.set(state.color);
+      m.userData.baseMetalness ??= m.metalness;
+      m.userData.baseRoughness ??= m.roughness;
+      m.metalness = metallic ? Math.max(.78, m.userData.baseMetalness) : m.userData.baseMetalness;
+      m.roughness = metallic ? Math.min(.27, m.userData.baseRoughness) : m.userData.baseRoughness;
+    });
   }
 
   // 時段「自動」跟隨頁面明暗；頁面明暗另外決定畫面外圈的收斂色
@@ -274,6 +281,7 @@ export function createCarView(canvas, opts = {}) {
     setColor(hex) { state.color = hex; applyColor(); kick(); },
     setHeadlights(on) { state.headlights = !!on; applyHeadlights(); kick(); },
     setModel(id) { if (getModel(id).id === state.modelId) return; loadModel(id); kick(); },
+    previewJet() { if(car?.setJetPreview){ car.setJetPreview(true); kick(); } },
     hasDoors() { return !!(car && car.doors && car.doors.length); },
     get doorsOpen() { return state.doorsOpen; },
     get doorsLocked() { return state.speedMps >= DOOR_LOCK_MPS; },
