@@ -1,5 +1,7 @@
 export function makePlume(THREE, layers) {
   const plume = new THREE.Group();
+  // Draw the translucent exhaust after the reflective floor and contact shadow.
+  plume.renderOrder = 5;
   plume.name = 'Jet plume';
   for (const [r,length,color,opacity] of layers) {
     const flame = new THREE.ConeGeometry(r,length,28,12,true);

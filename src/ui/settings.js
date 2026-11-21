@@ -7,6 +7,7 @@ export const CAR_MODELS = [
   { id: 'asurada', name: '阿斯拉' },
   { id: 'rover', name: '豹勇士' },
   { id: 'tumbler', name: '重騎兵' },
+  { id: 'daystar', name: '明日之星' },
 ];
 export const CAR_COLORS = [
   { hex: '#d32f2f', name: '赤紅' },

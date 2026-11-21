@@ -1,3 +1,4 @@
+import { makeNozzle } from './nozzle.js';
 // 女武神（valkyrie）— 原創低趴中置引擎 hypercar：
 // 淚滴座艙、前葉子板高於引擎蓋的稜線、門後大型側進氣、長尾擴散器、鵝頸大尾翼。
 // 全部為原創幾何，不參考任何既有車款造型或標誌。
@@ -171,11 +172,11 @@ export function build(THREE, { color = '#c8102e' } = {}) {
   group.add(tl); tails.push(tl);
   tails.push(...mirrored(group, () => mesh(THREE, roundBox(THREE, 0.022, 0.09, 0.025, 0.008), M.tail, [0.8, 0.61, Z0 - 0.012])));
   // 中央雙排氣（深色金屬管）
-  const pipe = new THREE.LatheGeometry([[0.05, 0], [0.058, 0], [0.058, 0.1], [0.05, 0.1]].map(([r, y]) => new THREE.Vector2(r, y)), 20);
-  pipe.rotateX(-Math.PI / 2);
-  mirrored(group, () => mesh(THREE, pipe, M.darkChrome, [0.09, 0.38, Z0 + 0.06]));
-  const pipeIn = new THREE.CircleGeometry(0.05, 20); pipeIn.rotateY(Math.PI);
-  mirrored(group, () => mesh(THREE, pipeIn, M.gap, [0.09, 0.38, Z0 + 0.05]));
+  for (const x of [-.102,.102]) {
+    const pipe = makeNozzle(THREE,M,.078,.12);
+    pipe.position.set(x,.39,Z0-.146);
+    group.add(pipe);
+  }
 
   const light = makeHeadSpot(THREE, group, { y: 0.45, z: 2.2 });
 

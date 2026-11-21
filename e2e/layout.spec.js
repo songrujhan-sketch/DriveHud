@@ -59,7 +59,7 @@ test('設定頁只留極簡、低畫質、提醒距離與資料；車款、車�
   await page.locator('.appearance summary').click();
   await expect(page.locator('#cb-colors [data-color]')).toHaveCount(12);
   await page.locator('#cb-model').click();
-  await expect(page.locator('#cb-model')).toHaveText('車款：黑騎士');
+  await expect(page.locator('#cb-model')).toHaveText('黑騎士');
   await page.locator('#cb-colors [data-color]').nth(6).click();
   await page.locator('#cb-lights').click();
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('drivehud.settings.v1')));
@@ -73,12 +73,12 @@ test('設定頁只留極簡、低畫質、提醒距離與資料；車款、車�
   await expect(page.locator('#settings-data')).toHaveCount(1);
   await page.screenshot({ path: path.join(SHOTS, `${info.project.name}-settings.png`) });
   await page.reload();
-  await expect(page.locator('#cb-model')).toHaveText('車款：黑騎士');
+  await expect(page.locator('#cb-model')).toHaveText('黑騎士');
   await expect(page.locator('#cb-lights')).toHaveAttribute('aria-pressed', 'true');
   expect(errors).toEqual([]);
 });
 
-test('車門按鈕：五款車都能開關車門，換車後自動關上', async ({ page }) => {
+test('車門按鈕：六款車都能開關車門，換車後自動關上', async ({ page }) => {
   const errors = await openSim(page);
   await page.evaluate(() => localStorage.removeItem('drivehud.settings.v1'));
   await page.reload();
@@ -87,12 +87,14 @@ test('車門按鈕：五款車都能開關車門，換車後自動關上', async
   await view.click();
   await view.click();
   await expect(view).toHaveAccessibleName(/正側面/);
-  for (const name of ['女武神', '黑騎士', '阿斯拉', '豹勇士', '重騎兵']) {
-    await expect(page.locator('#cb-model')).toHaveText(`車款：${name}`);
+  const initialWidth = (await page.locator('#cb-model').boundingBox()).width;
+  for (const name of ['女武神', '黑騎士', '阿斯拉', '豹勇士', '重騎兵', '明日之星']) {
+    await expect(page.locator('#cb-model')).toHaveText(name);
+    expect((await page.locator('#cb-model').boundingBox()).width).toBe(initialWidth);
     const jet = page.locator('#cb-jet');
-    if (['黑騎士','阿斯拉','重騎兵'].includes(name)) {
+    if (['黑騎士','阿斯拉','重騎兵','明日之星'].includes(name)) {
       await jet.click();
-      await expect(view).toHaveAccessibleName(/後 45°/);
+      await expect(view).toHaveAccessibleName(name === '阿斯拉' ? /正後方/ : /後 45°/);
     } else {
       await expect(jet).toBeHidden();
     }

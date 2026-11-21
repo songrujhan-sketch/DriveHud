@@ -1,3 +1,4 @@
+import { makeNozzle } from './nozzle.js';
 import { makePlume } from './plume.js';
 // 阿斯拉（asurada）— 原創流線電動雙門跑車：長軸距、單弧 fastback 全景玻璃頂、
 // 前後貫穿式燈條、封閉式前臉、隱藏式門把、空力輪蓋。全部為原創幾何。
@@ -133,12 +134,11 @@ export function build(THREE, { color = '#e8eaed' } = {}) {
 
   const plumes = [];
   for (const x of [-0.62, -0.34, 0.34, 0.62]) {
-    const sleeve = new THREE.CylinderGeometry(.122, .106, .20, 24, 1, true);
-    sleeve.rotateX(Math.PI / 2);
-    group.add(mesh(THREE, sleeve, M.darkChrome, [x,.46,-2.42]));
-    group.add(mesh(THREE, new THREE.TorusGeometry(.112,.014,8,24), M.chrome, [x,.46,-2.52]));
-    const plume = makePlume(THREE, [[.104,.77,0xb5dfff,.75],[.087,.58,0xffffff,1],[.065,.34,0xfff9ec,1]]);
-    plume.position.set(x,.46,-2.53);
+    const nozzle = makeNozzle(THREE,M,.122,.146,true);
+    nozzle.position.set(x,.46,-2.59);
+    group.add(nozzle);
+    const plume = makePlume(THREE, [[.099,.89,0xb5dfff,.68],[.078,.66,0xffffff,.91],[.053,.40,0xfff9ec,1]]);
+    plume.position.copy(nozzle.position);
     group.add(plume);
     plumes.push(plume);
   }

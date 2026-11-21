@@ -292,3 +292,11 @@ button.car-zone { display: block; padding: 0; border: 0; background: transparent
 .garage-controls .appearance { grid-area: auto; }
 .garage-controls #cb-model { min-height: 44px; }
 .app:not(.layout-normal) .garage-controls { display: none; }
+
+.garage-controls #cb-model {
+  width: 7.5rem; height: 44px; padding: 0 12px;
+  display: inline-flex; justify-content: space-between; align-items: center;
+  background: var(--fg); color: var(--bg); border: 1px solid var(--fg);
+  font-size: 1rem; font-weight: 750; letter-spacing: .04em;
+}
+#cb-model::after { content: '›'; font-size: 1.3rem; }

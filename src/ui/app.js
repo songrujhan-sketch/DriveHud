@@ -55,7 +55,7 @@ export const SHELL_HTML = `
       <div class="ap-over" id="over-label" hidden>超速</div>
     </section>
     <div class="garage-controls">
-      <button type="button" class="cb-btn" id="cb-model">車款</button>
+      <button type="button" class="cb-btn" id="cb-model" title="點按切換車款">女武神</button>
     <details class="appearance"><summary>外觀與場景 <span id="appearance-current"></span></summary>
     <div class="carbar" id="carbar" role="group" aria-label="車輛外觀">
       <div class="cb-swatches" id="cb-colors" role="radiogroup" aria-label="車色"></div>
@@ -108,7 +108,7 @@ export function createApp({
   const nameOf = (list, id) => (list.find((x) => x.id === id) || list[0]).name;
   function syncBar(s) {
     $('#appearance-current').textContent = nameOf(CAR_SCENES, s.scene);
-    bar.model.textContent = `車款：${nameOf(CAR_MODELS, s.model)}`;
+    bar.model.textContent = nameOf(CAR_MODELS, s.model);
     bar.view.setAttribute('aria-label', `目前為${nameOf(CAR_VIEWS, s.view)}，點按切換視角`);
     bar.scene.textContent = `場景：${nameOf(CAR_SCENES, s.scene)}`;
     bar.time.textContent = `時段：${nameOf(CAR_TIMES, s.time)}`;
@@ -140,7 +140,7 @@ export function createApp({
   }
   bar.doors.addEventListener('click', () => { if (car.setDoors) car.setDoors(!car.doorsOpen); syncDoors(); });
   $('#cb-jet').addEventListener('click', () => {
-    store.set({view:'rear'});
+    store.set({view:store.get().model === 'asurada' ? 'back' : 'rear'});
     car.previewJet();
   });
   syncDoors();
