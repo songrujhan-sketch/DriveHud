@@ -72,7 +72,7 @@ export function createCarView(canvas, opts = {}) {
   let carBox = new THREE.Box3();
 
   // A longitudinal silhouette avoids framing empty corners of a tall antenna or a long horse team.
-  let outline=[],openOutline=[];
+  let outline=[];
   function captureOutline() {
     const bins=Array.from({length:20},()=>new THREE.Box3());
     const v=new THREE.Vector3(),length=Math.max(.01,carBox.max.z-carBox.min.z);
@@ -95,7 +95,7 @@ export function createCarView(canvas, opts = {}) {
   const subjectBounds=new THREE.Box3();
   function fitCamera() {
     if (!car) return;
-    const corners = state.doorT>.001 ? openOutline : outline;
+    const corners = outline;
     const frameBox=subjectBounds.setFromPoints(corners);
     const exhaust=car.meta?.id==='darkknight' ? 1.25 : .9;
     if(car.setJetPreview && (state.speedMps>0 || state.fx)) frameBox.min.z-=exhaust;
@@ -203,8 +203,8 @@ export function createCarView(canvas, opts = {}) {
     carBox = new THREE.Box3().setFromObject(car.group, true);
     outline=captureOutline();
     for(const d of car.doors || []) d.pivot.quaternion.setFromAxisAngle(d.axis,d.sign*d.max);
-    openOutline=outline.concat(captureOutline());
-    if(car.framingBounds) openOutline.push(car.framingBounds.max.clone(),car.framingBounds.min.clone());
+    outline.push(...captureOutline());
+    if(car.framingBounds) outline.push(car.framingBounds.max.clone(),car.framingBounds.min.clone());
     applyDoors();
     car.group.updateMatrixWorld(true);
     state.triangles = countTriangles(car.group);
@@ -276,7 +276,6 @@ export function createCarView(canvas, opts = {}) {
       const step = dt * 1000 / DOOR_MS;
       state.doorT = doorTarget > state.doorT ? Math.min(1, state.doorT + step) : Math.max(0, state.doorT - step);
       applyDoors();
-      fitCamera();
     }
     stage.update(dt, state.speedMps);
     const wasAnimating=state.fx;
