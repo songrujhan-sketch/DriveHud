@@ -1,7 +1,6 @@
-// 整合點：app.js / main.js / sim.js / settings.js 只從這裡 import 引擎、車模、資料、模擬播放器。
+// 整合點：app.js / main.js / settings.js 只從這裡 import 引擎、車模、資料。
 export { createAlertEngine } from '../engine/alertEngine.js';
 export { createCarView } from '../car/carView.js';
-export { createPlayer } from '../../sim/player.js';
 export { mountSettingsData } from './settings-data.js';
 export { CONFIG } from '../../config.js';
 
@@ -46,16 +45,3 @@ export async function loadCameras() {
   }
   return (ds && ds.cameras) || [];
 }
-
-/** 真實情境檔已就位。 */
-export const USE_REAL_SCENARIOS = true;
-/** sim.html 的固定情境清單（相對於 sim.html；對應 sim/scenarios/index.json）。 */
-export const SCENARIO_FILES = [
-  './sim/scenarios/01-same-dir-overspeed.json',
-  './sim/scenarios/02-opposite-skip.json',
-  './sim/scenarios/03-parallel-unknown-dir.json',
-  './sim/scenarios/04-red-light-drift.json',
-  './sim/scenarios/05-expressway-gps-loss.json',
-];
-/** 找不到真實情境時的備援。相對於 sim.html。 */
-export const DEMO_SCENARIO_FILE = './src/ui/__stub__/scenario-demo.json';

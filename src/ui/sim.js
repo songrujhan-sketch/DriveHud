@@ -1,9 +1,21 @@
 // sim.html：不需 GPS。把情境的 fixes 餵進同一個 engine，並以和主畫面相同的 createApp 渲染。
-import {
-  CONFIG, createAlertEngine, createPlayer, SCENARIO_FILES, DEMO_SCENARIO_FILE, USE_REAL_SCENARIOS,
-} from './deps.js';
+import { CONFIG, createAlertEngine } from './deps.js';
+import { createPlayer } from '../../sim/player.js';
 import { createApp } from './app.js';
 import { createSettingsStore } from './settings.js';
+
+/** 真實情境檔已就位。 */
+const USE_REAL_SCENARIOS = true;
+/** sim.html 的固定情境清單（相對於 sim.html；對應 sim/scenarios/index.json）。 */
+const SCENARIO_FILES = [
+  './sim/scenarios/01-same-dir-overspeed.json',
+  './sim/scenarios/02-opposite-skip.json',
+  './sim/scenarios/03-parallel-unknown-dir.json',
+  './sim/scenarios/04-red-light-drift.json',
+  './sim/scenarios/05-expressway-gps-loss.json',
+];
+/** 找不到真實情境時的備援。相對於 sim.html。 */
+const DEMO_SCENARIO_FILE = './src/ui/__stub__/scenario-demo.json';
 
 const TRACKED = ['APPROACH_ALERT', 'NEARBY', 'OVERSPEED_ALERT', 'PASSED'];
 const EVENT_LABEL = {
