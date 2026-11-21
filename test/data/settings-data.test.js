@@ -32,7 +32,7 @@ test('渲染資訊、按鈕與 class 前綴', async () => {
   assert.equal(c.find('sd-row-limitMissing').find('sd-value').textContent, '12');
   assert.equal(c.find('sd-row-dirUnknown').find('sd-value').textContent, '191');
   assert.match(c.find('sd-row-source').find('sd-value').textContent, /警政署 7320.*線上更新/);
-  assert.equal(c.find('sd-btn-update').textContent, '更新測速資料');
+  assert.equal(c.find('sd-btn-update'), null);
   assert.equal(c.find('sd-btn-import').textContent, '匯入官方 CSV');
   assert.equal(c.find('sd-file').accept, '.csv,text/csv');
   assert.equal(c.find('sd-file').type, 'file');
@@ -40,13 +40,14 @@ test('渲染資訊、按鈕與 class 前綴', async () => {
 
 test('更新失敗顯示原因', async () => {
   const c = new El('div', doc);
-  const update = { updateOnline: async () => ({ ok: false, reason: '無法連線或被瀏覽器跨網域限制擋下，請改用匯入 CSV' }) };
-  mountSettingsData(c, { store: { loadDataset: async () => dataset }, update, config: { data: { sources: { npa7320: 'u' } } } });
+  const update = { importFromFile: async () => ({ ok: false, reason: '缺少必要欄位' }) };
+  mountSettingsData(c, { store: { loadDataset: async () => dataset }, update });
+  const input = c.find('sd-file');
+  input.files = [{ name: 'invalid.csv' }];
+  await input.fire('change');
   await flush();
-  c.find('sd-btn-update').click();
-  await flush();
-  assert.match(c.find('sd-result').textContent, /失敗.*跨網域/);
-  assert.equal(c.find('sd-btn-update').disabled, false);
+  assert.match(c.find('sd-result').textContent, /失敗.*缺少必要欄位/);
+  assert.equal(c.find('sd-btn-import').disabled, false);
 });
 
 test('匯入成功後重新整理數字', async () => {

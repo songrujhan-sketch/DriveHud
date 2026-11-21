@@ -278,3 +278,11 @@ body.sim-page { height: auto; min-height: 100%; }
 @container app (orientation:landscape) and (max-height:520px){.layout-normal #nav-maps{display:inline-block}}
 
 .meter-label:before{display:none}.radar-idle:after{opacity:.5}.layout-normal .car-zone{border-radius:12px}.topbar .top-actions{align-items:center}.layout-normal .speed-zone,.radar-idle{justify-content:center}.topbar .start-btn{min-height:40px}
+
+.appearance { grid-area: bar; min-width: 0; border-block: 1px solid var(--line); }
+.appearance summary { cursor: pointer; padding: 12px 4px; font-weight: 650; }
+.appearance summary span { margin-inline-start: 12px; color: var(--muted); font-size: 0.85em; font-weight: 400; }
+.appearance .carbar { padding: 2px 0 12px; }
+.appearance .cb-swatches { max-width: 100%; height: auto; min-height: 40px; flex-wrap: wrap; }
+.app:not(.layout-normal) .appearance { display: none; }
+.sd-source { align-self: center; color: var(--fg); padding: 8px; }

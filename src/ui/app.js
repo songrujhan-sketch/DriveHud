@@ -54,6 +54,7 @@ export const SHELL_HTML = `
       <div class="ap-addr" id="addr"></div>
       <div class="ap-over" id="over-label" hidden>超速</div>
     </section>
+    <details class="appearance"><summary>外觀與場景 <span id="appearance-current"></span></summary>
     <div class="carbar" id="carbar" role="group" aria-label="車輛外觀">
       <button type="button" class="cb-btn" id="cb-model">車款</button>
       <div class="cb-swatches" id="cb-colors" role="radiogroup" aria-label="車色"></div>
@@ -64,6 +65,7 @@ export const SHELL_HTML = `
       <button type="button" class="cb-btn" id="cb-scene">場景</button>
       <button type="button" class="cb-btn" id="cb-time">時段</button>
     </div>
+    </details>
     <footer class="console-foot"><a href="./sim.html">行車模擬</a><button id="btn-data" type="button">測速資料庫</button></footer>
     <div class="nearby-hint" id="nearby-hint" hidden>附近測速點</div>
     <div class="sim-badge" id="sim-badge" hidden>模擬</div>
@@ -105,6 +107,7 @@ export function createApp({
   const nameOf = (list, id) => (list.find((x) => x.id === id) || list[0]).name;
   function syncBar(s) {
     $('#cb-jet').hidden = s.model !== 'tumbler';
+    $('#appearance-current').textContent = [nameOf(CAR_MODELS, s.model), nameOf(CAR_SCENES, s.scene)].join(' · ');
     bar.model.textContent = `車款：${nameOf(CAR_MODELS, s.model)}`;
     bar.view.textContent = `視角：${nameOf(CAR_VIEWS, s.view)}`;
     bar.scene.textContent = `場景：${nameOf(CAR_SCENES, s.scene)}`;

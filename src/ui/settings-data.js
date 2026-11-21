@@ -1,7 +1,7 @@
 // 設定頁「測速資料」區塊。純 DOM、無框架；class 皆以 sd- 開頭。
-// mountSettingsData(container, { store, update, config }) → { refresh, destroy }
+// mountSettingsData(container, { store, update }) → { refresh, destroy }
 //   store:  { loadDataset(), loadBundledSnapshot?() }
-//   update: { updateOnline(opts?), importFromFile(file) }
+//   update: { importFromFile(file) }
 
 const SOURCE_NAMES = { npa7320: '內政部警政署 7320 固定式測速照相設置點' };
 
@@ -12,7 +12,7 @@ function fmtTime(iso) {
   return d.toLocaleString('zh-TW', { hour12: false });
 }
 
-export function mountSettingsData(container, { store, update, config } = {}) {
+export function mountSettingsData(container, { store, update } = {}) {
   const doc = container.ownerDocument || globalThis.document;
   const el = (tag, cls, text) => {
     const e = doc.createElement(tag);
@@ -23,7 +23,6 @@ export function mountSettingsData(container, { store, update, config } = {}) {
 
   container.textContent = '';
   const root = el('section', 'sd-root');
-  root.appendChild(el('h2', 'sd-title', '測速資料'));
 
   const dl = el('dl', 'sd-info');
   const fields = {};
@@ -41,15 +40,17 @@ export function mountSettingsData(container, { store, update, config } = {}) {
   root.appendChild(dl);
 
   const actions = el('div', 'sd-actions');
-  const btnUpdate = el('button', 'sd-btn sd-btn-update', '更新測速資料');
-  btnUpdate.type = 'button';
+  const sourceLink = el('a', 'sd-source', '取得官方 CSV');
+  sourceLink.href = 'https://data.gov.tw/dataset/7320';
+  sourceLink.target = '_blank';
+  sourceLink.rel = 'noopener noreferrer';
   const btnImport = el('button', 'sd-btn sd-btn-import', '匯入官方 CSV');
   btnImport.type = 'button';
   const fileInput = el('input', 'sd-file');
   fileInput.type = 'file';
   fileInput.accept = '.csv,text/csv';
   fileInput.hidden = true;
-  actions.append(btnUpdate, btnImport, fileInput);
+  actions.append(sourceLink, btnImport, fileInput);
   root.appendChild(actions);
 
   const result = el('p', 'sd-result', '最近一次結果：尚無');
@@ -58,7 +59,7 @@ export function mountSettingsData(container, { store, update, config } = {}) {
   container.appendChild(root);
 
   let destroyed = false;
-  const setBusy = (busy) => { btnUpdate.disabled = busy; btnImport.disabled = busy; };
+  const setBusy = (busy) => { btnImport.disabled = busy; };
   const showResult = (r) => {
     result.className = `sd-result ${r.ok ? 'sd-ok' : 'sd-fail'}`;
     result.textContent = `最近一次結果：${r.ok ? '成功' : '失敗'}　${r.reason}`;
@@ -104,7 +105,6 @@ export function mountSettingsData(container, { store, update, config } = {}) {
     }
   }
 
-  btnUpdate.addEventListener('click', () => run(() => update.updateOnline({ url: config?.data?.sources?.npa7320 })));
   btnImport.addEventListener('click', () => fileInput.click());
   fileInput.addEventListener('change', () => {
     const file = fileInput.files && fileInput.files[0];

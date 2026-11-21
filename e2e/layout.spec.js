@@ -54,6 +54,8 @@ test('設定頁只留極簡、低畫質、提醒距離與資料；車款、車�
   const errors = await openSim(page);
   await page.evaluate(() => localStorage.removeItem('drivehud.settings.v1'));
   await page.reload();
+  await expect(page.locator('#cb-model')).toBeHidden();
+  await page.locator('.appearance summary').click();
   await expect(page.locator('#cb-colors [data-color]')).toHaveCount(12);
   await page.locator('#cb-model').click();
   await expect(page.locator('#cb-model')).toHaveText('車款：黑騎士');
@@ -79,6 +81,7 @@ test('車門按鈕：五款車都能開關車門，換車後自動關上', async
   const errors = await openSim(page);
   await page.evaluate(() => localStorage.removeItem('drivehud.settings.v1'));
   await page.reload();
+  await page.locator('.appearance summary').click();
   for (const name of ['女武神', '黑騎士', '阿斯拉', '豹勇士', '重騎兵']) {
     await expect(page.locator('#cb-model')).toHaveText(`車款：${name}`);
     await expect(page.locator('#cb-doors')).toBeVisible();
