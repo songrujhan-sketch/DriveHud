@@ -1,3 +1,4 @@
+import { CAMOUFLAGE, applyCamouflage } from './models/camouflage.js';
 // DriveHUD V1.6 — 車模視圖（Worker B / B2 展示廳升級）
 // createCarView(canvas, { model, color, headlights, darkMode, compact, quality })
 //   → { setSpeedKmh, setColor, setHeadlights, setModel, setCompact, setDarkMode, resize, dispose, getInfo }
@@ -172,12 +173,14 @@ export function createCarView(canvas, opts = {}) {
   function applyColor() {
     if (!car) return;
     const metallic = ['#c9a44f', '#c8d0d5'].includes(state.color);
+    const palette = CAMOUFLAGE[state.color];
     car.bodyMaterials.forEach((m) => {
+      applyCamouflage(THREE,m,palette);
       m.color.set(state.color);
       m.userData.baseMetalness ??= m.metalness;
       m.userData.baseRoughness ??= m.roughness;
-      m.metalness = metallic ? Math.max(.78, m.userData.baseMetalness) : m.userData.baseMetalness;
-      m.roughness = metallic ? Math.min(.27, m.userData.baseRoughness) : m.userData.baseRoughness;
+      m.metalness = metallic ? Math.max(.78, m.userData.baseMetalness) : palette ? .16 : m.userData.baseMetalness;
+      m.roughness = metallic ? Math.min(.27, m.userData.baseRoughness) : palette ? .56 : m.userData.baseRoughness;
     });
   }
 

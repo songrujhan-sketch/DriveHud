@@ -10,6 +10,7 @@ export const CAR_MODELS = [
   { id: 'daystar', name: '明日之星' },
   {id:'carriage',name:'馬車'},
   {id:'family',name:'好爸爸'},
+  { id: 'motorcycle', name: '重型機車' },
 ];
 export const CAR_COLORS = [
   { hex: '#d32f2f', name: '赤紅' },
@@ -24,6 +25,9 @@ export const CAR_COLORS = [
   { hex: '#c9a44f', name: '金色' },
   { hex: '#c8d0d5', name: '銀色' },
   { hex: '#00594f', name: '深賽車綠' },
+  { hex: '#68734c', name: '綠色迷彩', swatch: 'conic-gradient(#68734c 25%,#353f33 0 54%,#a8a17a 0 76%,#536346 0)' },
+  { hex: '#b39a75', name: '沙漠迷彩', swatch: 'conic-gradient(#b39a75 25%,#7d6349 0 54%,#dfc9a2 0 76%,#a28360 0)' },
+  { hex: '#848684', name: '水泥灰' },
 ];
 export const CAR_VIEWS = [
   { id: 'front', name: '前 45°' },

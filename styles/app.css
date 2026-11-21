@@ -226,7 +226,7 @@ body.sim-page { height: auto; min-height: 100%; }
 .console-heading h1{margin:2px 0;font-size:clamp(26px,3.4cqw,42px);line-height:1.2;letter-spacing:-.05em}
 .console-heading .start-btn,.top-actions .start-btn{position:static;transform:none;box-shadow:none;background:var(--accent-soft);color:var(--accent);border:1px solid var(--line);font-family:inherit;font-weight:700;font-size:16px;padding:10px 18px;border-radius:8px}
 .app .frame{width:min(1240px,100%);margin:0 auto}
-.app.layout-normal .frame{overflow:auto;align-content:start;grid-template-columns:1fr 1fr;grid-template-rows:auto clamp(310px,52cqh,610px) auto auto auto;grid-template-areas:"top top" "car car" "bar bar" "speed radar" "foot foot";padding:clamp(14px,2.4cqw,32px);gap:clamp(10px,1.25cqw,18px)}
+.app.layout-normal .frame{overflow:auto;align-content:start;grid-template-columns:1fr 1fr;grid-template-rows:auto clamp(310px,52cqh,610px) auto auto;grid-template-areas:"top top" "car car" "speed radar" "bar bar";padding:clamp(14px,2.4cqw,32px);gap:clamp(10px,1.25cqw,18px)}
 .layout-normal .car-zone{border:1px solid var(--line);border-radius:15px;background:var(--bg);overflow:hidden}
 .studio-tag,.studio-title{position:absolute;left:17px;pointer-events:none}
 .studio-tag{top:14px;color:#f4f6f3;background:#1c2321dd;border-color:#727c7755}
@@ -250,22 +250,19 @@ body.sim-page { height: auto; min-height: 100%; }
 .radar-idle strong{font-size:clamp(18px,2vw,26px)}
 #radar-detail{color:var(--muted);font-size:14px}
 .shortcuts{grid-area:shortcuts;display:grid;gap:6px}
-.console-foot button,.console-foot a{color:inherit;background:none;border:0;cursor:pointer;font:inherit;text-align:left}
 .shortcuts button{border-top:1px solid var(--line);padding:9px 0 3px;font-size:15px}
-.console-foot{grid-area:foot;display:flex;justify-content:space-between;color:var(--muted);font-size:14px}
-.console-foot a{text-decoration:none}
 .app:not(.layout-normal) .studio-title,.app:not(.layout-normal) .studio-tag,.app:not(.layout-normal) .radar-idle,.app:not(.layout-normal) .shortcuts,.app:not(.layout-normal) .console-foot,.app:not(.layout-normal) .console-heading,.app:not(.layout-normal) .meter-label{display:none}
 .app:not(.layout-normal) .speed-meta{align-items:center;gap:14px}
 .settings[aria-hidden=true]{visibility:hidden}
 @container app (max-width:700px){
- .app.layout-normal .frame{padding:12px max(12px,env(safe-area-inset-right)) max(14px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left));grid-template-columns:1fr 1fr;grid-template-rows:auto clamp(235px,40cqh,420px) auto auto auto;grid-template-areas:"top top" "car car" "bar bar" "speed radar" "foot foot";gap:9px}
+ .app.layout-normal .frame{padding:12px max(12px,env(safe-area-inset-right)) max(14px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left));grid-template-columns:1fr 1fr;grid-template-rows:auto clamp(235px,40cqh,420px) auto auto;grid-template-areas:"top top" "car car" "speed radar" "bar bar";gap:9px}
  .studio-title{left:10px;bottom:8px;padding:4px 8px}.studio-tag{left:10px;top:8px}
  .shortcuts{grid-template-columns:auto 1fr auto;align-items:center;gap:14px}.shortcuts button{border:0;padding:6px}
  .cb-btn{padding:0 8px}.cb-swatches{padding:0 6px;gap:5px}.carbar .cb-swatch{width:18px;height:18px}
  .console-heading h1{font-size:28px}.topbar{padding-bottom:5px}.console-brand{font-size:23px}
 }
 @container app (orientation:landscape) and (max-height:520px){
- .app.layout-normal .frame{grid-template-columns:minmax(0,2fr) 1fr;grid-template-rows:auto 1fr 1fr auto;grid-template-areas:"top top" "car speed" "car radar" "bar bar";gap:5px 10px;padding:7px max(14px,env(safe-area-inset-right)) 8px max(14px,env(safe-area-inset-left));align-content:stretch}
+ .app.layout-normal .frame{grid-template-columns:minmax(0,2fr) 1fr;grid-template-rows:auto minmax(115px,1fr) minmax(78px,1fr) auto;grid-template-areas:"top top" "car speed" "car radar" "bar .";gap:5px 10px;padding:7px max(14px,env(safe-area-inset-right)) 8px max(14px,env(safe-area-inset-left));align-content:stretch}
  .layout-normal .shortcuts,.layout-normal .console-foot,.console-heading .micro,.console-heading h1{display:none}
  .console-heading{justify-content:flex-end}.topbar{border:0;padding:0}.layout-normal .speed-zone,.radar-idle{padding:6px 12px}
  .app .carbar{gap:4px}.cb-btn{padding:0 8px}.layout-normal .speed{font-size:50px}.layout-normal .speed-meta{padding-top:2px}.cb-btn,.cb-swatches{height:32px}.radar-idle{gap:2px}.topbar{min-height:34px}
@@ -277,7 +274,7 @@ body.sim-page { height: auto; min-height: 100%; }
 .layout-normal .car-zone{border-radius:12px}.topbar .top-actions{align-items:center}.layout-normal .speed-zone,.radar-idle{justify-content:flex-start}.topbar .start-btn{min-height:40px}
 
 .appearance { grid-area: bar; min-width: 0; border-block: 1px solid var(--line); }
-.appearance summary, .garage-controls #cb-model { font-size: 1rem; font-weight: 650; color: var(--fg); }
+.appearance summary, #cb-model { font-size: 1rem; font-weight: 650; color: var(--fg); }
 .appearance summary { cursor: pointer; min-height: 44px; padding: 11px 4px; }
 .appearance summary span { margin-inline-start: 12px; color: var(--muted); font-size: 0.85em; font-weight: 400; }
 .appearance .carbar {
@@ -300,15 +297,18 @@ body.sim-page { height: auto; min-height: 100%; }
 .app:not(.layout-normal) .appearance { display: none; }
 .sd-source { align-self: center; color: var(--fg); padding: 8px; }
 
-button.car-zone { display: block; padding: 0; border: 0; background: transparent; cursor: pointer; }
-.garage-controls { grid-area: bar; display: grid; grid-template-columns: auto minmax(0,1fr); align-items: start; gap: 10px; }
+#cb-view { display: block; width: 100%; height: 100%; padding: 0; border: 0; background: transparent; cursor: pointer; }
+.garage-controls { grid-area: bar; width: min(100%, 440px); }
 .garage-controls .appearance { grid-area: auto; }
-.garage-controls #cb-model { min-height: 44px; }
+#cb-model { min-height: 44px; }
 .app:not(.layout-normal) .garage-controls { display: none; }
 
-.garage-controls #cb-model {
+#cb-model {
+  position: absolute; inset: auto auto 10px 10px; z-index: 1;
   width: 7.5rem; height: 44px; padding: 0 12px;
   display: inline-flex; align-items: center; gap: 7px;
-  background: transparent; border-color: var(--line);
+  background: var(--panel); border-color: var(--line);
 }
 #cb-model::before { content: ''; width: 0; height: 0; border-block: .26em solid transparent; border-inline-start: .36em solid currentColor; }
+
+.app:not(.layout-normal) #cb-model { display: none; }

@@ -1,3 +1,4 @@
+import * as motorcycle from './motorcycle.js';
 import * as carriage from './carriage.js';
 import * as family from './family.js';
 import * as daystar from './daystar.js';
@@ -18,6 +19,7 @@ export const MODELS = [
   { id: 'daystar', displayName: '明日之星', build: daystar.build },
   {id:'carriage',displayName:'馬車',build:carriage.build},
   {id:'family',displayName:'好爸爸',build:family.build},
+  { id: 'motorcycle', displayName: '重型機車', build: motorcycle.build },
 ];
 
 export function getModel(id) {

@@ -21,8 +21,12 @@ jobs:
       - uses: actions/configure-pages@v5
         with:
           enablement: true
+      - name: Prepare dashboard files
+        run: |
+          mkdir _site
+          git archive HEAD assets data vendor src styles config.js index.html | tar -x -C _site
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: _site
       - id: deployment
         uses: actions/deploy-pages@v4

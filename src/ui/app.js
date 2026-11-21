@@ -34,13 +34,15 @@ export const SHELL_HTML = `
 <div id="app" class="app layout-normal" data-layout="normal" data-mode="live">
   <div class="frame">
     <header class="topbar">
-      <div class="console-brand"><span class="brand-stripes" aria-hidden="true">///</span> Drive<i>HUD</i></div><span class="build-tag">V1.7</span>
+      <div class="console-brand"><span class="brand-stripes" aria-hidden="true">///</span> Drive<i>HUD</i></div><span class="build-tag">V1.8</span>
       <div class="top-actions"><span class="voice-warn" id="voice-warn" hidden>語音無法播放</span>
       <button type="button" class="start-btn" id="btn-start">開始行車</button><button type="button" class="dh-btn" id="btn-settings">設定</button></div>
     </header>
-    <button type="button" class="car-zone" id="cb-view" title="點按切換視角"><canvas id="car-canvas" aria-label="車輛"></canvas>
+    <div class="car-zone"><button type="button" id="cb-view" title="點按切換視角"><canvas id="car-canvas" aria-label="車輛"></canvas>
       
     </button>
+      <button type="button" class="cb-btn" id="cb-model" title="點按切換車款">女武神</button>
+    </div>
     <div class="speed-zone"><span class="meter-label">即時速度</span>
       <div class="speed-line"><div class="speed" id="speed-value" aria-live="off">—</div><span class="speed-unit">km/h</span></div>
       <div class="speed-meta"><div class="gps" id="gps-status" data-status="SEARCHING"><span class="dot"></span><span class="gps-text">定位中</span></div><span class="heading" id="heading">—</span></div>
@@ -55,7 +57,6 @@ export const SHELL_HTML = `
       <div class="ap-over" id="over-label" hidden>超速</div>
     </section>
     <div class="garage-controls">
-      <button type="button" class="cb-btn" id="cb-model" title="點按切換車款">女武神</button>
     <details class="appearance"><summary>外觀與場景 <span id="appearance-current"></span></summary>
     <div class="carbar" id="carbar" role="group" aria-label="車輛外觀">
       <div class="cb-swatches" id="cb-colors" role="radiogroup" aria-label="車色"></div>
@@ -67,7 +68,6 @@ export const SHELL_HTML = `
     </div>
     </details>
     </div>
-    <footer class="console-foot"><a href="./sim.html">行車模擬</a><button id="btn-data" type="button">測速資料庫</button></footer>
     <div class="nearby-hint" id="nearby-hint" hidden>附近測速點</div>
     <div class="sim-badge" id="sim-badge" hidden>模擬</div>
   </div>
@@ -98,12 +98,11 @@ export function createApp({
   if (mode === 'sim') { els.badge.hidden = false; els.start.hidden = true; }
 
   const panel = createSettingsPanel({ el: $('#settings-panel'), store, config });
-  $('#btn-data').addEventListener('click', () => { panel.open(); $('#settings-data').scrollIntoView({block:'center'}); });
   $('#btn-settings').addEventListener('click', () => panel.toggle());
 
   // 外觀列：車款、車色、視角、車燈、場景、時段都在畫面下方，不遮住車子；與設定面板共用同一個 store。
   const bar = { model: $('#cb-model'), colors: $('#cb-colors'), view: $('#cb-view'), lights: $('#cb-lights'), doors: $('#cb-doors'), scene: $('#cb-scene'), time: $('#cb-time') };
-  bar.colors.innerHTML = CAR_COLORS.map((c) => `<button type="button" role="radio" class="cb-swatch" data-color="${c.hex}" aria-label="${c.name}" title="${c.name}" style="--sw:${c.hex}"></button>`).join('');
+  bar.colors.innerHTML = CAR_COLORS.map((c) => `<button type="button" role="radio" class="cb-swatch" data-color="${c.hex}" aria-label="${c.name}" title="${c.name}" style="--sw:${c.swatch || c.hex}"></button>`).join('');
   const nextOf = (list, id) => list[(list.findIndex((x) => x.id === id) + 1) % list.length].id;
   const nameOf = (list, id) => (list.find((x) => x.id === id) || list[0]).name;
   function syncBar(s) {

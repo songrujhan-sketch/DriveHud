@@ -1,3 +1,4 @@
+import { makePilot } from './pilot.js';
 import { makeMaterials, mesh, roundBox } from './parts.js';
 import { interiorMaterials, cabinInterior } from './kit.js';
 import { makeNozzle } from './nozzle.js';
@@ -10,9 +11,6 @@ export function build(T, {color='#c8d0d5'}={}) {
   group.name = 'daystar';
   const M = makeMaterials(T,color);
   const I = interiorMaterials(T,0x177988);
-  const suit = new T.MeshStandardMaterial({color:0xe4e9e7,metalness:.35,roughness:.32});
-  const visor = new T.MeshPhysicalMaterial({color:0x164655,metalness:.65,roughness:.12,clearcoat:1});
-  const beacon = new T.MeshStandardMaterial({color:0xb4ffff,emissive:0x37c8de,emissiveIntensity:1.4});
   const hull = new T.Group();
   group.add(hull);
   const ball = (parent,material,center,scale) => {
@@ -119,24 +117,7 @@ export function build(T, {color='#c8d0d5'}={}) {
     dash:{w:1.47,y:1.01,z:.61,h:.16,len:.21},wheel:{x:.4,y:1.12,z:.34,r:.15},
     console:{w:.18,h:.18,len:.92,y:.90,z:-.10},screen:{y:1.14,z:.51}
   });
-  // Articulated driver: both hands meet the wheel, passenger seat stays empty.
-  const x=.40;
-  ball(cockpit,M.trim,[x,1.10,-.55],[.195,.23,.13]);
-  ball(cockpit,suit,[x,1.19,-.56],[.184,.172,.12]);
-  rod(cockpit,[x,1.29,-.55],[x,1.42,-.53],.075,M.darkChrome);
-  ball(cockpit,suit,[x,1.50,-.52],[.163,.185,.164]);
-  ball(cockpit,visor,[x,1.515,-.459],[.157,.103,.132]);
-  ball(cockpit,beacon,[x,1.531,-.331],[.091,.009,.009]);
-  for(const s of [-1,1]) {
-    const shoulder=[x+s*.18,1.24,-.52], elbow=[x+s*.235,1.02,-.19], hand=[x+s*.14,1.12,.32];
-    ball(cockpit,suit,shoulder,[.084,.082,.08]);
-    rod(cockpit,shoulder,elbow,.058,M.trim);
-    ball(cockpit,M.darkChrome,elbow,[.061,.061,.061]);
-    rod(cockpit,elbow,hand,.051,suit);
-    ball(cockpit,M.trim,hand,[.055,.051,.06]);
-    rod(cockpit,[x+s*.09,.95,-.50],[x+s*.11,.94,.09],.082,M.trim);
-    ball(cockpit,M.darkChrome,[x+s*.15,1.50,-.52],[.029,.064,.064]);
-  }
+  cockpit.add(makePilot(T,M));
   // Transverse arches share a rear hinge. The glass and its perimeter lift together.
   const canopy=new T.Group();
   canopy.position.set(0,.97,-1.09);

@@ -57,7 +57,7 @@ test('設定頁只留極簡、低畫質、提醒距離與資料；車款、車�
   await expect(page.locator('#cb-model')).toBeVisible();
   await expect(page.locator('#cb-colors')).toBeHidden();
   await page.locator('.appearance summary').click();
-  await expect(page.locator('#cb-colors [data-color]')).toHaveCount(12);
+  await expect(page.locator('#cb-colors [data-color]')).toHaveCount(15);
   await page.locator('#cb-model').click();
   await expect(page.locator('#cb-model')).toHaveText('黑騎士');
   await page.locator('#cb-colors [data-color]').nth(6).click();
@@ -78,7 +78,7 @@ test('設定頁只留極簡、低畫質、提醒距離與資料；車款、車�
   expect(errors).toEqual([]);
 });
 
-test('車門按鈕：八款車都能開關車門，換車後自動關上', async ({ page }) => {
+test('車門按鈕：九款車都能開關車門，換車後自動關上', async ({ page }) => {
   const errors = await openSim(page);
   await page.evaluate(() => localStorage.removeItem('drivehud.settings.v1'));
   await page.reload();
@@ -105,6 +105,10 @@ test('車門按鈕：八款車都能開關車門，換車後自動關上', async
     await expect(page.locator('#cb-doors')).toHaveAttribute('aria-pressed', 'true');
     await page.locator('#cb-model').click();
   }
+  await expect(page.locator('#cb-model')).toHaveText('重型機車');
+  await expect(page.locator('#cb-doors')).toBeHidden();
+  await page.locator('#cb-jet').click();
+  await expect(view).toHaveAccessibleName(/後 45°/);
   expect(errors).toEqual([]);
 });
 
