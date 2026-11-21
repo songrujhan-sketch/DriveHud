@@ -30,18 +30,27 @@ export function computeLayout(state, settings, config = CONFIG) {
   return 'normal';
 }
 
+const icon = path => `<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+  stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${path}"/></svg>`;
+
 export const SHELL_HTML = `
 <div id="app" class="app layout-normal" data-layout="normal" data-mode="live">
   <div class="frame">
     <header class="topbar">
-      <div class="console-brand"><span class="brand-stripes" aria-hidden="true">///</span> Drive<i>HUD</i></div><span class="build-tag">V1.8</span>
+      <div class="console-brand"><span class="brand-stripes" aria-hidden="true">///</span> Drive<i>HUD</i></div><span class="build-tag">V1.9</span>
       <div class="top-actions"><span class="voice-warn" id="voice-warn" hidden>語音無法播放</span>
       <button type="button" class="start-btn" id="btn-start">開始行車</button><button type="button" class="dh-btn" id="btn-settings">設定</button></div>
     </header>
     <div class="car-zone"><button type="button" id="cb-view" title="點按切換視角"><canvas id="car-canvas" aria-label="車輛"></canvas>
       
     </button>
+      <div class="vehicle-controls" role="group" aria-label="車輛控制">
       <button type="button" class="cb-btn" id="cb-model" title="點按切換車款">女武神</button>
+        <button type="button" class="cb-btn" id="cb-lights" aria-label="車燈" title="車燈" aria-pressed="false">${icon('M14 5c5 0 7 3 7 7s-2 7-7 7h-1V5zM3 6l6 2M3 12h6m-6 6 6-2')}</button>
+        <button type="button" class="cb-btn" id="cb-doors" aria-label="車門" title="車門" aria-pressed="false" hidden>${icon('M4 19V9l6-5h9l1 15H4zm2-9h12m-4 4h3')}</button>
+        <button type="button" class="cb-btn" id="cb-jet" aria-label="噴射" title="停車時預覽噴焰" hidden>${icon('M17 3c1 5-1 8-5 11l-4 1-2-2 1-4c3-4 6-6 10-6zM8 8l-4 1-1 4 3-1m6 1-1 4-4 1 1-3m-3 2-3 4m7-3-3 3M12 8h.01')}</button>
+        <button type="button" class="cb-btn" id="cb-orbit" aria-label="360° 環繞" title="360° 環繞" aria-pressed="false">${icon('M21 10a9.2 9.2 0 1 0 .1 4M21 4v6h-6m-7 3 4-3 4 3-4 2-4-2z')}</button>
+      </div>
     </div>
     <div class="speed-zone"><span class="meter-label">即時速度</span>
       <div class="speed-line"><div class="speed" id="speed-value" aria-live="off">—</div><span class="speed-unit">km/h</span></div>
@@ -60,9 +69,6 @@ export const SHELL_HTML = `
     <details class="appearance"><summary>外觀與場景 <span id="appearance-current"></span></summary>
     <div class="carbar" id="carbar" role="group" aria-label="車輛外觀">
       <div class="cb-swatches" id="cb-colors" role="radiogroup" aria-label="車色"></div>
-      <button type="button" class="cb-btn" id="cb-lights" aria-pressed="false">車燈</button>
-      <button type="button" class="cb-btn" id="cb-doors" aria-pressed="false" hidden>車門</button>
-      <button type="button" class="cb-btn" id="cb-jet" title="停車時預覽噴焰" hidden>噴射</button>
       <button type="button" class="cb-btn" id="cb-scene">場景</button>
       <button type="button" class="cb-btn" id="cb-time">時段</button>
     </div>
@@ -111,12 +117,14 @@ export function createApp({
     bar.view.setAttribute('aria-label', `目前為${nameOf(CAR_VIEWS, s.view)}，點按切換視角`);
     bar.scene.textContent = `場景：${nameOf(CAR_SCENES, s.scene)}`;
     bar.time.textContent = `時段：${nameOf(CAR_TIMES, s.time)}`;
-    bar.lights.textContent = `車燈：${s.headlights ? '開' : '關'}`;
     bar.lights.setAttribute('aria-pressed', String(!!s.headlights));
     bar.colors.querySelectorAll('[data-color]').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.color === s.color)));
   }
   bar.model.addEventListener('click', () => store.set({ model: nextOf(CAR_MODELS, store.get().model) }));
-  bar.view.addEventListener('click', () => store.set({ view: nextOf(CAR_VIEWS, store.get().view) }));
+  bar.view.addEventListener('click', () => {
+    setOrbit(false);
+    store.set({ view: nextOf(CAR_VIEWS, store.get().view) });
+  });
   bar.scene.addEventListener('click', () => store.set({ scene: nextOf(CAR_SCENES, store.get().scene) }));
   bar.time.addEventListener('click', () => store.set({ time: nextOf(CAR_TIMES, store.get().time) }));
   bar.lights.addEventListener('click', () => store.set({ headlights: !store.get().headlights }));
@@ -126,6 +134,13 @@ export function createApp({
   const dark = globalThis.matchMedia ? globalThis.matchMedia('(prefers-color-scheme: dark)') : null;
   const car = createCarView(els.canvas, { ...pick(store.get()), darkMode: !!(dark && dark.matches) });
   if (dark && dark.addEventListener) dark.addEventListener('change', (e) => car.setDarkMode(e.matches));
+  const orbitButton = $('#cb-orbit');
+  function setOrbit(on) {
+    car.setOrbit(on);
+    orbitButton.setAttribute('aria-pressed', String(on));
+    orbitButton.title = on ? '停止環繞' : '360° 環繞';
+  }
+  orbitButton.addEventListener('click', () => setOrbit(!car.orbiting));
   // 車門：只有具備車門動作的車款才顯示；開合狀態不存檔，車速到 5 km/h 就自動關上並鎖定
   function syncDoors() {
     $('#cb-jet').hidden = !car.canPreviewJet?.();
@@ -135,12 +150,15 @@ export function createApp({
     const locked = has && !!car.doorsLocked; // 行駛中不能開門：按鈕停用並寫明原因，不要按了沒反應
     bar.doors.disabled = locked;
     const label = store.get().model === 'daystar' ? '艙罩' : '車門';
-    bar.doors.textContent = `${label}：${locked ? '行駛中鎖定' : open ? '開' : '關'}`;
+    const doorStatus = `${label}：${locked ? '行駛中鎖定' : open ? '開' : '關'}`;
+    bar.doors.setAttribute('aria-label', doorStatus);
+    bar.doors.title = doorStatus;
     bar.doors.setAttribute('aria-pressed', String(open));
   }
   bar.doors.addEventListener('click', () => { if (car.setDoors) car.setDoors(!car.doorsOpen); syncDoors(); });
   $('#cb-jet').addEventListener('click', () => {
-    store.set({view:store.get().model === 'asurada' ? 'back' : 'rear'});
+    setOrbit(false);
+    store.set({view:store.get().model === 'asurada' ? 'right-rear' : 'rear'});
     car.previewJet();
   });
   syncDoors();
@@ -193,6 +211,7 @@ export function createApp({
     els.heading.textContent = headingText(state.headingDeg);
     car.setSpeedKmh(state.speedKmh || 0);
     syncDoors();
+    if (layout !== 'normal' && car.orbiting) setOrbit(false);
     car.setCompact(layout === 'approach');
 
     const f = state.focus;

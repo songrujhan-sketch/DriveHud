@@ -280,7 +280,7 @@ body.sim-page { height: auto; min-height: 100%; }
 .appearance .carbar {
   display: grid;
   grid-template-columns: repeat(2, minmax(0,1fr));
-  grid-template-areas: "colors colors" "scene time" "lights doors" "jet .";
+  grid-template-areas: "colors colors" "scene time";
   grid-auto-rows: auto;
   gap: 6px;
   padding: 2px 0 12px;
@@ -288,11 +288,7 @@ body.sim-page { height: auto; min-height: 100%; }
 #cb-colors { grid-area: colors; }
 #cb-scene { grid-area: scene; }
 #cb-time { grid-area: time; }
-#cb-lights { grid-area: lights; }
-#cb-doors { grid-area: doors; }
-#cb-jet { grid-area: jet; }
 .appearance .cb-btn { height: 42px; padding: 2px 4px; line-height: 1.25; }
-.appearance .cb-btn[hidden] { display: block !important; visibility: hidden; }
 .appearance .cb-swatches {
   display: grid; grid-template-columns: repeat(8, minmax(0,1fr));
   justify-items: center; height: auto; min-height: 40px; padding-block: 9px;
@@ -306,12 +302,27 @@ body.sim-page { height: auto; min-height: 100%; }
 .app:not(.layout-normal) .garage-controls { display: none; }
 
 #cb-model {
-  position: absolute; inset: auto auto 10px 10px; z-index: 1;
-  width: 6.3rem; height: 37px; padding: 0 9px;
+  width: 100%; height: var(--icon-size); padding: 0 9px;
   font-size: .9rem;
   display: inline-flex; align-items: center; gap: 7px;
   background: var(--panel); border-color: var(--line);
 }
 #cb-model::before { content: ''; width: 0; height: 0; border-block: .26em solid transparent; border-inline-start: .36em solid currentColor; }
 
-.app:not(.layout-normal) #cb-model { display: none; }
+
+.vehicle-controls {
+  --icon-size: clamp(30px, 10cqw, 37px);
+  position: absolute; inset: auto 10px 10px; z-index: 1;
+  display: grid; align-items: center;
+  grid-template-columns: clamp(5.25rem, 27cqw, 6.3rem) repeat(3,var(--icon-size)) minmax(0,1fr) var(--icon-size);
+  gap: 5px;
+  pointer-events: none;
+}
+.vehicle-controls .cb-btn { pointer-events: auto; }
+.vehicle-controls .cb-btn:not(#cb-model) {
+  width: var(--icon-size); height: var(--icon-size); padding: 0; display: grid; place-items: center;
+}
+.vehicle-controls .cb-btn[hidden] { display: grid !important; visibility: hidden; }
+.vehicle-controls .cb-btn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+#cb-orbit { grid-column: 6; }
+.app:not(.layout-normal) .vehicle-controls { display: none; }

@@ -36,6 +36,7 @@ export const CAR_VIEWS = [
   { id: 'side', name: '正側面' },
   { id: 'rear', name: '後 45°' },
   { id: 'back', name: '正後方' },
+  { id: 'right-rear', name: '右後 45°' },
   { id: 'top', name: '上方' },
 ];
 export const CAR_SCENES = [

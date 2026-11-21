@@ -94,14 +94,14 @@ test('車門按鈕：九款車都能開關車門，換車後自動關上', async
     const jet = page.locator('#cb-jet');
     if (['黑騎士','阿斯拉','重騎兵','明日之星'].includes(name)) {
       await jet.click();
-      await expect(view).toHaveAccessibleName(name === '阿斯拉' ? /正後方/ : /後 45°/);
+      await expect(view).toHaveAccessibleName(name === '阿斯拉' ? /右後 45°/ : /後 45°/);
     } else {
       await expect(jet).toBeHidden();
     }
     await expect(page.locator('#cb-doors')).toBeVisible();
-    await expect(page.locator('#cb-doors')).toHaveText(name === '明日之星' ? '艙罩：關' : '車門：關'); // 換車後一律是關的
+    await expect(page.locator('#cb-doors')).toHaveAccessibleName(name === '明日之星' ? '艙罩：關' : '車門：關'); // 換車後一律是關的
     await page.locator('#cb-doors').click();
-    await expect(page.locator('#cb-doors')).toHaveText(name === '明日之星' ? '艙罩：開' : '車門：開');
+    await expect(page.locator('#cb-doors')).toHaveAccessibleName(name === '明日之星' ? '艙罩：開' : '車門：開');
     await expect(page.locator('#cb-doors')).toHaveAttribute('aria-pressed', 'true');
     await page.locator('#cb-model').click();
   }
@@ -110,6 +110,29 @@ test('車門按鈕：九款車都能開關車門，換車後自動關上', async
   await page.locator('#cb-jet').click();
   await expect(view).toHaveAccessibleName(/後 45°/);
   expect(errors).toEqual([]);
+});
+
+test('圖示列固定，環繞可啟停，外觀只保留車色、場景與時段', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('#cb-orbit')).toHaveAttribute('aria-pressed', 'false');
+  const oldAngle = await page.evaluate(() => window.__drivehud.app.car.getInfo().azimuth);
+  await page.locator('#cb-orbit').click();
+  await expect(page.locator('#cb-orbit')).toHaveAttribute('aria-pressed', 'true');
+  await page.waitForFunction(angle => Math.abs(window.__drivehud.app.car.getInfo().azimuth - angle) > .18, oldAngle);
+  await page.locator('#cb-orbit').click();
+  await expect(page.locator('#cb-orbit')).toHaveAttribute('aria-pressed', 'false');
+  await page.waitForFunction(angle => window.__drivehud.app.car.getInfo().azimuth === angle, oldAngle);
+
+  const ids = ['#cb-model', '#cb-lights', '#cb-doors', '#cb-jet', '#cb-orbit'];
+  const positions = () => page.evaluate(selectors => selectors.map(s => document.querySelector(s).getBoundingClientRect().x), ids);
+  const before = await positions();
+  await expect(page.locator('#cb-jet')).toBeHidden();
+  await page.locator('#cb-model').click();
+  await expect(page.locator('#cb-jet')).toBeVisible();
+  expect(await positions()).toEqual(before);
+  await page.locator('.appearance summary').click();
+  await expect(page.locator('#carbar > *')).toHaveCount(3);
+  expect(await positions()).toEqual(before);
 });
 
 test('窄視窗展開外觀時，速度數值、單位、GPS 與雷達內容仍完整可見', async ({ page }, info) => {

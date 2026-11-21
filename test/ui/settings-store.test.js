@@ -14,7 +14,7 @@ test('預設值：前 45°、展示間、時段自動', () => {
   assert.equal(s.view, 'front');
   assert.equal(s.scene, 'studio');
   assert.equal(s.time, 'auto');
-  assert.deepEqual(CAR_VIEWS.map((v) => v.id), ['front', 'head', 'side', 'rear', 'back', 'top']);
+  assert.deepEqual(CAR_VIEWS.map((v) => v.id), ['front', 'head', 'side', 'rear', 'back', 'right-rear', 'top']);
   assert.deepEqual(CAR_SCENES.map((v) => v.id), ['studio', 'mountain', 'city', 'track', 'coast']);
   assert.deepEqual(CAR_TIMES.map((v) => v.id), ['auto', 'day', 'night']);
 });

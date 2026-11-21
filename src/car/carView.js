@@ -13,21 +13,30 @@ import { createStage } from './stage.js';
 
 const WHEEL_RADIUS_M = 0.33; // 輪徑 0.66 m（以此換算角速度）
 // 視角方位角（由車頭 +Z 起算、朝車身左側 +X 為正）：前 45°、正面、後 45°、正後方、上方（由左側上方俯視）
-const VIEW_AZ = { front: Math.PI / 4, head: 0, side: Math.PI / 2, rear: Math.PI * 3 / 4, back: Math.PI, top: Math.PI / 2 };
+const VIEW_AZ = { front: Math.PI / 4, head: 0, side: Math.PI / 2, rear: Math.PI * 3 / 4, back: Math.PI, 'right-rear': -Math.PI * 3 / 4, top: Math.PI / 2 };
 const VIEW_EL = { top: 1 };          // 俯視程度 0–1，沒列的視角是 0
 const TOP_ELEV = 1.36;               // 俯視的仰角（約 78°；不到 90° 才有穩定的畫面上方）
 const EL_SPEED = 2.2;                // 俯視程度的變化速度（1/s）
-const VIEW_SPEED = 3.2; // 視角轉換的角速度（rad/s）
+const VIEW_SPEED = 3.2;
+const ORBIT_SPEED = Math.PI / 6; // 視角轉換的角速度（rad/s）
 const COMPACT_SCALE = 0.4;
 const COMPACT_MS = 280;
 const DOOR_MS = 700;
 const DOOR_LOCK_MPS = 5 / 3.6; // 車速到 5 km/h 才鎖門；低於這個值視為停車（GPS 靜止時也會回報零星的小車速）
 const MAX_PIXEL_RATIO = 2;
 
-// Half-extents in metres for the road vehicles (doors open) and the four-horse team.
-const FLEET_ENVELOPES = [[2.12, 1.63, 3.25], [1.84, 1.44, 4.35]].map(([x,y,z]) =>
-  [-x,x].flatMap(px=>[-y,y].flatMap(py=>[-z,z].map(pz=>new THREE.Vector3(px,py,pz)))));
+function boxCorners(min, max) {
+  return [min.x,max.x].flatMap(x=>[min.y,max.y].flatMap(y=>[min.z,max.z].map(z=>new THREE.Vector3(x,y,z))));
+}
 
+// Use a common road-vehicle scale, while giving the carriage its original longer framing.
+const ROAD_FRAMING = new THREE.Vector3(1.67,1.04,2.54);
+const CARRIAGE_FRAMING = [
+  new THREE.Vector3(2.12,1.63,3.25), new THREE.Vector3(1.84,1.44,4.35),
+].map(halfSize=>boxCorners(halfSize.clone().negate(),halfSize));
+const ROAD_ENVELOPE = boxCorners(ROAD_FRAMING.clone().negate(),ROAD_FRAMING);
+const TAU = Math.PI * 2;
+const wrapAngle = angle => THREE.MathUtils.euclideanModulo(angle+Math.PI,TAU)-Math.PI;
 
 function disposeObject(root) {
   const mats = new Set();
@@ -54,6 +63,7 @@ export function createCarView(canvas, opts = {}) {
     time: ['auto', 'day', 'night'].includes(opts.time) ? opts.time : 'auto',
     az: VIEW_AZ[opts.view] != null ? VIEW_AZ[opts.view] : VIEW_AZ.front,
     el: VIEW_EL[opts.view] || 0,
+    orbiting: false,
     speedMps: 0, turn: 0, turnTarget: 0,
     doorsOpen: false,
     doorT: 0, // 0 = 關，1 = 全開
@@ -115,7 +125,10 @@ export function createCarView(canvas, opts = {}) {
     const right=new THREE.Vector3(back.z,0,-back.x).normalize(), up=new THREE.Vector3().crossVectors(back,right);
     const v=new THREE.Vector3(), tanY=Math.tan(THREE.MathUtils.degToRad(camera.fov/2));
     const tanX=tanY*camera.aspect;
-    const horizontal=Math.min(.84,1.85/camera.aspect), vertical=.82;
+    const isCarriage=state.modelId==='carriage';
+    const controlSpace=!state.compact && canvas.clientHeight ? Math.min(.24,44/canvas.clientHeight) : 0;
+    const horizontal=isCarriage ? Math.min(.84,1.85/camera.aspect) : .87;
+    const vertical=isCarriage ? .82 : .88-controlSpace;
     function project(p) {
       return [p.dot(right)/tanX,p.dot(up)/tanY,p.dot(back)];
     }
@@ -128,9 +141,16 @@ export function createCarView(canvas, opts = {}) {
       }
       return {left,right,bottom,top};
     }
-    // All models share the same camera distance for a given angle and canvas size.
-    const envelopes=FLEET_ENVELOPES.map(points=>points.map(project));
-    let near=6, far=6+14/Math.min(horizontal*tanX,vertical*tanY);
+    const projected=corners.map(p=>project(v.copy(p).sub(target)));
+    if(car.setJetPreview) {
+      for(const x of [-.76,.76]) for(const y of [.30,.96]) {
+        projected.push(project(v.set(x,y,frameBox.min.z).sub(target)));
+      }
+    }
+    const envelopes=isCarriage ? CARRIAGE_FRAMING.map(points=>points.map(project))
+      : [ROAD_ENVELOPE.map(project),projected];
+    let near=isCarriage ? 6 : 3.15;
+    let far=6+14/Math.min(horizontal*tanX,vertical*tanY);
     for(let i=0;i<16;i++){
       const mid=(near+far)/2;
       const fits=envelopes.every(points=>{
@@ -140,15 +160,13 @@ export function createCarView(canvas, opts = {}) {
       if(fits) far=mid;
       else near=mid;
     }
-    const projected=corners.map(p=>project(v.copy(p).sub(target)));
-    if(car.setJetPreview) projected.push(project(v.set(center.x,.55,frameBox.min.z).sub(target)));
     camera.position.copy(target).addScaledVector(back,far);
     camera.lookAt(target);
     camera.updateMatrixWorld();
     camera.updateProjectionMatrix();
     const bounds=span(projected,far);
     camera.projectionMatrix.elements[8]=(bounds.left+bounds.right)/2;
-    camera.projectionMatrix.elements[9]=(bounds.bottom+bounds.top)/2;
+    camera.projectionMatrix.elements[9]=(bounds.bottom+bounds.top)/2-(isCarriage?0:controlSpace);
     camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
     if (stage.outdoor) { // 地平線：沿視線水平方向極遠處、高度 0 的點
       const f = new THREE.Vector3(target.x - camera.position.x, 0, target.z - camera.position.z).normalize();
@@ -248,7 +266,15 @@ export function createCarView(canvas, opts = {}) {
     outline=captureOutline();
     for(const d of car.doors || []) d.pivot.quaternion.setFromAxisAngle(d.axis,d.sign*d.max);
     outline.push(...captureOutline());
-    if(car.framingBounds) outline.push(car.framingBounds.max.clone(),car.framingBounds.min.clone());
+    for(const door of car.doors || []) {
+      // The widest point of a door can be halfway through its sweep.
+      for(const progress of [.25,.5,.75]){
+        door.pivot.quaternion.setFromAxisAngle(door.axis,door.sign*door.max*progress);
+        const bounds=new THREE.Box3().setFromObject(door.pivot);
+        if(!bounds.isEmpty()) outline.push(...boxCorners(bounds.min,bounds.max));
+      }
+    }
+    if(car.framingBounds) outline.push(...boxCorners(car.framingBounds.min,car.framingBounds.max));
     applyDoors();
     car.group.updateMatrixWorld(true);
     state.triangles = countTriangles(car.group);
@@ -289,7 +315,7 @@ export function createCarView(canvas, opts = {}) {
 
   function needsFrames() {
     const target = state.compact ? 1 : 0;
-    return state.turn !== state.turnTarget || state.speedMps > 0 || state.fx || state.compactT !== target || state.az !== VIEW_AZ[state.view] || state.el !== (VIEW_EL[state.view] || 0) || state.doorT !== (state.doorsOpen ? 1 : 0) || dirty;
+    return state.orbiting || state.turn !== state.turnTarget || state.speedMps > 0 || state.fx || state.compactT !== target || state.az !== VIEW_AZ[state.view] || state.el !== (VIEW_EL[state.view] || 0) || state.doorT !== (state.doorsOpen ? 1 : 0) || dirty;
   }
 
   function frame(now) {
@@ -307,10 +333,14 @@ export function createCarView(canvas, opts = {}) {
       w.rotation.order='YXZ'; w.rotation.y=state.turn;
     }
     car.group.rotation.y=state.turn*.20;
-    const azTarget = VIEW_AZ[state.view], elTarget = VIEW_EL[state.view] || 0;
-    if (state.az !== azTarget || state.el !== elTarget) { // 視角轉換
-      const step = VIEW_SPEED * dt, diff = azTarget - state.az;
-      state.az = Math.abs(diff) <= step ? azTarget : state.az + Math.sign(diff) * step;
+    const azTarget = VIEW_AZ[state.view], elTarget = state.orbiting ? 0 : (VIEW_EL[state.view] || 0);
+    if (state.orbiting || state.az !== azTarget || state.el !== elTarget) {
+      if (state.orbiting) {
+        state.az = wrapAngle(state.az + ORBIT_SPEED * dt);
+      } else {
+        const step = VIEW_SPEED * dt, diff = wrapAngle(azTarget - state.az);
+        state.az = Math.abs(diff) <= step ? azTarget : wrapAngle(state.az + Math.sign(diff) * step);
+      }
       const es = EL_SPEED * dt, ed = elTarget - state.el;
       state.el = Math.abs(ed) <= es ? elTarget : state.el + Math.sign(ed) * es;
       fitCamera();
@@ -393,6 +423,8 @@ export function createCarView(canvas, opts = {}) {
       kick();
       return state.doorsOpen;
     },
+    setOrbit(on) { state.orbiting = !!on; kick(); },
+    get orbiting() { return state.orbiting; },
     setView(v) { if (VIEW_AZ[v] != null && v !== state.view) { state.view = v; kick(); } },
     setScene(s) { if (['studio', 'mountain', 'city', 'track', 'coast'].includes(s) && s !== state.scene) { state.scene = s; applyDarkMode(); kick(); } },
     setTime(t) { if (['auto', 'day', 'night'].includes(t) && t !== state.time) { state.time = t; applyDarkMode(); kick(); } },
@@ -414,7 +446,7 @@ export function createCarView(canvas, opts = {}) {
     getInfo() {
       return {
         model: state.modelId, triangles: state.triangles, compact: state.compact, speedMps: state.speedMps,
-        steeringRad: state.turn, models: MODELS.map((m) => m.id), quality: state.quality, view: state.view, scene: state.scene, time: state.time, frames, ...lastStats,
+        azimuth: state.az, orbiting: state.orbiting, steeringRad: state.turn, models: MODELS.map((m) => m.id), quality: state.quality, view: state.view, scene: state.scene, time: state.time, frames, ...lastStats,
       };
     },
     dispose() {
