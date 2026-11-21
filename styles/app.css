@@ -307,8 +307,7 @@ body.sim-page { height: auto; min-height: 100%; }
   display: inline-flex; align-items: center; gap: 7px;
   background: var(--panel); border-color: var(--line);
 }
-#cb-model::before { content: ''; width: 0; height: 0; border-block: .26em solid transparent; border-inline-start: .36em solid currentColor; }
-
+#cb-model svg { width: 17px; height: 17px; flex-shrink: 0; }
 
 .vehicle-controls {
   --icon-size: clamp(30px, 10cqw, 37px);
@@ -325,4 +324,9 @@ body.sim-page { height: auto; min-height: 100%; }
 .vehicle-controls .cb-btn[hidden] { display: grid !important; visibility: hidden; }
 .vehicle-controls .cb-btn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 #cb-orbit { grid-column: 6; }
-.app:not(.layout-normal) .vehicle-controls { display: none; }
+.layout-approach .vehicle-controls {
+  inset: auto auto 4px 4px;
+  grid-template-columns: max-content;
+  --icon-size: 32px;
+}
+.layout-approach .vehicle-controls .cb-btn:not(#cb-model), .layout-minimal .vehicle-controls { display: none !important; }

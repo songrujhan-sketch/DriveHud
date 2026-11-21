@@ -1,6 +1,6 @@
 {
   "name": "drivehud",
-  "version": "1.7.0",
+  "version": "1.9.1",
   "private": true,
   "type": "module",
   "description": "DriveHUD — iPhone Safari 行車儀表板，台灣固定式測速照相提醒",

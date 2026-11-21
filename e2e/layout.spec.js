@@ -135,6 +135,32 @@ test('圖示列固定，環繞可啟停，外觀只保留車色、場景與時�
   expect(await positions()).toEqual(before);
 });
 
+test('新版資源與車款圖示在一般畫面及接近提醒時可用', async ({page}) => {
+  const staleAssets = [];
+  await page.route(/\/(?:app\.css|main\.js|app\.js|deps\.js|settings\.js|carView\.js)$/, route => {
+    staleAssets.push(route.request().url());
+    return route.abort();
+  });
+  await page.goto('/');
+  const model = page.locator('#cb-model');
+  await expect(page.locator('.build-tag')).toHaveText('V1.9');
+  await expect(model.locator('svg')).toBeVisible();
+  await model.click();
+  await expect(model).toHaveText('黑騎士');
+
+  await page.evaluate(() => window.__drivehud.app.setEngine({
+    getState: () => ({gps:'OK', speedKmh:45, headingDeg:0, nearby:[], overspeed:false,
+      focus:{phase:'APPROACHING', relation:'SAME', distanceM:100, camera:{limit:50}}}),
+  }));
+  await expect(page.locator('#app')).toHaveClass(/layout-approach/);
+  await expect(page.locator('#speed-value')).toHaveText('45');
+  await expect(page.locator('#limit-value')).toHaveText('50');
+  await expect(model.locator('svg')).toBeVisible();
+  await model.click();
+  await expect(model).toHaveText('阿斯拉');
+  expect(staleAssets).toEqual([]);
+});
+
 test('窄視窗展開外觀時，速度數值、單位、GPS 與雷達內容仍完整可見', async ({ page }, info) => {
   await page.setViewportSize(info.project.name === 'portrait'
     ? {width: 393, height: 620}

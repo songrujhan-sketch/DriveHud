@@ -1,6 +1,6 @@
 // 整合點：app.js / main.js / settings.js 只從這裡 import 引擎、車模、資料。
 export { createAlertEngine } from '../engine/alertEngine.js';
-export { createCarView } from '../car/carView.js';
+export { createCarView } from '../car/carView.js?v=1.9.1';
 export { mountSettingsData } from './settings-data.js';
 export { CONFIG } from '../../config.js';
 

@@ -1,6 +1,6 @@
 // DriveHUD UI 外殼：live（真實 GPS）與 sim（模擬）共用同一組元件，差別只在餵資料的來源。
-import { CONFIG, createCarView } from './deps.js';
-import { createSettingsPanel, CAR_MODELS, CAR_COLORS, CAR_VIEWS, CAR_SCENES, CAR_TIMES } from './settings.js';
+import { CONFIG, createCarView } from './deps.js?v=1.9.1';
+import { createSettingsPanel, CAR_MODELS, CAR_COLORS, CAR_VIEWS, CAR_SCENES, CAR_TIMES } from './settings.js?v=1.9.1';
 import { estimateTurn } from '../car/turn.js';
 
 export const GPS_LABEL = {
@@ -45,7 +45,7 @@ export const SHELL_HTML = `
       
     </button>
       <div class="vehicle-controls" role="group" aria-label="車輛控制">
-      <button type="button" class="cb-btn" id="cb-model" title="點按切換車款">女武神</button>
+      <button type="button" class="cb-btn" id="cb-model" title="點按切換車款">${icon('M5 16H3v-4l2-1 2-5h10l2 5 2 1v4h-2m-14 0h2m4 0h2m4 0h2M5 11h14M5 16a2 2 0 1 0 4 0 2 2 0 0 0-4 0zm10 0a2 2 0 1 0 4 0 2 2 0 0 0-4 0z')}<span id="cb-model-name">女武神</span></button>
         <button type="button" class="cb-btn" id="cb-lights" aria-label="車燈" title="車燈" aria-pressed="false">${icon('M14 5c5 0 7 3 7 7s-2 7-7 7h-1V5zM3 6l6 2M3 12h6m-6 6 6-2')}</button>
         <button type="button" class="cb-btn" id="cb-doors" aria-label="車門" title="車門" aria-pressed="false" hidden>${icon('M4 19V9l6-5h9l1 15H4zm2-9h12m-4 4h3')}</button>
         <button type="button" class="cb-btn" id="cb-jet" aria-label="噴射" title="停車時預覽噴焰" hidden>${icon('M17 3c1 5-1 8-5 11l-4 1-2-2 1-4c3-4 6-6 10-6zM8 8l-4 1-1 4 3-1m6 1-1 4-4 1 1-3m-3 2-3 4m7-3-3 3M12 8h.01')}</button>
@@ -113,7 +113,7 @@ export function createApp({
   const nameOf = (list, id) => (list.find((x) => x.id === id) || list[0]).name;
   function syncBar(s) {
     $('#appearance-current').textContent = nameOf(CAR_SCENES, s.scene);
-    bar.model.textContent = nameOf(CAR_MODELS, s.model);
+    $('#cb-model-name').textContent = nameOf(CAR_MODELS, s.model);
     bar.view.setAttribute('aria-label', `目前為${nameOf(CAR_VIEWS, s.view)}，點按切換視角`);
     bar.scene.textContent = `場景：${nameOf(CAR_SCENES, s.scene)}`;
     bar.time.textContent = `時段：${nameOf(CAR_TIMES, s.time)}`;

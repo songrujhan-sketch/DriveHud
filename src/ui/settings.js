@@ -1,5 +1,5 @@
 // 設定儲存（localStorage，全部 try/catch）與滑入式設定面板。
-import { CONFIG, mountSettingsData, dataServices } from './deps.js';
+import { CONFIG, mountSettingsData, dataServices } from './deps.js?v=1.9.1';
 
 export const CAR_MODELS = [
   { id: 'valkyrie', name: '女武神' },
