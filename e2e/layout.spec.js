@@ -99,9 +99,9 @@ test('車門按鈕：六款車都能開關車門，換車後自動關上', async
       await expect(jet).toBeHidden();
     }
     await expect(page.locator('#cb-doors')).toBeVisible();
-    await expect(page.locator('#cb-doors')).toHaveText('車門：關'); // 換車後一律是關的
+    await expect(page.locator('#cb-doors')).toHaveText(name === '明日之星' ? '艙罩：關' : '車門：關'); // 換車後一律是關的
     await page.locator('#cb-doors').click();
-    await expect(page.locator('#cb-doors')).toHaveText('車門：開');
+    await expect(page.locator('#cb-doors')).toHaveText(name === '明日之星' ? '艙罩：開' : '車門：開');
     await expect(page.locator('#cb-doors')).toHaveAttribute('aria-pressed', 'true');
     await page.locator('#cb-model').click();
   }

@@ -135,7 +135,8 @@ export function createApp({
     const open = has && !!car.doorsOpen;
     const locked = has && !!car.doorsLocked; // 行駛中不能開門：按鈕停用並寫明原因，不要按了沒反應
     bar.doors.disabled = locked;
-    bar.doors.textContent = locked ? '車門：行駛中鎖定' : `車門：${open ? '開' : '關'}`;
+    const label = store.get().model === 'daystar' ? '艙罩' : '車門';
+    bar.doors.textContent = `${label}：${locked ? '行駛中鎖定' : open ? '開' : '關'}`;
     bar.doors.setAttribute('aria-pressed', String(open));
   }
   bar.doors.addEventListener('click', () => { if (car.setDoors) car.setDoors(!car.doorsOpen); syncDoors(); });

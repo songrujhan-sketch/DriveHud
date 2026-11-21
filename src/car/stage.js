@@ -500,16 +500,35 @@ export function createStage(renderer, { quality = 'high' } = {}) {
   let scroll = 0; // 展示間地面與牆面的流動量（公尺），以 12 m 為週期
   let floor = null;
   let shadow = null;
+  let projector = null;
+  const beamOrigin = new THREE.Vector3();
+  const beamAxis = new THREE.Vector3();
   const beamTex = beamTexture();
   const pool = new THREE.Mesh(
     new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2).rotateY(Math.PI), // 貼圖底端（v=0）朝車頭
     new THREE.ShaderMaterial({
-      uniforms: { tMap: { value: beamTex }, uColor: { value: new THREE.Color(1.15, 1.1, 1.0) } },
+      uniforms: { tMap: { value: beamTex }, uProjector:{value:false}, uHeight:{value:1}, uHalfSpacing:{value:.65},
+        uReach:{value:26}, uWidth:{value:16}, uPitch:{value:.09}, uCone:{value:new THREE.Vector2()}, uColor: { value: new THREE.Color(1.15, 1.1, 1.0) } },
       vertexShader: 'varying vec2 vUv; varying vec3 vClip; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); vClip = gl_Position.xyw; }',
       fragmentShader: `uniform sampler2D tMap; uniform vec3 uColor; varying vec2 vUv; varying vec3 vClip;
+        uniform bool uProjector;
+        uniform float uHeight,uHalfSpacing,uReach,uWidth,uPitch;
+        uniform vec2 uCone;
+        float groundLight(float x,float z) {
+          vec3 ray=vec3(x,-uHeight,z);
+          float r=max(length(ray),.01);
+          float cosine=dot(ray/r,vec3(0.,-sin(uPitch),cos(uPitch)));
+          float cone=smoothstep(uCone.x,uCone.y,cosine);
+          float range=pow(max(0.,1.-pow(r/uReach,4.)),2.);
+          return 70.*cone*range*uHeight/(r*r*r);
+        }
         ${EDGE_GLSL}
         void main(){ vec4 t = texture2D(tMap, vUv); float a = t.a * edgeFade(vClip.xy / vClip.z);
-          gl_FragColor = vec4(uColor * t.rgb * a, 0.0); }`,
+          if(uProjector) {
+            float x=(vUv.x-.5)*uWidth, z=vUv.y*uReach;
+            float lux=groundLight(x-uHalfSpacing,z)+groundLight(x+uHalfSpacing,z);
+            gl_FragColor=vec4(vec3(.90,.95,1.)*lux*edgeFade(vClip.xy/vClip.z),0.);
+          } else gl_FragColor = vec4(uColor * t.rgb * a, 0.0); }`,
       transparent: true, depthWrite: false,
       blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor, blendSrcAlpha: THREE.ZeroFactor, blendDstAlpha: THREE.OneFactor,
     }),
@@ -639,7 +658,7 @@ export function createStage(renderer, { quality = 'high' } = {}) {
       }
       if (scenery) scenery.update(dt, speedMps);
     },
-    setCar(group, box) {
+    setCar(group, box, headlights) {
       if (shadow) { scene.remove(shadow); shadow.geometry.dispose(); shadow.material.dispose(); shadow.userData.rt.dispose(); }
       shadow = bakeContactShadow(renderer, group, box);
       shadow.material.uniforms.uOpacity.value = theme.shadow;
@@ -647,13 +666,34 @@ export function createStage(renderer, { quality = 'high' } = {}) {
       const c = box.getCenter(new THREE.Vector3());
       floor.material.uniforms.uCenter.value.set(c.x, c.z);
       const s = box.getSize(new THREE.Vector3());
-      pool.scale.set(s.x * 1.25, 1, 4.6);
+      projector=headlights?.beam ? headlights : null;
+      const u=pool.material.uniforms;
+      u.uProjector.value=!!projector;
+      pool.rotation.y=0;
+      if (projector) {
+        const {halfSpacing,reach,pitch,angle,penumbra}=projector.beam;
+        u.uReach.value=reach;
+        u.uWidth.value=2*(halfSpacing+reach*Math.tan(angle));
+        u.uHalfSpacing.value=halfSpacing;
+        u.uPitch.value=pitch;
+        u.uCone.value.set(Math.cos(angle),Math.cos(angle*(1-penumbra)));
+        pool.scale.set(u.uWidth.value,1,reach);
+      } else pool.scale.set(s.x * 1.25, 1, 4.6);
       pool.position.set(c.x, 0.006, box.max.z + 2.2);
     },
     setHeadlights(on) { pool.visible = on; },
     setSize,
     /** viewport：CSS 像素（原點左下）；畫面上其餘部分保持透明。 */
     render(vp) {
+      if (projector && pool.visible) {
+        const {height,nose,pitch,reach}=projector.beam;
+        beamOrigin.set(0,height-.14*Math.sin(pitch),nose+.14*Math.cos(pitch));
+        projector.mount.localToWorld(beamOrigin);
+        projector.mount.getWorldDirection(beamAxis);
+        pool.rotation.y=Math.atan2(beamAxis.x,beamAxis.z);
+        pool.position.set(beamOrigin.x+beamAxis.x*reach/2,.006,beamOrigin.z+beamAxis.z*reach/2);
+        pool.material.uniforms.uHeight.value=beamOrigin.y;
+      }
       backdrop.material.uniforms.uCameraWorld.value.copy(camera.matrixWorld);
       backdrop.material.uniforms.uInverseProjection.value.copy(camera.projectionMatrixInverse);
       renderer.setRenderTarget(null);

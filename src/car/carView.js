@@ -73,13 +73,14 @@ export function createCarView(canvas, opts = {}) {
 
   function fitCamera() {
     if (!car) return;
-    const center = carBox.getCenter(new THREE.Vector3());
-    const size = carBox.getSize(new THREE.Vector3());
+    const frameBox = car.framingBounds || carBox;
+    const center = frameBox.getCenter(new THREE.Vector3());
+    const size = frameBox.getSize(new THREE.Vector3());
     const corners = [];
-    for (const x of [carBox.min.x, carBox.max.x])
-      for (const y of [0, carBox.max.y])
-        for (const z of [carBox.min.z, carBox.max.z]) corners.push(new THREE.Vector3(x, y, z));
-    const camY = stage.outdoor ? carBox.max.y * 0.95 : carBox.max.y + 0.45; // 展示間略高於車頂；戶外壓低，讓出天空
+    for (const x of [frameBox.min.x, frameBox.max.x])
+      for (const y of [0, frameBox.max.y])
+        for (const z of [frameBox.min.z, frameBox.max.z]) corners.push(new THREE.Vector3(x, y, z));
+    const camY = stage.outdoor ? frameBox.max.y * 0.95 : frameBox.max.y + 0.45; // 展示間略高於車頂；戶外壓低，讓出天空
     const az = state.az;
     const target = new THREE.Vector3(center.x, size.y * 0.36, center.z + size.z * 0.04);
     let d = 9;
@@ -115,7 +116,9 @@ export function createCarView(canvas, opts = {}) {
     new Set(car.headlights.meshes.map((m) => m.material)).forEach((m) => { m.emissiveIntensity = on ? 7.0 : 0.08; });
     new Set((car.headlights.drl || []).map((m) => m.material)).forEach((m) => { m.emissiveIntensity = on ? 5.0 : 1.4; });
     new Set(car.taillights.map((m) => m.material)).forEach((m) => { m.emissiveIntensity = on ? 4.0 : 0.7; });
-    car.headlights.light.intensity = on ? 40 : 0;
+    for (const spot of car.headlights.spots || [car.headlights.light]) {
+      spot.intensity = on ? (car.headlights.beam ? 70 : 40) : 0;
+    }
     stage.setHeadlights(on);
   }
 
@@ -160,7 +163,7 @@ export function createCarView(canvas, opts = {}) {
     state.triangles = countTriangles(car.group);
     applyColor();
     applyHeadlights();
-    stage.setCar(car.group, carBox);
+    stage.setCar(car.group, carBox, car.headlights);
     fitCamera();
   }
 
@@ -311,7 +314,7 @@ export function createCarView(canvas, opts = {}) {
     setQuality(v) {
       state.quality = v === 'low' ? 'low' : 'high';
       stage.setQuality(state.quality);
-      if (car) stage.setCar(car.group, carBox);
+      if (car) stage.setCar(car.group, carBox, car.headlights);
       kick();
     },
     resize,
