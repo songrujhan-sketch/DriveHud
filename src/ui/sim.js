@@ -1,8 +1,8 @@
 // sim.html：不需 GPS。把情境的 fixes 餵進同一個 engine，並以和主畫面相同的 createApp 渲染。
-import { CONFIG, createAlertEngine } from './deps.js?v=1.9.1';
+import { CONFIG, createAlertEngine } from './deps.js?v=1.9.2';
 import { createPlayer } from '../../sim/player.js';
-import { createApp } from './app.js?v=1.9.1';
-import { createSettingsStore } from './settings.js?v=1.9.1';
+import { createApp } from './app.js?v=1.9.2';
+import { createSettingsStore } from './settings.js?v=1.9.2';
 
 /** 真實情境檔已就位。 */
 const USE_REAL_SCENARIOS = true;

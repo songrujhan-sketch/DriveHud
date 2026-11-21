@@ -1,6 +1,6 @@
 // DriveHUD UI 外殼：live（真實 GPS）與 sim（模擬）共用同一組元件，差別只在餵資料的來源。
-import { CONFIG, createCarView } from './deps.js?v=1.9.1';
-import { createSettingsPanel, CAR_MODELS, CAR_COLORS, CAR_VIEWS, CAR_SCENES, CAR_TIMES } from './settings.js?v=1.9.1';
+import { CONFIG, createCarView } from './deps.js?v=1.9.2';
+import { createSettingsPanel, CAR_MODELS, CAR_COLORS, CAR_VIEWS, CAR_SCENES, CAR_TIMES } from './settings.js?v=1.9.2';
 import { estimateTurn } from '../car/turn.js';
 
 export const GPS_LABEL = {
@@ -48,7 +48,7 @@ export const SHELL_HTML = `
       <button type="button" class="cb-btn" id="cb-model" title="點按切換車款">${icon('M5 16H3v-4l2-1 2-5h10l2 5 2 1v4h-2m-14 0h2m4 0h2m4 0h2M5 11h14M5 16a2 2 0 1 0 4 0 2 2 0 0 0-4 0zm10 0a2 2 0 1 0 4 0 2 2 0 0 0-4 0z')}<span id="cb-model-name">女武神</span></button>
         <button type="button" class="cb-btn" id="cb-lights" aria-label="車燈" title="車燈" aria-pressed="false">${icon('M14 5c5 0 7 3 7 7s-2 7-7 7h-1V5zM3 6l6 2M3 12h6m-6 6 6-2')}</button>
         <button type="button" class="cb-btn" id="cb-doors" aria-label="車門" title="車門" aria-pressed="false" hidden>${icon('M4 19V9l6-5h9l1 15H4zm2-9h12m-4 4h3')}</button>
-        <button type="button" class="cb-btn" id="cb-jet" aria-label="噴射" title="停車時預覽噴焰" hidden>${icon('M17 3c1 5-1 8-5 11l-4 1-2-2 1-4c3-4 6-6 10-6zM8 8l-4 1-1 4 3-1m6 1-1 4-4 1 1-3m-3 2-3 4m7-3-3 3M12 8h.01')}</button>
+        <button type="button" class="cb-btn" id="cb-jet" aria-label="噴射" title="開啟噴射" aria-pressed="false" hidden>${icon('M17 3c1 5-1 8-5 11l-4 1-2-2 1-4c3-4 6-6 10-6zM8 8l-4 1-1 4 3-1m6 1-1 4-4 1 1-3m-3 2-3 4m7-3-3 3M12 8h.01')}</button>
         <button type="button" class="cb-btn" id="cb-orbit" aria-label="360° 環繞" title="360° 環繞" aria-pressed="false">${icon('M21 10a9.2 9.2 0 1 0 .1 4M21 4v6h-6m-7 3 4-3 4 3-4 2-4-2z')}</button>
       </div>
     </div>
@@ -114,7 +114,6 @@ export function createApp({
   function syncBar(s) {
     $('#appearance-current').textContent = nameOf(CAR_SCENES, s.scene);
     $('#cb-model-name').textContent = nameOf(CAR_MODELS, s.model);
-    bar.view.setAttribute('aria-label', `目前為${nameOf(CAR_VIEWS, s.view)}，點按切換視角`);
     bar.scene.textContent = `場景：${nameOf(CAR_SCENES, s.scene)}`;
     bar.time.textContent = `時段：${nameOf(CAR_TIMES, s.time)}`;
     bar.lights.setAttribute('aria-pressed', String(!!s.headlights));
@@ -122,6 +121,7 @@ export function createApp({
   }
   bar.model.addEventListener('click', () => store.set({ model: nextOf(CAR_MODELS, store.get().model) }));
   bar.view.addEventListener('click', () => {
+    if (bar.view.disabled) return;
     setOrbit(false);
     store.set({ view: nextOf(CAR_VIEWS, store.get().view) });
   });
@@ -134,16 +134,28 @@ export function createApp({
   const dark = globalThis.matchMedia ? globalThis.matchMedia('(prefers-color-scheme: dark)') : null;
   const car = createCarView(els.canvas, { ...pick(store.get()), darkMode: !!(dark && dark.matches) });
   if (dark && dark.addEventListener) dark.addEventListener('change', (e) => car.setDarkMode(e.matches));
-  const orbitButton = $('#cb-orbit');
+  const orbitButton = $('#cb-orbit'), jetButton = $('#cb-jet');
   function setOrbit(on) {
     car.setOrbit(on);
     orbitButton.setAttribute('aria-pressed', String(on));
     orbitButton.title = on ? '停止環繞' : '360° 環繞';
+    if (!on && car.jetPreviewActive) store.set({view:'rear'});
+    syncVehicleActions();
   }
   orbitButton.addEventListener('click', () => setOrbit(!car.orbiting));
   // 車門：只有具備車門動作的車款才顯示；開合狀態不存檔，車速到 5 km/h 就自動關上並鎖定
-  function syncDoors() {
-    $('#cb-jet').hidden = !car.canPreviewJet?.();
+  function syncVehicleActions() {
+    const jetOn = car.jetPreviewActive;
+    const viewLocked = jetOn && !car.orbiting;
+    jetButton.hidden = !car.canPreviewJet();
+    jetButton.setAttribute('aria-pressed', String(jetOn));
+    jetButton.title = jetOn ? '關閉噴射' : '開啟噴射';
+    const currentView = nameOf(CAR_VIEWS, store.get().view);
+    bar.view.disabled = viewLocked;
+    bar.view.setAttribute('aria-label', viewLocked
+      ? `目前為${currentView}，噴射中鎖定視角`
+      : `目前為${currentView}，點按切換視角`);
+    orbitButton.disabled = viewLocked;
     const has = !!(car.hasDoors && car.hasDoors());
     bar.doors.hidden = !has;
     const open = has && !!car.doorsOpen;
@@ -155,13 +167,13 @@ export function createApp({
     bar.doors.title = doorStatus;
     bar.doors.setAttribute('aria-pressed', String(open));
   }
-  bar.doors.addEventListener('click', () => { if (car.setDoors) car.setDoors(!car.doorsOpen); syncDoors(); });
-  $('#cb-jet').addEventListener('click', () => {
-    setOrbit(false);
-    store.set({view:store.get().model === 'asurada' ? 'right-rear' : 'rear'});
-    car.previewJet();
+  bar.doors.addEventListener('click', () => { if (car.setDoors) car.setDoors(!car.doorsOpen); syncVehicleActions(); });
+  jetButton.addEventListener('click', () => {
+    const jetOn = car.setJetPreview(!car.jetPreviewActive);
+    if (jetOn && !car.orbiting) store.set({view:'rear'});
+    syncVehicleActions();
   });
-  syncDoors();
+  syncVehicleActions();
   if (globalThis.ResizeObserver) new ResizeObserver(() => car.resize()).observe(els.canvas);
 
   let running = mode === 'sim';
@@ -210,7 +222,7 @@ export function createApp({
     els.speed.classList.toggle('empty', state.speedKmh == null);
     els.heading.textContent = headingText(state.headingDeg);
     car.setSpeedKmh(state.speedKmh || 0);
-    syncDoors();
+    syncVehicleActions();
     if (layout !== 'normal' && car.orbiting) setOrbit(false);
     car.setCompact(layout === 'approach');
 
@@ -299,7 +311,7 @@ export function createApp({
     if (car.setScene) car.setScene(s.scene);
     if (car.setTime) car.setTime(s.time);
     syncBar(s);
-    syncDoors();
+    syncVehicleActions();
     render();
   });
 

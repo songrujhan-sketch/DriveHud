@@ -199,10 +199,9 @@ export function build(THREE, { color = '#393c3f' } = {}) {
   const plume = makePlume(THREE, [[.23,.86,0xff6b21,.48],[.17,.53,0xffd887,.82],[.11,.28,0xd7eeff,1]]);
   plume.position.set(0,.59,-2.49);
   group.add(plume);
-  let previewSeconds=0, elapsed=0, power=0;
+  let jetPreview=false, elapsed=0, power=0;
   function animate(dt,speedMps) {
-    const target=previewSeconds>0 ? 1 : THREE.MathUtils.clamp((speedMps-1.5)/18,0,1);
-    previewSeconds=Math.max(0,previewSeconds-dt);
+    const target=jetPreview ? 1 : THREE.MathUtils.clamp((speedMps-1.5)/18,0,1);
     power=THREE.MathUtils.damp(power,target,5,dt);
     if (Math.abs(power-target)<.004) power=target;
     elapsed+=dt;
@@ -214,6 +213,6 @@ export function build(THREE, { color = '#393c3f' } = {}) {
   }
   return {
     group,wheels,bodyMaterials:[M.paint],headlights:{meshes:heads,drl:[],light:makeHeadSpot(THREE,group,{y:.52,z:2.28})},
-    taillights:tails,doors,animate,meta,setJetPreview(on){previewSeconds=on ? 2.5 : 0;},
+    taillights:tails,doors,animate,meta,setJetPreview(on){jetPreview=on;},
   };
 }

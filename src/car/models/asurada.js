@@ -150,12 +150,11 @@ export function build(THREE, { color = '#e8eaed' } = {}) {
     group.add(strut);
     return strut;
   });
-  let lift = 0, power = 0, elapsed = 0, previewSeconds = 0;
+  let lift = 0, power = 0, elapsed = 0, jetPreview = false;
   function animate(dt, speed) {
     elapsed += dt;
-    const previewing = previewSeconds > 0;
+    const previewing = jetPreview;
     const target = previewing ? 1 : Math.min(1, Math.max(0,(speed-1)/18));
-    previewSeconds = Math.max(0,previewSeconds-dt);
     const deployed = previewing || speed > .3 ? 1 : 0;
     lift = THREE.MathUtils.damp(lift,deployed,3,dt);
     power = THREE.MathUtils.damp(power,target,5,dt);
@@ -179,5 +178,5 @@ export function build(THREE, { color = '#e8eaed' } = {}) {
     { ...RW, radius: RW.r, width: RW.w, spokes: 5, spokeW: [0.075, 0.055], concave: 0.03, rimRatio: 0.74, aeroCover: true },
   ]);
 
-  return { group, wheels, bodyMaterials: [M.paint], headlights: { meshes: heads, drl: [frontBar], light }, taillights: [tailBar], doors, animate, setJetPreview(on) { previewSeconds = on ? 2.5 : 0; }, meta };
+  return { group, wheels, bodyMaterials: [M.paint], headlights: { meshes: heads, drl: [frontBar], light }, taillights: [tailBar], doors, animate, setJetPreview(on) { jetPreview = on; }, meta };
 }

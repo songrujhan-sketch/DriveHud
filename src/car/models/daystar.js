@@ -148,10 +148,10 @@ export function build(T, {color='#c8d0d5'}={}) {
   for(const idx of [0,24]) seal(arches.map(a=>a[idx]),.023);
   for(const arch of [arches[0],arches.at(-1)]) seal(arch,.022);
   const doors=[{pivot:canopy,axis:new T.Vector3(1,0,0),sign:-1,max:1.00}];
-  let elapsed=0,preview=0,lift=0;
+  let elapsed=0,jetPreview=false,lift=0;
   function animate(dt,speed) {
     elapsed+=dt;
-    const previewing=preview>0;
+    const previewing=jetPreview;
     lift=T.MathUtils.damp(lift,previewing || speed>.3 ? 1 : 0,3,dt);
     wing.position.y=-.20+.49*lift;
     for(const post of mounts) {
@@ -159,7 +159,6 @@ export function build(T, {color='#c8d0d5'}={}) {
       post.scale.y=(top-.95)/.4;
       post.position.y=(top+.95)/2;
     }
-    preview=Math.max(0,preview-dt);
     const power=previewing ? 1 : Math.min(1,speed/16);
     hull.position.y=.018*Math.sin(elapsed*2.1);
     for(const {fire,down} of jets) {
@@ -182,5 +181,5 @@ export function build(T, {color='#c8d0d5'}={}) {
   envelope.max.y=Math.max(envelope.max.y,1.72)+.04;
   envelope.expandByScalar(.05);
   return {framingBounds:envelope,group,wheels:[],doors,bodyMaterials:[M.paint],headlights:{meshes:heads,drl:[],light:spots[0], spots, beam, mount:hull},
-    taillights:tails,animate,setJetPreview(on){preview=on?2.5:0;},meta};
+    taillights:tails,animate,setJetPreview(on){jetPreview=on;},meta};
 }

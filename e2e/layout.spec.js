@@ -94,7 +94,7 @@ test('車門按鈕：九款車都能開關車門，換車後自動關上', async
     const jet = page.locator('#cb-jet');
     if (['黑騎士','阿斯拉','重騎兵','明日之星'].includes(name)) {
       await jet.click();
-      await expect(view).toHaveAccessibleName(name === '阿斯拉' ? /右後 45°/ : /後 45°/);
+      await expect(view).toHaveAccessibleName(/左後 45°/);
     } else {
       await expect(jet).toBeHidden();
     }
@@ -110,6 +110,43 @@ test('車門按鈕：九款車都能開關車門，換車後自動關上', async
   await page.locator('#cb-jet').click();
   await expect(view).toHaveAccessibleName(/後 45°/);
   expect(errors).toEqual([]);
+});
+
+test('停車噴射持續開啟，固定視角鎖左後，環繞時保留鏡頭', async ({page}) => {
+  await page.goto('/');
+  const model = page.locator('#cb-model');
+  const view = page.locator('#cb-view');
+  const orbit = page.locator('#cb-orbit');
+  const jet = page.locator('#cb-jet');
+  await model.click();
+  await model.click();
+  await expect(model).toHaveText('阿斯拉');
+
+  await jet.click();
+  await expect(jet).toHaveAttribute('aria-pressed', 'true');
+  await expect(view).toHaveAccessibleName(/左後 45°.*鎖定/);
+  await expect(view).toBeDisabled();
+  await expect(orbit).toBeDisabled();
+  await page.waitForFunction(() => window.__drivehud.app.car.getInfo().azimuth === Math.PI * 3 / 4);
+
+  // The former preview timed out after 2.5 seconds.
+  await page.waitForTimeout(3100);
+  await expect(jet).toHaveAttribute('aria-pressed', 'true');
+  await jet.click();
+  await expect(view).toBeEnabled();
+  await view.click();
+  await expect(view).toHaveAccessibleName(/正後方/);
+
+  await orbit.click();
+  const viewName = await view.getAttribute('aria-label');
+  await jet.click();
+  await expect(orbit).toHaveAttribute('aria-pressed', 'true');
+  await expect(view).toHaveAttribute('aria-label', viewName);
+  const angle = await page.evaluate(() => window.__drivehud.app.car.getInfo().azimuth);
+  await page.waitForFunction(previous => window.__drivehud.app.car.getInfo().azimuth !== previous, angle);
+  await jet.click();
+  await expect(jet).toHaveAttribute('aria-pressed', 'false');
+  await expect(orbit).toHaveAttribute('aria-pressed', 'true');
 });
 
 test('圖示列固定，環繞可啟停，外觀只保留車色、場景與時段', async ({ page }) => {

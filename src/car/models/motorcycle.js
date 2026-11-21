@@ -109,10 +109,9 @@ export function build(T, {color='#d32f2f'}={}) {
     group.add(plume);
     plumes.push(plume);
   }
-  let preview=0,time=0,power=0;
+  let jetPreview=false,time=0,power=0;
   function animate(dt,speed){
-    const goal=preview>0?1:T.MathUtils.clamp((speed-1)/17,0,1);
-    preview=Math.max(0,preview-dt);
+    const goal=jetPreview?1:T.MathUtils.clamp((speed-1)/17,0,1);
     time+=dt;
     power=T.MathUtils.damp(power,goal,5,dt);
     if(Math.abs(power-goal)<.004) power=goal;
@@ -124,5 +123,5 @@ export function build(T, {color='#d32f2f'}={}) {
     return power>.004 || goal>0;
   }
   return {group,wheels,doors:[],meta,bodyMaterials:[M.paint],headlights:{meshes:headlights,drl:[],light:makeHeadSpot(T,group,{y:1.10,z:1.46})},
-    taillights:[tail],animate,setJetPreview(on){preview=on?2.5:0;}};
+    taillights:[tail],animate,setJetPreview(on){jetPreview=on;}};
 }

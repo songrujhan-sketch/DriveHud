@@ -329,11 +329,10 @@ export function build(THREE, { color = '#3a3f45' } = {}) {
   ]);
 
   // 噴焰動畫：車速超過約 5 km/h 點火，越快越長；停車後逐漸熄滅。回傳 true 表示還在變化，畫面要繼續更新
-  let time = 0, power = 0, previewSeconds = 0;
+  let time = 0, power = 0, jetPreview = false;
   const animate = (dt, speedMps) => {
     time += dt;
-    const target = previewSeconds > 0 ? 1 : speedMps > 1.5 ? Math.min(1, 0.4 + speedMps / 30) : 0;
-    previewSeconds = Math.max(0, previewSeconds - dt);
+    const target = jetPreview ? 1 : speedMps > 1.5 ? Math.min(1, 0.4 + speedMps / 30) : 0;
     power += (target - power) * Math.min(1, dt * 3);
     if (Math.abs(target - power) < 0.004) power = target;
     for (const f of flames) {
@@ -346,5 +345,5 @@ export function build(THREE, { color = '#3a3f45' } = {}) {
     return power > 0 || target > 0;
   };
 
-  return { group, wheels, bodyMaterials: [M.paint], headlights: { meshes: heads, drl: drls, light }, taillights: tails, doors, animate, setJetPreview(on) { previewSeconds = on ? 2.5 : 0; }, meta };
+  return { group, wheels, bodyMaterials: [M.paint], headlights: { meshes: heads, drl: drls, light }, taillights: tails, doors, animate, setJetPreview(on) { jetPreview = on; }, meta };
 }

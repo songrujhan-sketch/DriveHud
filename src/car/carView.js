@@ -7,7 +7,7 @@ import { CAMOUFLAGE, applyCamouflage } from './models/camouflage.js';
 // quality 'high'（預設）：反射地板 + 半解析度 Bloom + ACES；'low'：關閉後處理與反射。
 // 背景為展示廳漸層（四邊淡出成透明），compact 時縮成右上角小視窗；pixelRatio 上限 2。
 import * as THREE from '../../vendor/three.module.js';
-import { MODELS, getModel } from './models/index.js';
+import { MODELS, getModel } from './models/index.js?v=1.9.2';
 import { countTriangles } from './models/parts.js';
 import { createStage } from './stage.js';
 
@@ -64,6 +64,7 @@ export function createCarView(canvas, opts = {}) {
     az: VIEW_AZ[opts.view] != null ? VIEW_AZ[opts.view] : VIEW_AZ.front,
     el: VIEW_EL[opts.view] || 0,
     orbiting: false,
+    jetPreview: false,
     speedMps: 0, turn: 0, turnTarget: 0,
     doorsOpen: false,
     doorT: 0, // 0 = 關，1 = 全開
@@ -256,6 +257,7 @@ export function createCarView(canvas, opts = {}) {
       disposeObject(car.group);
     }
     state.fx = false;
+    state.jetPreview = false;
     car = def.build(THREE, { color: state.color });
     state.doorsOpen = false;
     state.doorT = 0;
@@ -401,20 +403,30 @@ export function createCarView(canvas, opts = {}) {
   resize();
   kick();
 
+  function canPreviewJet() { return !!car?.setJetPreview && state.speedMps === 0; }
+
+  function setJetPreview(on) {
+    state.jetPreview = !!on && canPreviewJet();
+    car?.setJetPreview?.(state.jetPreview);
+    kick();
+    return state.jetPreview;
+  }
+
   return {
     setTurn(angle) { state.turnTarget=angle; kick(); },
     setSpeedKmh(v) {
       const k = Number(v);
       state.speedMps = Number.isFinite(k) && k > 0 ? k / 3.6 : 0;
-      if (state.speedMps > 0) car?.setJetPreview?.(false);
+      if (state.speedMps > 0 && state.jetPreview) setJetPreview(false);
       if (state.speedMps >= DOOR_LOCK_MPS) state.doorsOpen = false; // 開始行駛就關門
       kick();
     },
     setColor(hex) { state.color = hex; applyColor(); kick(); },
     setHeadlights(on) { state.headlights = !!on; applyHeadlights(); kick(); },
     setModel(id) { if (getModel(id).id === state.modelId) return; holdModelFrame(); loadModel(id); kick(); },
-    canPreviewJet() { return !!car?.setJetPreview && state.speedMps === 0; },
-    previewJet() { if(car?.setJetPreview && state.speedMps === 0){ car.setJetPreview(true); kick(); } },
+    canPreviewJet,
+    setJetPreview,
+    get jetPreviewActive() { return state.jetPreview; },
     hasDoors() { return !!(car && car.doors && car.doors.length); },
     get doorsOpen() { return state.doorsOpen; },
     get doorsLocked() { return state.speedMps >= DOOR_LOCK_MPS; },
