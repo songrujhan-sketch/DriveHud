@@ -1,3 +1,4 @@
+import { makePlume } from './plume.js';
 import { makeMaterials, makeHeadSpot, mesh, placeWheels, merge, roundBox } from './parts.js';
 
 import { cabinInterior, interiorMaterials } from './kit.js';
@@ -195,46 +196,8 @@ export function build(THREE, { color = '#393c3f' } = {}) {
   group.add(mesh(THREE,new THREE.TorusGeometry(.322,.023,8,32),M.trim,[0,.59,-2.302]));
   const coreMaterial = new THREE.MeshStandardMaterial({color:0x302021,emissive:0xff722d,emissiveIntensity:0});
   group.add(mesh(THREE,new THREE.CircleGeometry(.262,32),coreMaterial,[0,.59,-2.47],[0,Math.PI,0]));
-  const plume = new THREE.Group();
-  plume.name = 'Jet plume';
+  const plume = makePlume(THREE, [[.23,.86,0xff6b21,.48],[.17,.53,0xffd887,.82],[.11,.28,0xd7eeff,1]]);
   plume.position.set(0,.59,-2.49);
-  for (const [r,length,color,opacity] of [[.23,.86,0xff6b21,.48],[.17,.53,0xffd887,.82],[.11,.28,0xd7eeff,1]]) {
-    const flame = new THREE.ConeGeometry(r,length,28,12,true);
-    flame.rotateX(-Math.PI/2);
-    flame.translate(0,0,-length/2);
-    plume.add(new THREE.Mesh(flame,new THREE.ShaderMaterial({
-      uniforms:{tint:{value:new THREE.Color(color)},density:{value:opacity},tick:{value:0}},
-      vertexShader:`varying vec2 coords;
-        varying vec3 viewPosition, viewNormal;
-        uniform float tick;
-        void main(){
-          coords=uv;
-          vec3 p=position;
-          p.xy*=1.+.08*sin(uv.y*20.-tick*16.)*uv.y;
-          p.x+=uv.y*uv.y*.013*sin(tick*21.+uv.y*9.);
-          vec4 mv=modelViewMatrix*vec4(p,1.);
-          viewPosition=-mv.xyz;
-          viewNormal=normalMatrix*normal;
-          gl_Position=projectionMatrix*mv;
-        }`,
-      fragmentShader:`varying vec2 coords;
-        varying vec3 viewPosition, viewNormal;
-        uniform float density, tick;
-        uniform vec3 tint;
-        void main(){
-          float travel=coords.y;
-          float wave=.5+.5*cos(6.283*(travel*4.-tick*.9));
-          float rim=abs(dot(normalize(viewNormal),normalize(viewPosition)));
-          float fade=(1.-smoothstep(.28,1.,travel))*smoothstep(0.,.08,travel);
-          gl_FragColor=vec4(tint*(1.35+.55*wave),density*fade*(.06+.70*rim)*(.60+.4*wave));
-          #include <tonemapping_fragment>
-          #include <colorspace_fragment>
-        }`,
-      transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide,
-    })));
-  }
-  plume.scale.z=.001;
-  plume.visible=false;
   group.add(plume);
   let previewSeconds=0, elapsed=0, power=0;
   function animate(dt,speedMps) {

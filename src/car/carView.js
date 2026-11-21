@@ -12,7 +12,7 @@ import { createStage } from './stage.js';
 
 const WHEEL_RADIUS_M = 0.33; // 輪徑 0.66 m（以此換算角速度）
 // 視角方位角（由車頭 +Z 起算、朝車身左側 +X 為正）：前 45°、正面、後 45°、正後方、上方（由左側上方俯視）
-const VIEW_AZ = { front: Math.PI / 4, head: 0, rear: Math.PI * 3 / 4, back: Math.PI, top: Math.PI / 2 };
+const VIEW_AZ = { front: Math.PI / 4, head: 0, side: Math.PI / 2, rear: Math.PI * 3 / 4, back: Math.PI, top: Math.PI / 2 };
 const VIEW_EL = { top: 1 };          // 俯視程度 0–1，沒列的視角是 0
 const TOP_ELEV = 1.36;               // 俯視的仰角（約 78°；不到 90° 才有穩定的畫面上方）
 const EL_SPEED = 2.2;                // 俯視程度的變化速度（1/s）
@@ -282,13 +282,15 @@ export function createCarView(canvas, opts = {}) {
     setSpeedKmh(v) {
       const k = Number(v);
       state.speedMps = Number.isFinite(k) && k > 0 ? k / 3.6 : 0;
+      if (state.speedMps > 0) car?.setJetPreview?.(false);
       if (state.speedMps >= DOOR_LOCK_MPS) state.doorsOpen = false; // 開始行駛就關門
       kick();
     },
     setColor(hex) { state.color = hex; applyColor(); kick(); },
     setHeadlights(on) { state.headlights = !!on; applyHeadlights(); kick(); },
     setModel(id) { if (getModel(id).id === state.modelId) return; loadModel(id); kick(); },
-    previewJet() { if(car?.setJetPreview){ car.setJetPreview(true); kick(); } },
+    canPreviewJet() { return !!car?.setJetPreview && state.speedMps === 0; },
+    previewJet() { if(car?.setJetPreview && state.speedMps === 0){ car.setJetPreview(true); kick(); } },
     hasDoors() { return !!(car && car.doors && car.doors.length); },
     get doorsOpen() { return state.doorsOpen; },
     get doorsLocked() { return state.speedMps >= DOOR_LOCK_MPS; },

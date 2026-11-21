@@ -54,7 +54,8 @@ test('設定頁只留極簡、低畫質、提醒距離與資料；車款、車�
   const errors = await openSim(page);
   await page.evaluate(() => localStorage.removeItem('drivehud.settings.v1'));
   await page.reload();
-  await expect(page.locator('#cb-model')).toBeHidden();
+  await expect(page.locator('#cb-model')).toBeVisible();
+  await expect(page.locator('#cb-colors')).toBeHidden();
   await page.locator('.appearance summary').click();
   await expect(page.locator('#cb-colors [data-color]')).toHaveCount(12);
   await page.locator('#cb-model').click();
@@ -82,8 +83,19 @@ test('車門按鈕：五款車都能開關車門，換車後自動關上', async
   await page.evaluate(() => localStorage.removeItem('drivehud.settings.v1'));
   await page.reload();
   await page.locator('.appearance summary').click();
+  const view = page.locator('#cb-view');
+  await view.click();
+  await view.click();
+  await expect(view).toHaveAccessibleName(/正側面/);
   for (const name of ['女武神', '黑騎士', '阿斯拉', '豹勇士', '重騎兵']) {
     await expect(page.locator('#cb-model')).toHaveText(`車款：${name}`);
+    const jet = page.locator('#cb-jet');
+    if (['黑騎士','阿斯拉','重騎兵'].includes(name)) {
+      await jet.click();
+      await expect(view).toHaveAccessibleName(/後 45°/);
+    } else {
+      await expect(jet).toBeHidden();
+    }
     await expect(page.locator('#cb-doors')).toBeVisible();
     await expect(page.locator('#cb-doors')).toHaveText('車門：關'); // 換車後一律是關的
     await page.locator('#cb-doors').click();

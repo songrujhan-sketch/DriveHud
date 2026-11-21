@@ -1,3 +1,4 @@
+import { interiorMaterials, cabinInterior } from './kit.js';
 // 豹勇士（rover）— 原創皮卡式豹勇士：折角車身、短座艙加後斗與防滾架、折角葉子板、
 // 車頂燈排、前防撞桿與絞盤、車尾備胎。由平行原型的 DH-03 移植，全部為原創幾何。
 // 座標：+Z 車頭、X 車寬、Y 向上。
@@ -34,10 +35,27 @@ export function build(THREE, { color = '#3a3f45' } = {}) {
   };
 
   // ── 車身：窄的下半部讓出輪拱，上半部與車門段為全寬 ──
-  slab([[-2.3, 0.66], [2.05, 0.66], [2.42, 0.9], [2.4, 1.1], [-2.42, 1.1], [-2.44, 0.96]], 1.3, M.under, 0.02);
-  slab([[-2.42, 1.08], [2.4, 1.08], [2.38, 1.14], [1.08, 1.28], [-2.34, 1.28]], 2.0, M.paint, 0.05);
-  add(bx(1.56, 0.46, 2.0, M.paint, 0.02, 0.88, 0, 0.05));                          // 車門段
-  slab([[1.02, 1.26], [0.46, 1.92], [-1.1, 1.92], [-1.42, 1.26]], 1.8, M.paint, 0.05); // 座艙
+  // Separate the engine bay and bed so the open doors reveal the full cabin.
+  slab([[.51,.66],[2.05,.66],[2.42,.9],[2.4,1.1],[.51,1.1]],1.3,M.under,.02);
+  slab([[.51,1.08],[2.4,1.08],[2.38,1.14],[1.08,1.28],[.51,1.28]],2,M.paint,.025);
+  slab([[-2.42,.82],[-1.13,.7],[-1.13,1.28],[-2.34,1.28]],2,M.paint,.035);
+  add(bx(1.72,.12,1.92,M.under,-.3,.72));
+  add(bx(1.58,.08,1.83,M.paint,-.32,1.90,0,.03));
+  for (const side of [-1,1]) {
+    slab([[1.02,1.26],[.46,1.92],[.37,1.92],[.91,1.26]],.07,M.paint,.012,side*.86);
+    slab([[-1.42,1.26],[-1.1,1.92],[-1.01,1.92],[-1.28,1.26]],.10,M.paint,.012,side*.85);
+    add(bx(.73,.53,.09,M.paint,-.76,1.015,side*.95));
+    add(bx(.49,.53,.09,M.paint,.75,1.015,side*.95));
+  }
+  const I = interiorMaterials(THREE,0x798676);
+  cabinInterior(THREE, group, I, {
+    seats: [-.44,.44].map(x => ({x,z:-.30,yBase:.89,w:.49,back:.62,recline:.18})),
+    dash: {z:.65,y:1.28,w:1.60,h:.18,len:.29},
+    screen: {y:1.40,z:.49},
+    wheel: {x:.44,y:1.34,z:.38,r:.165},
+    console: {z:.05,y:.97,w:.23,h:.25,len:.86},
+    wall: {z:-1.12,w:1.64,y0:.78,y1:1.58}
+  });
   slab([[-1.44, 1.26], [-1.44, 1.5], [-2.34, 1.5], [-2.34, 1.26]], 1.96, M.paint, 0.03); // 後斗側牆
   add(bx(0.86, 0.2, 1.74, M.under, -1.89, 1.36));                                   // 後斗內部
   for (const xs of [-0.6, -0.3, 0, 0.3, 0.6]) add(bx(0.82, 0.012, 0.06, M.trim, -1.89, 1.466, xs, 0.004)); // 後斗底板肋條
@@ -57,7 +75,6 @@ export function build(THREE, { color = '#3a3f45' } = {}) {
   mirrored(group, () => bx(0.5, 0.4, 0.03, M.glass, -0.72, 1.6, 0.908));
   mirrored(group, () => bx(0.05, 0.64, 0.02, M.gblack, -0.4, 1.56, 0.915));        // B 柱
   for (const zf of [0.5, -0.4]) mirrored(group, () => bx(0.012, 0.42, 0.012, M.gap, zf, 0.9, 1.004, 0.002)); // 門縫
-  mirrored(group, () => bx(1.56, 0.012, 0.012, M.gap, 0.02, 1.1, 1.004, 0.002));
   mirrored(group, () => bx(0.16, 0.03, 0.03, M.gblack, -0.62, 1.0, 1.012, 0.008)); // 後門把
   for (const w of [FW, RW]) {                                                       // 折角葉子板
     const z = w.z;
@@ -149,8 +166,6 @@ export function build(THREE, { color = '#3a3f45' } = {}) {
   // ── 前車門：下門板、裝甲板、窗框與側窗連成一片，鉸鏈在門前緣，向外平開 ──
   const doors = [];
   for (const s of [1, -1]) {
-    add(bx(0.84, 0.5, 0.008, M.under, 0.05, 1.01, s * 1.003, 0.002));               // 門洞（開門後才看得到）
-    add(bx(0.74, 0.46, 0.012, M.under, 0.02, 1.6, s * 0.902, 0.004));
     const pivot = new THREE.Group();
     pivot.position.set(s * 1.024, 1.0, 0.48);
     const put = (m) => { m.position.sub(pivot.position); pivot.add(m); return m; };

@@ -25,6 +25,7 @@ export const CAR_COLORS = [
 export const CAR_VIEWS = [
   { id: 'front', name: '前 45°' },
   { id: 'head', name: '正面' },
+  { id: 'side', name: '正側面' },
   { id: 'rear', name: '後 45°' },
   { id: 'back', name: '正後方' },
   { id: 'top', name: '上方' },
@@ -100,33 +101,62 @@ export function createSettingsPanel({ el, store, config = CONFIG }) {
     </div>`;
   const $ = (s) => el.querySelector(s);
   // 車款、車色、車燈在首頁下方的外觀列選，這裡不重複
-  const music = new Audio(new URL('../../assets/night-drive.wav', import.meta.url));
-  music.loop=true; music.preload='none';
-  let duckTimer, audioContext, gain, source;
-  function level(duck=false) {
-    if(gain) gain.gain.setTargetAtTime(Number($('#sp-volume').value)*(duck ? .15 : 1),audioContext.currentTime,.08);
+  let audioContext, gain, source, bufferPromise, duckTimer;
+  let playRequest = 0;
+  function level(duck = false) {
+    if (!gain) return;
+    gain.gain.setTargetAtTime(Number($('#sp-volume').value) * (duck ? .15 : 1), audioContext.currentTime, .08);
   }
-  function duckMusic(){
-    if(music.paused) return;
+  function duckMusic() {
+    if (!source) return;
     clearTimeout(duckTimer); level(true);
-    const restore=()=>{if(globalThis.speechSynthesis?.speaking) duckTimer=setTimeout(restore,250); else level();};
-    duckTimer=setTimeout(restore,3500);
+    const restore = () => { if (globalThis.speechSynthesis?.speaking) duckTimer = setTimeout(restore, 250); else level(); };
+    duckTimer = setTimeout(restore, 3500);
   }
-  $('#sp-volume').oninput=()=>level(!!globalThis.speechSynthesis?.speaking);
-  $('#sp-music').onchange=async e=>{
-    if(!e.target.checked){music.pause();return;}
-    try{
-      if(!gain){
-        audioContext=new (window.AudioContext||window.webkitAudioContext)();
-        source=audioContext.createMediaElementSource(music);
-        gain=audioContext.createGain();source.connect(gain);gain.connect(audioContext.destination);
+  function stopMusic() {
+    playRequest++;
+    clearTimeout(duckTimer);
+    if (source) {
+      source.stop();
+      source.disconnect();
+      source = null;
+    }
+  }
+  $('#sp-volume').oninput = () => level(!!globalThis.speechSynthesis?.speaking);
+  $('#sp-music').onchange = async (event) => {
+    stopMusic();
+    if (!event.target.checked) return;
+    const request = playRequest;
+    try {
+      if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        gain = audioContext.createGain();
+        gain.connect(audioContext.destination);
       }
-      level();await Promise.all([audioContext.resume(),music.play()]);$('#music-status').textContent='';
-    }catch{music.pause();$('#sp-music').checked=false;$('#music-status').textContent='音樂未能播放，請再試一次';}
+      const resumed = audioContext.resume();
+      bufferPromise ??= fetch(new URL('../../assets/night-drive.wav', import.meta.url))
+        .then(response => { if (!response.ok) throw Error('audio'); return response.arrayBuffer(); })
+        .then(bytes => audioContext.decodeAudioData(bytes))
+        .catch(error => { bufferPromise = null; throw error; });
+      const [buffer] = await Promise.all([bufferPromise, resumed]);
+      if (request !== playRequest) return;
+      source = audioContext.createBufferSource();
+      source.buffer = buffer;
+      source.loop = true;
+      source.connect(gain);
+      level(!!globalThis.speechSynthesis?.speaking);
+      source.start();
+      $('#music-status').textContent = '';
+    } catch {
+      if (request !== playRequest) return;
+      stopMusic();
+      $('#sp-music').checked = false;
+      $('#music-status').textContent = '音樂未能播放，請再試一次';
+    }
   };
-  function pauseHidden(){if(document.hidden){music.pause();$('#sp-music').checked=false;}}
-  document.addEventListener('visibilitychange',pauseHidden);
-  function destroy(){document.removeEventListener('visibilitychange',pauseHidden);clearTimeout(duckTimer);music.pause();audioContext?.close();}
+  function pauseHidden() { if (document.hidden) { stopMusic(); $('#sp-music').checked = false; } }
+  document.addEventListener('visibilitychange', pauseHidden);
+  function destroy() { document.removeEventListener('visibilitychange', pauseHidden); stopMusic(); audioContext?.close(); }
   function sync(s) {
     $('#sp-minimal').checked = s.minimal;
     $('#sp-lowq').checked = !!s.lowQuality;

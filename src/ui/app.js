@@ -38,9 +38,9 @@ export const SHELL_HTML = `
       <div class="top-actions"><span class="voice-warn" id="voice-warn" hidden>語音無法播放</span>
       <button type="button" class="start-btn" id="btn-start">開始行車</button><button type="button" class="dh-btn" id="btn-settings">設定</button></div>
     </header>
-    <div class="car-zone"><canvas id="car-canvas" aria-label="車輛"></canvas>
+    <button type="button" class="car-zone" id="cb-view" title="點按切換視角"><canvas id="car-canvas" aria-label="車輛"></canvas>
       
-    </div>
+    </button>
     <div class="speed-zone"><span class="meter-label">即時速度</span>
       <div class="speed-line"><div class="speed" id="speed-value" aria-live="off">—</div><span class="speed-unit">km/h</span></div>
       <div class="speed-meta"><div class="gps" id="gps-status" data-status="SEARCHING"><span class="dot"></span><span class="gps-text">定位中</span></div><span class="heading" id="heading">—</span></div>
@@ -54,18 +54,19 @@ export const SHELL_HTML = `
       <div class="ap-addr" id="addr"></div>
       <div class="ap-over" id="over-label" hidden>超速</div>
     </section>
+    <div class="garage-controls">
+      <button type="button" class="cb-btn" id="cb-model">車款</button>
     <details class="appearance"><summary>外觀與場景 <span id="appearance-current"></span></summary>
     <div class="carbar" id="carbar" role="group" aria-label="車輛外觀">
-      <button type="button" class="cb-btn" id="cb-model">車款</button>
       <div class="cb-swatches" id="cb-colors" role="radiogroup" aria-label="車色"></div>
-      <button type="button" class="cb-btn" id="cb-view">視角</button>
       <button type="button" class="cb-btn" id="cb-lights" aria-pressed="false">車燈</button>
       <button type="button" class="cb-btn" id="cb-doors" aria-pressed="false" hidden>車門</button>
-      <button type="button" class="cb-btn" id="cb-jet" hidden>噴射預覽</button>
+      <button type="button" class="cb-btn" id="cb-jet" hidden>停車噴射預覽</button>
       <button type="button" class="cb-btn" id="cb-scene">場景</button>
       <button type="button" class="cb-btn" id="cb-time">時段</button>
     </div>
     </details>
+    </div>
     <footer class="console-foot"><a href="./sim.html">行車模擬</a><button id="btn-data" type="button">測速資料庫</button></footer>
     <div class="nearby-hint" id="nearby-hint" hidden>附近測速點</div>
     <div class="sim-badge" id="sim-badge" hidden>模擬</div>
@@ -106,10 +107,9 @@ export function createApp({
   const nextOf = (list, id) => list[(list.findIndex((x) => x.id === id) + 1) % list.length].id;
   const nameOf = (list, id) => (list.find((x) => x.id === id) || list[0]).name;
   function syncBar(s) {
-    $('#cb-jet').hidden = s.model !== 'tumbler';
-    $('#appearance-current').textContent = [nameOf(CAR_MODELS, s.model), nameOf(CAR_SCENES, s.scene)].join(' · ');
+    $('#appearance-current').textContent = nameOf(CAR_SCENES, s.scene);
     bar.model.textContent = `車款：${nameOf(CAR_MODELS, s.model)}`;
-    bar.view.textContent = `視角：${nameOf(CAR_VIEWS, s.view)}`;
+    bar.view.setAttribute('aria-label', `目前為${nameOf(CAR_VIEWS, s.view)}，點按切換視角`);
     bar.scene.textContent = `場景：${nameOf(CAR_SCENES, s.scene)}`;
     bar.time.textContent = `時段：${nameOf(CAR_TIMES, s.time)}`;
     bar.lights.textContent = `車燈：${s.headlights ? '開' : '關'}`;
@@ -129,6 +129,7 @@ export function createApp({
   if (dark && dark.addEventListener) dark.addEventListener('change', (e) => car.setDarkMode(e.matches));
   // 車門：只有具備車門動作的車款才顯示；開合狀態不存檔，車速到 5 km/h 就自動關上並鎖定
   function syncDoors() {
+    $('#cb-jet').hidden = !car.canPreviewJet?.();
     const has = !!(car.hasDoors && car.hasDoors());
     bar.doors.hidden = !has;
     const open = has && !!car.doorsOpen;

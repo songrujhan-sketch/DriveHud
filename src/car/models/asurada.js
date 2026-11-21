@@ -1,3 +1,4 @@
+import { makePlume } from './plume.js';
 // 阿斯拉（asurada）— 原創流線電動雙門跑車：長軸距、單弧 fastback 全景玻璃頂、
 // 前後貫穿式燈條、封閉式前臉、隱藏式門把、空力輪蓋。全部為原創幾何。
 import { bodyLoft, cabinLoft, loftDoors, loftDoorPreds, interiorMaterials, cabinInterior, regionHelpers, curve, smooth } from './kit.js';
@@ -130,6 +131,45 @@ export function build(THREE, { color = '#e8eaed' } = {}) {
   group.add(mesh(THREE, roundBox(THREE, 1.5, 0.025, 0.5, 0.01), M.gblack, [0, 0.21, -2.18], [-0.22, 0, 0]));
   for (let i = -1.5; i <= 1.5; i += 1) group.add(mesh(THREE, roundBox(THREE, 0.016, 0.09, 0.45, 0.006), M.gblack, [i * 0.28, 0.24, -2.18], [-0.22, 0, 0]));
 
+  const plumes = [];
+  for (const x of [-0.62, -0.34, 0.34, 0.62]) {
+    const sleeve = new THREE.CylinderGeometry(.122, .106, .20, 24, 1, true);
+    sleeve.rotateX(Math.PI / 2);
+    group.add(mesh(THREE, sleeve, M.darkChrome, [x,.46,-2.42]));
+    group.add(mesh(THREE, new THREE.TorusGeometry(.112,.014,8,24), M.chrome, [x,.46,-2.52]));
+    const plume = makePlume(THREE, [[.104,.77,0xb5dfff,.75],[.087,.58,0xffffff,1],[.065,.34,0xfff9ec,1]]);
+    plume.position.set(x,.46,-2.53);
+    group.add(plume);
+    plumes.push(plume);
+  }
+  const wing = mesh(THREE, roundBox(THREE,1.48,.045,.22,.02), M.paint, [0,.82,-2.26]);
+  group.add(wing);
+  const struts = [-.46,.46].map(x => {
+    const strut = mesh(THREE, roundBox(THREE,.045,.35,.08,.012), M.darkChrome, [x,.64,-2.26]);
+    group.add(strut);
+    return strut;
+  });
+  let lift = 0, power = 0, elapsed = 0, previewSeconds = 0;
+  function animate(dt, speed) {
+    elapsed += dt;
+    const target = previewSeconds > 0 ? 1 : Math.min(1, Math.max(0,(speed-1)/18));
+    previewSeconds = Math.max(0,previewSeconds-dt);
+    const deployed = speed > .3 ? 1 : 0;
+    lift = THREE.MathUtils.damp(lift,deployed,3,dt);
+    power = THREE.MathUtils.damp(power,target,5,dt);
+    if (Math.abs(lift-deployed)<.002) lift=deployed;
+    if (Math.abs(power-target)<.002) power=target;
+    wing.position.y=.82+.38*lift;
+    wing.rotation.x=.13*lift;
+    for (const strut of struts) strut.position.y=wing.position.y-.18;
+    for (const plume of plumes) {
+      plume.visible=power>.002;
+      plume.scale.z=Math.max(.001,power);
+      for (const layer of plume.children) layer.material.uniforms.tick.value=elapsed;
+    }
+    return power>0 || target>0 || lift!==deployed;
+  }
+
   const light = makeHeadSpot(THREE, group, { y: 0.5, z: 2.35 });
 
   const wheels = placeWheels(THREE, group, M, [
@@ -137,5 +177,5 @@ export function build(THREE, { color = '#e8eaed' } = {}) {
     { ...RW, radius: RW.r, width: RW.w, spokes: 5, spokeW: [0.075, 0.055], concave: 0.03, rimRatio: 0.74, aeroCover: true },
   ]);
 
-  return { group, wheels, bodyMaterials: [M.paint], headlights: { meshes: heads, drl: [frontBar], light }, taillights: [tailBar], doors, meta };
+  return { group, wheels, bodyMaterials: [M.paint], headlights: { meshes: heads, drl: [frontBar], light }, taillights: [tailBar], doors, animate, setJetPreview(on) { previewSeconds = on ? 2.5 : 0; }, meta };
 }
