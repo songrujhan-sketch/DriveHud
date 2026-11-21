@@ -22,16 +22,16 @@ const vertexShader=`
  varying vec3 tint;
  varying vec2 surfaceUv;
  varying float kind,randomSeed,distanceToEye;
- varying vec3 clip,local;
+ varying vec3 clip,local,worldPos;
  uniform float darkness;
  void main(){
    vec4 view=modelViewMatrix*vec4(position,1.);
-   gl_Position=projectionMatrix*view;clip=gl_Position.xyw;local=position;distanceToEye=-view.z;
+   gl_Position=projectionMatrix*view;clip=gl_Position.xyw;local=position;worldPos=(modelMatrix*vec4(position,1.)).xyz;distanceToEye=-view.z;
    tint=mix(color,nightColor,darkness);surfaceUv=uv;kind=surfaceKind;randomSeed=seed;
  }
 `;
 const fragmentShader=`
- varying vec3 tint,clip,local;varying vec2 surfaceUv;varying float kind,randomSeed,distanceToEye;
+ varying vec3 tint,clip,local,worldPos; uniform vec3 subjectMin,subjectMax;varying vec2 surfaceUv;varying float kind,randomSeed,distanceToEye;
  uniform vec3 haze;uniform float darkness,clockTime;
  float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,313.7)))*43758.5453);}
  float field(vec2 p){
@@ -39,6 +39,15 @@ const fragmentShader=`
   return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+1.),f.x),f.y);
  }
  void main(){
+  // Only remove raised foreground scenery when its sightline continues into the vehicle envelope.
+  if(worldPos.y>.035){
+    vec3 delta=worldPos-cameraPosition;
+    vec3 inv=mix(vec3(-1.),vec3(1.),step(vec3(0.),delta))/max(abs(delta),vec3(.00001));
+    vec3 t0=(subjectMin-cameraPosition)*inv,t1=(subjectMax-cameraPosition)*inv;
+    vec3 lo=min(t0,t1),hi=max(t0,t1);
+    float enter=max(lo.x,max(lo.y,lo.z)),leave=min(hi.x,min(hi.y,hi.z));
+    if(enter>.99 && leave>=enter) discard;
+  }
   vec3 c=tint;vec2 uv=surfaceUv;
   if(kind>.5 && kind<1.5){
     float grain=hash(floor(uv*39.));
@@ -113,7 +122,7 @@ export function createScenery({layer,toDisplay}){
     }
     return colors.get(k);
   }
-  const uniforms={darkness:{value:0},clockTime:{value:0},haze:{value:new THREE.Color()}};
+  const uniforms={subjectMin:{value:new THREE.Vector3()},subjectMax:{value:new THREE.Vector3()},darkness:{value:0},clockTime:{value:0},haze:{value:new THREE.Color()}};
   const material=owned(new THREE.ShaderMaterial({vertexShader,fragmentShader,uniforms,vertexColors:true,side:THREE.DoubleSide,transparent:true}));
   const sun=new THREE.Vector3(-.54,.8,.34).normalize();
   class Batch {
@@ -398,6 +407,7 @@ export function createScenery({layer,toDisplay}){
   root.visible=false;
   return {
     group:root,
+    setSubjectBounds(box){uniforms.subjectMin.value.copy(box.min);uniforms.subjectMax.value.copy(box.max);},
     apply(id,night){
       root.visible=Object.hasOwn(builders,id);
       if(current)current.group.visible=false;

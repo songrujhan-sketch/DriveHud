@@ -78,7 +78,7 @@ test('設定頁只留極簡、低畫質、提醒距離與資料；車款、車�
   expect(errors).toEqual([]);
 });
 
-test('車門按鈕：六款車都能開關車門，換車後自動關上', async ({ page }) => {
+test('車門按鈕：八款車都能開關車門，換車後自動關上', async ({ page }) => {
   const errors = await openSim(page);
   await page.evaluate(() => localStorage.removeItem('drivehud.settings.v1'));
   await page.reload();
@@ -88,7 +88,7 @@ test('車門按鈕：六款車都能開關車門，換車後自動關上', async
   await view.click();
   await expect(view).toHaveAccessibleName(/正側面/);
   const initialWidth = (await page.locator('#cb-model').boundingBox()).width;
-  for (const name of ['女武神', '黑騎士', '阿斯拉', '豹勇士', '重騎兵', '明日之星']) {
+  for (const name of ['女武神', '黑騎士', '阿斯拉', '豹勇士', '重騎兵', '明日之星', '馬車', '好爸爸']) {
     await expect(page.locator('#cb-model')).toHaveText(name);
     expect((await page.locator('#cb-model').boundingBox()).width).toBe(initialWidth);
     const jet = page.locator('#cb-jet');

@@ -71,38 +71,79 @@ export function createCarView(canvas, opts = {}) {
   let car = null; // build() 的回傳值
   let carBox = new THREE.Box3();
 
+  // A longitudinal silhouette avoids framing empty corners of a tall antenna or a long horse team.
+  let outline=[],openOutline=[];
+  function captureOutline() {
+    const bins=Array.from({length:20},()=>new THREE.Box3());
+    const v=new THREE.Vector3(),length=Math.max(.01,carBox.max.z-carBox.min.z);
+    car.group.updateMatrixWorld(true);
+    car.group.traverseVisible(m=>{
+      const pos=m.geometry?.attributes.position;
+      if(!pos) return;
+      for(let i=0;i<pos.count;i++){
+        v.fromBufferAttribute(pos,i).applyMatrix4(m.matrixWorld);
+        const bin=Math.min(19,Math.max(0,Math.floor(20*(v.z-carBox.min.z)/length)));
+        bins[bin].expandByPoint(v);
+      }
+    });
+    const points=[];
+    for(const b of bins) if(!b.isEmpty()){
+      for(const x of [b.min.x,b.max.x]) for(const y of [b.min.y,b.max.y]) for(const z of [b.min.z,b.max.z]) points.push(new THREE.Vector3(x,y,z));
+    }
+    return points;
+  }
+  const subjectBounds=new THREE.Box3();
   function fitCamera() {
     if (!car) return;
-    const frameBox = car.framingBounds || carBox;
+    const corners = state.doorT>.001 ? openOutline : outline;
+    const frameBox=subjectBounds.setFromPoints(corners);
+    const exhaust=car.meta?.id==='darkknight' ? 1.25 : .9;
+    if(car.setJetPreview && (state.speedMps>0 || state.fx)) frameBox.min.z-=exhaust;
+    if(stage.outdoor) stage.setSubjectBounds(frameBox.clone().expandByScalar(.45));
     const center = frameBox.getCenter(new THREE.Vector3());
-    const size = frameBox.getSize(new THREE.Vector3());
-    const corners = [];
-    for (const x of [frameBox.min.x, frameBox.max.x])
-      for (const y of [0, frameBox.max.y])
-        for (const z of [frameBox.min.z, frameBox.max.z]) corners.push(new THREE.Vector3(x, y, z));
-    const camY = stage.outdoor ? frameBox.max.y * 0.95 : frameBox.max.y + 0.45; // 展示間略高於車頂；戶外壓低，讓出天空
     const az = state.az;
-    const target = new THREE.Vector3(center.x, size.y * 0.36, center.z + size.z * 0.04);
-    let d = 9;
-    const e = state.el * state.el * (3 - 2 * state.el), elev = e * TOP_ELEV;
-    const place = () => {
-      const h = d * Math.cos(elev);
-      camera.position.set(target.x + h * Math.sin(az), camY * (1 - e) + (target.y + d * Math.sin(elev)) * e, target.z + h * Math.cos(az));
-      camera.lookAt(target);
-      camera.updateMatrixWorld();
-    };
-    for (let iter = 0; iter < 8; iter++) {
-      place();
-      let ex = 0, ey = 0;
-      for (const c of corners) {
-        const p = c.clone().project(camera);
-        ex = Math.max(ex, Math.abs(p.x));
-        ey = Math.max(ey, Math.abs(p.y));
-      }
-      // 車輛偏大：水平佔 90%、垂直佔 78%（下方留給地面反射）；戶外縮小一些，留出場景
-      d *= Math.max(ex / (stage.outdoor ? 0.78 : 0.9), ey / (stage.outdoor ? 0.6 : 0.78));
+    const target = center.clone();
+    const e = state.el * state.el * (3 - 2 * state.el);
+    const elevation=THREE.MathUtils.lerp(stage.outdoor ? .105 : .17,TOP_ELEV,e);
+    const back=new THREE.Vector3(Math.sin(az)*Math.cos(elevation),Math.sin(elevation),Math.cos(az)*Math.cos(elevation));
+    const right=new THREE.Vector3(back.z,0,-back.x).normalize(), up=new THREE.Vector3().crossVectors(back,right);
+    const v=new THREE.Vector3(), tanY=Math.tan(THREE.MathUtils.degToRad(camera.fov/2));
+    const tanX=tanY*camera.aspect;
+    // Fit the projected span, not its distance from a guessed screen centre.
+    // Cap landscape width by canvas height so a wide low car cannot dwarf an SUV.
+    const horizontal=Math.min(.82,1.09/camera.aspect), vertical=.83;
+    const projected=corners.map(p=>{
+      v.copy(p).sub(target);
+      return [v.dot(right)/tanX,v.dot(up)/tanY,v.dot(back)];
+    });
+    if(car.setJetPreview) {
+      v.set(center.x,.55,frameBox.min.z).sub(target);
+      projected.push([v.dot(right)/tanX,v.dot(up)/tanY,v.dot(back)]);
     }
-    place();
+    function span(distance){
+      let left=Infinity,right=-Infinity,bottom=Infinity,top=-Infinity;
+      for(const [x,y,z] of projected){
+        const depth=Math.max(.001,distance-z);
+        left=Math.min(left,x/depth);right=Math.max(right,x/depth);
+        bottom=Math.min(bottom,y/depth);top=Math.max(top,y/depth);
+      }
+      return {left,right,bottom,top};
+    }
+    let near=Math.max(...projected.map(p=>p[2]))+.02;
+    let far=near+frameBox.getSize(v).length()*(2+1/Math.min(horizontal*tanX,vertical*tanY));
+    for(let i=0;i<15;i++){
+      const mid=(near+far)/2,b=span(mid);
+      if(b.right-b.left>2*horizontal || b.top-b.bottom>2*vertical) near=mid;
+      else far=mid;
+    }
+    camera.position.copy(target).addScaledVector(back,far);
+    camera.lookAt(target);
+    camera.updateMatrixWorld();
+    camera.updateProjectionMatrix();
+    const bounds=span(far);
+    camera.projectionMatrix.elements[8]=(bounds.left+bounds.right)/2;
+    camera.projectionMatrix.elements[9]=(bounds.bottom+bounds.top)/2;
+    camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
     if (stage.outdoor) { // 地平線：沿視線水平方向極遠處、高度 0 的點
       const f = new THREE.Vector3(target.x - camera.position.x, 0, target.z - camera.position.z).normalize();
       const h = new THREE.Vector3(camera.position.x + f.x * 5000, 0, camera.position.z + f.z * 5000).project(camera);
@@ -160,6 +201,12 @@ export function createCarView(canvas, opts = {}) {
     scene.add(car.group);
     car.group.updateMatrixWorld(true);
     carBox = new THREE.Box3().setFromObject(car.group, true);
+    outline=captureOutline();
+    for(const d of car.doors || []) d.pivot.quaternion.setFromAxisAngle(d.axis,d.sign*d.max);
+    openOutline=outline.concat(captureOutline());
+    if(car.framingBounds) openOutline.push(car.framingBounds.max.clone(),car.framingBounds.min.clone());
+    applyDoors();
+    car.group.updateMatrixWorld(true);
     state.triangles = countTriangles(car.group);
     applyColor();
     applyHeadlights();
@@ -208,8 +255,7 @@ export function createCarView(canvas, opts = {}) {
     lastT = now;
 
     if (car && state.speedMps > 0) {
-      const omega = state.speedMps / WHEEL_RADIUS_M;
-      for (const w of car.wheels) w.rotation.x = (w.rotation.x + omega * dt) % (Math.PI * 2);
+      for (const w of car.wheels) w.rotation.x = (w.rotation.x + state.speedMps * dt / (w.userData.radius || WHEEL_RADIUS_M)) % (Math.PI * 2);
     }
     state.turn = THREE.MathUtils.damp(state.turn,state.turnTarget,6,dt);
     if (Math.abs(state.turn-state.turnTarget)<.001) state.turn=state.turnTarget;
@@ -230,9 +276,12 @@ export function createCarView(canvas, opts = {}) {
       const step = dt * 1000 / DOOR_MS;
       state.doorT = doorTarget > state.doorT ? Math.min(1, state.doorT + step) : Math.max(0, state.doorT - step);
       applyDoors();
+      fitCamera();
     }
     stage.update(dt, state.speedMps);
+    const wasAnimating=state.fx;
     state.fx = !!(car && car.animate && car.animate(dt, state.speedMps));
+    if(wasAnimating!==state.fx && car?.setJetPreview) fitCamera();
     const target = state.compact ? 1 : 0;
     if (state.compactT !== target) {
       const step = dt * 1000 / COMPACT_MS;

@@ -1,3 +1,5 @@
+import * as carriage from './carriage.js';
+import * as family from './family.js';
 import * as daystar from './daystar.js';
 // DriveHUD V1.6 — 車模清單（名稱僅為標籤；幾何皆為原創）
 import * as valkyrie from './valkyrie.js';
@@ -14,6 +16,8 @@ export const MODELS = [
   { id: 'rover', displayName: '豹勇士', build: rover.build },
   { id: 'tumbler', displayName: '重騎兵', build: tumbler.build },
   { id: 'daystar', displayName: '明日之星', build: daystar.build },
+  {id:'carriage',displayName:'馬車',build:carriage.build},
+  {id:'family',displayName:'好爸爸',build:family.build},
 ];
 
 export function getModel(id) {

@@ -590,7 +590,8 @@ export function createStage(renderer, { quality = 'high' } = {}) {
     const fu = floor.material.uniforms;
     fu.uFloor.value.copy(displayColor(t.floor, ex));
     fu.uSpot.value.copy(displayColor(t.floorSpot, ex));
-    fu.uRefl.value = t.refl;
+    floor.visible = look.scene === 'studio';
+    fu.uRefl.value = floor.visible ? t.refl : 0;
     const studio = look.scene === 'studio' && !!t.hall;
     hall.group.visible = studio;
     fu.uHall.value = studio ? 1 : 0;
@@ -648,6 +649,7 @@ export function createStage(renderer, { quality = 'high' } = {}) {
     setDark(dark) { this.setLook({ scene: 'studio', night: !!dark, pageDark: !!dark }); },
     get outdoor() { return look.scene !== 'studio'; },
     /** 戶外場景的地平線位置（NDC y），讓天空漸層對齊 3D 地面。 */
+    setSubjectBounds(box) { scenery?.setSubjectBounds(box); },
     setHorizon(y) { if (look.scene !== 'studio') backdrop.material.uniforms.uHorizonY.value = y; },
     /** 行駛時背景跟著動：展示間的地面、牆面與天花板向車尾流動；戶外場景交給 scenery。 */
     update(dt, speedMps) {
