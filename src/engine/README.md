@@ -4,7 +4,7 @@
 
 | 檔案 | 內容 |
 |---|---|
-| `alertEngine.js` | `createAlertEngine({cameras, config, now})` → `{pushFix, tick, getState, setCameras, reset, getDebug}`；另匯出 `classifyRelation`、`radiusFor`、`SCAN_RADIUS_M` |
+| `alertEngine.js` | `createAlertEngine({cameras, config, now})` → `{pushFix, tick, getState, setCameras, reset, getDebug, setOptions, options}`；另匯出 `classifyRelation`、`radiusFor`、`SCAN_RADIUS_M` |
 | `geo.js` | `haversineM`、`bearingDeg`、`angleDiffDeg`、`destinationPoint`、`boundingBox`、`normDeg` |
 | `speech-text.js` | `approachText(distanceM, limit)`、`overspeedText(limit)`、`toChineseNumber`、`roundDistance50` |
 | `__stub__/direct.js` | 測試用最小 `parseDirect`；正式版由 Worker C 提供於 `src/data/direct.js` |
@@ -57,6 +57,8 @@ stateDiagram-v2
 | 參數 | 影響 |
 |---|---|
 | `alert.radiusUrbanM` / `radiusExpresswayM` / `radiusUnknownM` | 依 `camera.roadClass` 決定 APPROACH_ALERT／NEARBY 的觸發距離。語音距離 = 觸發當下距離四捨五入到 50 m，1 Hz 下通常比半徑少 0–25 m。 |
+| `alert.leadTimeS` / `maxRadiusM` | V1.10：實際半徑 = max(上列固定距離, 目前車速 × leadTimeS)，上限 maxRadiusM。市區 50 km/h 仍為 200 m；快速道路 110 km/h 約 367 m（約 12 秒）。APPROACH_ALERT 帶出 `radiusM`，`state.focus.radiusM` 供畫面畫距離進度。 |
+| `alert.overspeedToleranceKmh` / `overspeedRepeatS` | V1.10：可用 `engine.setOptions()` 由使用者設定覆寫。持續超速時每 overspeedRepeatS 秒發 `OVERSPEED_REPEAT`（speechText「請減速」）；config 預設 0（關閉），主畫面依設定開啟為 10 秒。 |
 | `alert.candidateBufferM` | 進入 CANDIDATE 的額外距離；需 ≥ `approachMinFixes × 每秒行駛距離`，否則到達半徑時接近計數尚未湊滿、提醒會延後。150 m 足以支撐約 180 km/h。 |
 | `alert.sameDirMaxDeg` / `oppositeMinDeg` | heading 與最接近 bearing 的夾角分類；中間區段為 AMBIGUOUS（例如十字路口橫向道路上的相機 → NEARBY）。 |
 | `alert.bidirectionalUnknownAxisAsSame` | direct 只寫「雙向」而沒有方位的相機（全國 192 筆）是否視為同向。`true`（預設）：在前方且持續接近時發 `APPROACH_ALERT` 並可判超速；`false`：只發 `NEARBY`。地名式寫法（「往大溪方向」）不受影響，一律 AMBIGUOUS。 |
@@ -81,7 +83,7 @@ stateDiagram-v2
 5. PASSED 判定只看「距離連續遞增」：APPROACHING 中轉進岔路也會被視為通過。
 6. `reset()` 保留各相機的已提醒旗標與 phase（避免返回頁面後重播），只清除距離歷史；`setCameras([])` 會清除所有相機狀態（player 的 `seek` 以此做完整重置）。
 7. `DENIED` 由 geolocation adapter 判斷，引擎不會產生；引擎只產生 SEARCHING／OK／POOR／STALE。
-8. 區間測速（`interval`）不做特殊邏輯，與一般相機相同。
+8. 區間測速（`interval`）判定邏輯與一般相機相同；V1.10 起語音改說「前方 N 公尺有區間測速」，畫面加「區間測速」標記。
 
 ## sim/player.js
 ```js

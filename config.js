@@ -1,4 +1,4 @@
-// DriveHUD V1.6 — 所有可調參數集中於此（原型測試值，實測後調整）
+// DriveHUD V1.10 — 所有可調參數集中於此（原型測試值，實測後調整）
 export const CONFIG = {
   alert: {
     radiusUrbanM: 200,          // 市區提醒距離
@@ -13,6 +13,9 @@ export const CONFIG = {
     cooldownM: 450,             // 通過後離開此距離才允許再次提醒
     overspeedToleranceKmh: 0,   // 超速判定容忍
     overspeedMinFixes: 3,
+    overspeedRepeatS: 0,        // 持續超速重複提醒間隔（秒）；0 = 關閉。主畫面依設定開啟（預設 10 秒）
+    leadTimeS: 12,              // 依車速提前提醒的秒數：半徑 = max(固定距離, 車速 × 秒數)
+    maxRadiusM: 500,            // 依車速放大的半徑上限
     bidirectionalUnknownAxisAsSame: true, // direct 只寫「雙向」（無方位）的點：在前方且接近時照常語音
   },
   fix: {
@@ -34,5 +37,5 @@ export const CONFIG = {
     minAcceptRatio: 0.5,        // 新資料筆數 ≥ 舊資料 × 此值才替換
   },
   speech: { lang: 'zh-TW', rate: 1.0 },
-  ui: { autoCompactOnApproach: true },
+  ui: { autoCompactOnApproach: true, overspeedRepeatS: 10, passedNoticeMs: 2500 },
 };

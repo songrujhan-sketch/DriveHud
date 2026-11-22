@@ -45,3 +45,17 @@ test('舊版儲存內容（沒有新欄位）仍可載入', () => {
   assert.equal(s.headlights, true);
   assert.equal(s.view, 'front');
 });
+
+test('V1.10：超速容忍與持續超速提醒的預設值、讀回與無效值', () => {
+  const fresh = createSettingsStore({ storage: memoryStorage() }).get();
+  assert.equal(fresh.toleranceKmh, 0);
+  assert.equal(fresh.overspeedRepeat, true);
+  const storage = memoryStorage();
+  createSettingsStore({ storage }).set({ toleranceKmh: 10, overspeedRepeat: false });
+  const again = createSettingsStore({ storage }).get();
+  assert.equal(again.toleranceKmh, 10);
+  assert.equal(again.overspeedRepeat, false);
+  const bad = createSettingsStore({ storage: memoryStorage({ [KEY]: JSON.stringify({ toleranceKmh: 7, overspeedRepeat: 'yes' }) }) }).get();
+  assert.equal(bad.toleranceKmh, 0);
+  assert.equal(bad.overspeedRepeat, true);
+});

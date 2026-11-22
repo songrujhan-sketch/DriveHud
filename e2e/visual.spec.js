@@ -9,7 +9,7 @@ const STATES = {
   driving: { gps: 'OK', speedKmh: 108, headingDeg: 45 },
   nearby: { gps: 'OK', speedKmh: 62, headingDeg: 45, nearby: [{ camera: CAM, distanceM: 240, relation: 'AMBIGUOUS' }] },
   approach: { gps: 'OK', speedKmh: 48, headingDeg: 45, focus: { phase: 'APPROACHING', relation: 'SAME', distanceM: 180, radiusM: 200, camera: CAM } },
-  overspeed: { gps: 'OK', speedKmh: 128, headingDeg: 45, overspeed: true, focus: { phase: 'APPROACHING', relation: 'SAME', distanceM: 90, radiusM: 300, camera: { ...CAM, limit: 110 } } },
+  overspeed: { gps: 'OK', speedKmh: 128, headingDeg: 45, overspeed: true, focus: { phase: 'APPROACHING', relation: 'SAME', distanceM: 90, radiusM: 300, camera: { ...CAM, limit: 110, interval: true } } },
 };
 
 async function setState(page, st) {

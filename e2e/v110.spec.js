@@ -167,3 +167,34 @@ test('接近提醒時 3D 畫布尺寸不變（不重新配置）且暫停繪製�
   expect(await page.evaluate(() => window.__drivehud.app.car.getInfo().paused)).toBe(false);
   expect(await size()).toEqual(before);
 });
+
+test('超速提醒設定套用到引擎；通過測速點短暫顯示「已通過」；接近時有距離進度與讀屏提示', async ({ page }) => {
+  await page.addInitScript(() => Object.defineProperty(navigator, 'geolocation', { value: { watchPosition: () => 1, clearWatch() {} } }));
+  await page.goto('/?debug');
+  await page.evaluate(() => localStorage.removeItem('drivehud.settings.v1'));
+  await page.reload();
+  const opts = () => page.evaluate(() => window.__drivehud.engine.options);
+  expect(await opts()).toMatchObject({ overspeedToleranceKmh: 0, overspeedRepeatS: 10 });
+  await page.locator('#btn-settings').click();
+  await page.getByRole('radio', { name: '超過 5 km/h' }).click();
+  await expect(page.getByRole('radio', { name: '超過 5 km/h' })).toHaveAttribute('aria-checked', 'true');
+  await page.locator('#sp-repeat').uncheck();
+  expect(await opts()).toMatchObject({ overspeedToleranceKmh: 5, overspeedRepeatS: 0 });
+  await page.locator('#sp-close').click();
+
+  await page.locator('#btn-start').click();
+  await page.evaluate(() => window.__drivehud.app.setEngine({ tick: () => [], setOptions() {},
+    getState: () => ({ gps: 'OK', speedKmh: 52, headingDeg: 0, nearby: [], overspeed: false,
+      focus: { phase: 'APPROACHING', relation: 'SAME', distanceM: 150, radiusM: 200, camera: { limit: 50, interval: true } } }) }));
+  await expect(page.locator('#ap-kind')).toBeVisible();
+  expect(Number(await page.locator('#ap-progress-bar').evaluate((el) => el.style.getPropertyValue('--p')))).toBeCloseTo(0.25, 2);
+  await page.evaluate(() => window.__drivehud.app.ingest([{ type: 'APPROACH_ALERT', speechText: '前方一百五十公尺有區間測速，速限五十' }]));
+  await expect(page.locator('#sr-alert')).toHaveText('前方一百五十公尺有區間測速，速限五十');
+
+  await page.evaluate(() => {
+    window.__drivehud.app.setEngine({ tick: () => [], getState: () => ({ gps: 'OK', speedKmh: 52, headingDeg: 0, nearby: [], overspeed: false, focus: null }) });
+    window.__drivehud.app.ingest([{ type: 'PASSED' }]);
+  });
+  await expect(page.locator('#radar-state')).toHaveText('已通過測速點');
+  await expect(page.locator('#radar-state')).toHaveText('偵測中', { timeout: 5000 });
+});

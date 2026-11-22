@@ -79,15 +79,18 @@ export const SHELL_HTML = `
         <span class="nearby-hint" id="nearby-hint" hidden>附近測速點</span>
         <button type="button" class="dh-btn" id="radar-retry" aria-label="重新載入測速資料" hidden>重新載入</button>
       </div>
-      <div class="approach" id="approach" hidden aria-live="polite">
+      <div class="approach" id="approach" hidden>
+        <div class="ap-kind" id="ap-kind" hidden>區間測速</div>
         <div class="ap-main">
           <div class="ap-limit"><span class="ap-label">速限</span><span class="ap-limit-val" id="limit-value">—</span></div>
           <div class="ap-dist"><span class="ap-label">剩餘</span><span class="ap-dist-num"><span class="ap-dist-val" id="dist-value">—</span><span class="ap-unit">m</span></span></div>
         </div>
+        <div class="ap-progress" aria-hidden="true"><span id="ap-progress-bar"></span></div>
         <div class="ap-addr" id="addr"></div>
         <div class="ap-over" id="over-label" hidden>超速</div>
       </div>
     </section>
+    <p class="sr-only" id="sr-alert" role="status"></p>
     <div class="car-zone"><button type="button" id="cb-view" title="點按切換視角"><canvas id="car-canvas" aria-hidden="true" tabindex="-1"></canvas></button>
       <p class="car-fallback" id="car-fallback" role="status" hidden></p>
       <button type="button" class="cb-btn" id="cb-appearance" aria-label="外觀與場景" title="外觀與場景" aria-expanded="false" aria-controls="appearance">${icon('M12 3a9 9 0 1 0 0 18c1.1 0 1.6-.8 1.6-1.6 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-.9.7-1.6 1.6-1.6H16a5 5 0 0 0 5-5c0-4.1-4-7.4-9-7.4zM7.5 12.5h.01M9.5 8h.01M14.5 8h.01M17 11.5h.01')}</button>
@@ -136,7 +139,13 @@ export function createApp({
     limit: $('#limit-value'), dist: $('#dist-value'), addr: $('#addr'), over: $('#over-label'),
     nearby: $('#nearby-hint'), start: $('#btn-start'), canvas: $('#car-canvas'), badge: $('#sim-badge'),
     wakeWarn: $('#wake-warn'), retry: $('#radar-retry'), radarState: $('#radar-state'), radarDetail: $('#radar-detail'),
+    kind: $('#ap-kind'), progress: $('#ap-progress-bar'), srAlert: $('#sr-alert'),
   };
+  let passedUntil = 0, passedTimer = null;
+  // 使用者可調的提醒選項（超速容忍、持續超速提醒）套到引擎；模擬頁的引擎沒有 setOptions，維持 config 預設。
+  function applyAlertOptions(s = store.get()) {
+    eng?.setOptions?.({ overspeedToleranceKmh: s.toleranceKmh ?? 0, overspeedRepeatS: s.overspeedRepeat ? config.ui.overspeedRepeatS : 0 });
+  }
   let dataInfo = { ...data };
   els.retry.addEventListener('click', () => { if (onRetryData) onRetryData(); });
   // 語音實際播放結果（開始發聲／出錯／逾時）決定「語音無法播放」的顯示。
@@ -362,6 +371,9 @@ export function createApp({
     if (missing) {
       setText(els.radarState, missing[0]);
       setText(els.radarDetail, missing[1]);
+    } else if (g === 'OK' && passedUntil > Date.now()) {
+      setText(els.radarState, '已通過測速點');
+      setText(els.radarDetail, '繼續偵測前方測速點');
     } else {
       setText(els.radarState, g === 'OK' ? '偵測中' : g === 'IDLE' ? '待機中' : (GPS_LABEL[g] || g));
       setText(els.radarDetail, RADAR_DETAIL[g] || '等待有效的 GPS 訊號');
@@ -397,6 +409,11 @@ export function createApp({
       els.limit.classList.toggle('three', lim != null && lim >= 100);
       setText(els.dist, String(Math.max(0, Math.round(f.distanceM / 10) * 10)));
       setText(els.addr, f.camera.address || '');
+      els.kind.hidden = !f.camera.interval;
+      // 距離進度：從提醒那一刻（半徑）到相機位置
+      const radius = f.radiusM > 0 ? f.radiusM : Math.max(f.distanceM, 200);
+      const p = Math.min(1, Math.max(0, 1 - f.distanceM / radius));
+      els.progress.style.setProperty('--p', p.toFixed(3));
     }
     const nearbyHint = !approaching && ((state.nearby && state.nearby.length > 0) || (f && f.relation === 'AMBIGUOUS'));
     els.nearby.hidden = !nearbyHint;
@@ -409,11 +426,18 @@ export function createApp({
 
   function ingest(events = []) {
     for (const e of events) {
-      if ((e.type === 'APPROACH_ALERT' || e.type === 'OVERSPEED_ALERT') && e.speechText) {
+      if ((e.type === 'APPROACH_ALERT' || e.type === 'OVERSPEED_ALERT' || e.type === 'OVERSPEED_REPEAT') && e.speechText) {
         panel.duckMusic();
         const ok = speech ? speech.speak(e.speechText) : false;
         els.voiceWarn.hidden = ok !== false ? true : false;
         e.__spoken = ok;
+        if (e.type !== 'OVERSPEED_REPEAT') els.srAlert.textContent = e.speechText; // 螢幕閱讀器只播一次主要提醒
+      }
+      if (e.type === 'PASSED') {
+        // 通過後短暫顯示「已通過測速點」，讓駕駛確定提醒結束
+        passedUntil = Date.now() + config.ui.passedNoticeMs;
+        clearTimeout(passedTimer);
+        passedTimer = setTimeout(() => render(), config.ui.passedNoticeMs + 50);
       }
     }
     if (events.length) eventCbs.forEach((cb) => cb(events));
@@ -491,19 +515,21 @@ export function createApp({
       if (s.view !== p.view) car.setView(s.view);
       if (s.scene !== p.scene) car.setScene(s.scene);
       if (s.time !== p.time) car.setTime(s.time);
+      if (s.toleranceKmh !== p.toleranceKmh || s.overspeedRepeat !== p.overspeedRepeat) applyAlertOptions(s);
       syncVehicleActions();
     } catch (err) {
       console.warn('3D 車模更新失敗', err);
     }
   });
 
+  applyAlertOptions();
   render();
 
   return {
     el: appEl,
     start, render, ingest, onFix, panel,
     get car() { return car; },
-    setEngine(e) { resetTurn(); eng = e; relocating = false; render(); },
+    setEngine(e) { resetTurn(); eng = e; relocating = false; applyAlertOptions(); render(); },
     /** 測速資料狀態：{ state: 'loading'|'ready'|'empty'|'error', count } */
     setData(d) { dataInfo = { ...dataInfo, ...d }; render(); },
     get data() { return { ...dataInfo }; },
@@ -512,6 +538,7 @@ export function createApp({
     onEvents(cb) { eventCbs.push(cb); },
     destroy() {
       resetTurn();
+      clearTimeout(passedTimer);
       panel.destroy();
       clearInterval(tickTimer);
       dark?.removeEventListener('change', onDarkChange);
