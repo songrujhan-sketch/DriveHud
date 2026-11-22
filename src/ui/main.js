@@ -1,8 +1,8 @@
 // 主畫面啟動：index.html 只需 <div id="root"></div> + <script type="module" src="…/main.js">。
-import { CONFIG, createAlertEngine, loadCameras, dataServices } from './deps.js?v=1.9.2';
-import { createApp } from './app.js?v=1.9.2';
-import { createSettingsStore } from './settings.js?v=1.9.2';
-import { createGeoSource } from '../adapters/geolocation.js';
+import { CONFIG, createAlertEngine, loadCameras, dataServices } from './deps.js?v=1.9.3';
+import { createApp } from './app.js?v=1.9.3';
+import { createSettingsStore } from './settings.js?v=1.9.3';
+import { createGeoSource } from '../adapters/geolocation.js?v=1.9.3';
 import { createSpeech } from '../adapters/speech.js';
 import { createWakeLock } from '../adapters/wakelock.js';
 

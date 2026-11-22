@@ -1,5 +1,5 @@
 // 設定儲存（localStorage，全部 try/catch）與滑入式設定面板。
-import { CONFIG, mountSettingsData, dataServices } from './deps.js?v=1.9.2';
+import { CONFIG, mountSettingsData, dataServices } from './deps.js?v=1.9.3';
 
 export const CAR_MODELS = [
   { id: 'valkyrie', name: '女武神' },
@@ -90,11 +90,11 @@ export function createSettingsStore({ storage } = {}) {
 export function createSettingsPanel({ el, store, config = CONFIG }) {
   const a = config.alert;
   el.innerHTML = `
-    <div class="sp-head"><h2>設定</h2><button type="button" class="dh-btn" id="sp-close">關閉</button></div>
+    <div class="sp-head"><h2 id="settings-title">設定</h2><button type="button" class="dh-btn" id="sp-close">關閉</button></div>
     <div class="sp-body">
       <section class="sp-switches">
         <label class="sp-switch"><input type="checkbox" id="sp-music"><span>背景音樂</span></label>
-        <label>音量 <input id="sp-volume" type="range" min="0" max="1" step="0.05" value="0.35"></label>
+        <label>音量 <input id="sp-volume" aria-label="背景音樂音量" type="range" min="0" max="1" step="0.05" value="0.35"></label>
         <small role="status" id="music-status"></small>
         <label class="sp-switch"><input type="checkbox" id="sp-minimal"><span>極簡模式（隱藏車模）</span></label>
         <label class="sp-switch"><input type="checkbox" id="sp-lowq"><span>車模低畫質（卡頓或發熱時開啟）</span></label>
@@ -165,7 +165,13 @@ export function createSettingsPanel({ el, store, config = CONFIG }) {
   };
   function pauseHidden() { if (document.hidden) { stopMusic(); $('#sp-music').checked = false; } }
   document.addEventListener('visibilitychange', pauseHidden);
-  function destroy() { document.removeEventListener('visibilitychange', pauseHidden); stopMusic(); audioContext?.close(); }
+  function destroy() {
+    close();
+    el.removeEventListener('cancel', onCancel);
+    document.removeEventListener('visibilitychange', pauseHidden);
+    stopMusic();
+    audioContext?.close();
+  }
   function sync(s) {
     $('#sp-minimal').checked = s.minimal;
     $('#sp-lowq').checked = !!s.lowQuality;
@@ -178,7 +184,25 @@ export function createSettingsPanel({ el, store, config = CONFIG }) {
 
   try { mountSettingsData($('#settings-data'), { store: dataServices.store, update: dataServices.update, config }); } catch (err) { $('#settings-data').textContent = '資料區塊載入失敗'; console.warn(err); }
 
-  function open() { el.classList.add('open'); el.setAttribute('aria-hidden', 'false'); }
-  function close() { el.classList.remove('open'); el.setAttribute('aria-hidden', 'true'); }
-  return { open, close, duckMusic, destroy, toggle: () => (el.classList.contains('open') ? close() : open()) };
+  let trigger = null;
+  function open(invoker = document.activeElement) {
+    if (el.open) return;
+    trigger = invoker;
+    el.showModal();
+    el.classList.add('open');
+    $('#sp-close').focus();
+  }
+  function close() {
+    if (!el.open) return;
+    el.close();
+    el.classList.remove('open');
+    if (trigger?.isConnected) trigger.focus();
+    trigger = null;
+  }
+  function onCancel(event) {
+    event.preventDefault();
+    close();
+  }
+  el.addEventListener('cancel', onCancel);
+  return { open, close, duckMusic, destroy, toggle: invoker => el.open ? close() : open(invoker) };
 }

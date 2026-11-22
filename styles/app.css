@@ -3,7 +3,7 @@
    --bg 若調整，請同步 src/car/stage.js 的 PAGE_EDGE（車模畫面外圈的收斂色）。 */
 :root {
   --bg: #f3f5f8; --fg: #1f2a3a; --muted: #5f6b7a; --panel: #ffffff; --panel-alt: #f6f7fa; --line: #e2e6ec;
-  --ok: #29816b; --warn: #b26b00; --warn-fill: #e0a040; --bad: #cf3a2e; --accent: #2f5a8a; --on-accent: #ffffff;
+  --ok: #246e5b; --warn: #8d5300; --warn-fill: #e0a040; --bad: #b1322a; --accent: #2f5a8a; --on-accent: #ffffff;
   --accent-soft: #e8eef6; --hero: #1e2c42; --cta: #e8590c;
   --h-blue: #2a78d6; --h-purple: #7048c8; --h-teal: #0e8a7d; --h-amber: #b26b00; --h-rose: #c2405a;
   --over-bg: #cf3a2e; --over-fg: #ffffff;
@@ -78,7 +78,9 @@ body:not(.sim-page) { overflow: hidden; }
 .gps .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--tc); }
 .gps[data-status="OK"] { --tc: var(--ok); }
 .gps[data-status="SEARCHING"], .gps[data-status="RELOCATING"] { --tc: var(--accent); }
-.gps[data-status="DENIED"], .gps[data-status="POOR"], .gps[data-status="STALE"] { --tc: var(--bad); }
+.gps[data-status="IDLE"] { --tc: var(--muted); }
+.gps[data-status="TIMEOUT"] { --tc: var(--warn); }
+.gps:is([data-status="DENIED"], [data-status="POOR"], [data-status="STALE"], [data-status="UNAVAILABLE"], [data-status="UNSUPPORTED"]) { --tc: var(--bad); }
 .gps[data-status="SEARCHING"] .dot, .gps[data-status="RELOCATING"] .dot { animation: blink 1s infinite; }
 @keyframes blink { 50% { opacity: .25; } }
 .voice-warn { font-size: 14px; color: var(--bad); font-weight: 600; }
@@ -105,7 +107,7 @@ body:not(.sim-page) { overflow: hidden; }
 .ap-addr { font-size: clamp(14px, 3.8cqmin, 24px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--muted); }
 .ap-over { font-weight: 800; font-size: clamp(18px, 6cqmin, 40px); }
 .approach.over { background: var(--over-bg); border-color: var(--over-bg); color: var(--over-fg); }
-.approach.over .ap-label, .approach.over .ap-unit, .approach.over .ap-addr { color: rgba(255,255,255,.88); }
+.approach.over .ap-label, .approach.over .ap-unit, .approach.over .ap-addr { color: var(--over-fg); }
 
 /* ---------- 版面：橫向 ---------- */
 @container app (orientation: landscape) {
@@ -156,10 +158,15 @@ body:not(.sim-page) { overflow: hidden; }
 .app[data-mode="sim"] .top-actions { margin-right: 4.5em; }
 
 /* ---------- 設定面板 ---------- */
-.settings { position: absolute; top: 0; right: 0; bottom: 0; width: min(440px, 92cqw); z-index: 20; background: var(--bg);
-  border-left: 1px solid var(--line); transform: translateX(102%); transition: transform .25s ease; overflow-y: auto;
-  display: flex; flex-direction: column; box-shadow: -25px 0 90px #141c2a33; }
-.settings.open { transform: none; }
+.settings {
+  position: fixed; inset: 0 0 0 auto; margin: 0;
+  width: min(440px, 92vw); max-width: none; height: 100%; max-height: none;
+  padding: 0; background: var(--bg); color: var(--fg);
+  border: 0; border-left: 1px solid var(--line); overflow-y: auto;
+  box-shadow: -25px 0 90px #141c2a33;
+}
+.settings[open] { display: flex; flex-direction: column; }
+.settings::backdrop { background: #10131350; }
 .sp-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; position: sticky; top: 0; z-index: 1; background: var(--bg); border-bottom: 1px solid var(--line); }
 .sp-head h2 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: .02em; }
 .sp-body { padding: 12px 16px 24px; display: grid; gap: 12px; }
@@ -211,9 +218,9 @@ body.sim-page { height: auto; min-height: 100%; }
   .sim-stage { height: 62vh; height: 62dvh; border-right: 0; border-bottom: 1px solid var(--line); }
 }
 /* V1.7 garage and instrument console. Alert layouts retain the larger driving readouts. */
-:root { --control:#587064; --bg:#edf0ec; --fg:#202723; --panel:#fafbf8; --line:#cbd3cd; --muted:#59675e; }
+:root { --control:#587064; --bg:#edf0ec; --fg:#202723; --panel:#fafbf8; --line:#cbd3cd; --muted:#434e47; }
 @media(prefers-color-scheme:dark){
-  :root { --bg:#101313; --fg:#f1f4f1; --panel:#191e1d; --line:#38413e; --muted:#a6b2ac; }
+  :root { --bg:#101313; --fg:#f1f4f1; --panel:#191e1d; --line:#38413e; --muted:#bcc8c2; }
 }
 .console-brand{font:italic 850 26px/1 Arial,sans-serif;letter-spacing:-1.7px;white-space:nowrap}
 .console-brand i{color:var(--fg)}.brand-stripes{color:var(--muted)}
@@ -244,8 +251,8 @@ body.sim-page { height: auto; min-height: 100%; }
 .speed-unit{font:14px Consolas,monospace;color:var(--muted)}
 .layout-normal .speed{font-size:clamp(56px,7cqw,84px);line-height:1.1}
 .layout-normal .speed-meta{width:100%;justify-content:space-between;align-items:center;padding-top:8px;border-top:1px dashed var(--line);font-size:14px}
-.gps{font-size:14px;background:transparent;border:0;padding:0;color:var(--muted)}
-.gps .dot{width:6px;height:6px}
+.gps{font-size:14px;background:transparent;border:0;padding:0;color:var(--tc)}
+.gps .dot{width:6px;height:6px;flex-shrink:0}
 .radar-idle{grid-area:radar;display:flex;flex-direction:column;gap:8px;position:relative}
 .radar-idle strong{font-size:clamp(18px,2vw,26px)}
 #radar-detail{color:var(--muted);font-size:14px}
@@ -253,7 +260,6 @@ body.sim-page { height: auto; min-height: 100%; }
 .shortcuts button{border-top:1px solid var(--line);padding:9px 0 3px;font-size:15px}
 .app:not(.layout-normal) .studio-title,.app:not(.layout-normal) .studio-tag,.app:not(.layout-normal) .radar-idle,.app:not(.layout-normal) .shortcuts,.app:not(.layout-normal) .console-foot,.app:not(.layout-normal) .console-heading,.app:not(.layout-normal) .meter-label{display:none}
 .app:not(.layout-normal) .speed-meta{align-items:center;gap:14px}
-.settings[aria-hidden=true]{visibility:hidden}
 @container app (max-width:700px){
  .app.layout-normal .frame{padding:12px max(12px,env(safe-area-inset-right)) max(14px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left));grid-template-columns:1fr 1fr;grid-template-rows:max-content clamp(235px,40cqh,420px) max-content max-content;grid-template-areas:"top top" "car car" "speed radar" "bar bar";gap:9px}
  .studio-title{left:10px;bottom:8px;padding:4px 8px}.studio-tag{left:10px;top:8px}
@@ -330,3 +336,10 @@ body.sim-page { height: auto; min-height: 100%; }
   --icon-size: 32px;
 }
 .layout-approach .vehicle-controls .cb-btn:not(#cb-model), .layout-minimal .vehicle-controls { display: none !important; }
+
+#cb-view:focus-visible { outline-offset: -3px; }
+.car-fallback {
+  position:absolute; inset:0; margin:0; padding:16px;
+  display:grid; place-items:center; text-align:center; color:var(--muted); font-size:14px;
+}
+.app[data-renderer="unavailable"] :is(#cb-view,.vehicle-controls,.garage-controls) { display:none; }

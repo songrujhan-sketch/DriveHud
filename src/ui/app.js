@@ -1,15 +1,29 @@
 // DriveHUD UI 外殼：live（真實 GPS）與 sim（模擬）共用同一組元件，差別只在餵資料的來源。
-import { CONFIG, createCarView } from './deps.js?v=1.9.2';
-import { createSettingsPanel, CAR_MODELS, CAR_COLORS, CAR_VIEWS, CAR_SCENES, CAR_TIMES } from './settings.js?v=1.9.2';
+import { CONFIG, createCarView } from './deps.js?v=1.9.3';
+import { createSettingsPanel, CAR_MODELS, CAR_COLORS, CAR_VIEWS, CAR_SCENES, CAR_TIMES } from './settings.js?v=1.9.3';
 import { estimateTurn } from '../car/turn.js';
 
 export const GPS_LABEL = {
+  IDLE: 'GPS 待命',
   SEARCHING: '定位中',
   OK: '定位正常',
   POOR: '訊號不佳',
   DENIED: '權限遭拒',
-  STALE: '訊號不佳',
+  UNAVAILABLE: '無法取得定位',
+  TIMEOUT: '定位逾時',
+  UNSUPPORTED: '不支援定位',
+  STALE: '定位資料過期',
   RELOCATING: '重新定位中',
+};
+
+const GPS_ERRORS = new Set(['DENIED', 'UNAVAILABLE', 'TIMEOUT', 'UNSUPPORTED']);
+const RADAR_DETAIL = {
+  IDLE: '開始行車後偵測前方測速點',
+  OK: '掃描行進方向的固定測速點',
+  DENIED: '請開啟瀏覽器的定位權限後再試',
+  UNAVAILABLE: '目前無法取得定位，請確認裝置已開啟定位服務',
+  TIMEOUT: '等待新的 GPS 定位',
+  UNSUPPORTED: '此瀏覽器環境不支援定位',
 };
 
 const HEADINGS = [
@@ -39,11 +53,11 @@ export const SHELL_HTML = `
     <header class="topbar">
       <div class="console-brand"><span class="brand-stripes" aria-hidden="true">///</span> Drive<i>HUD</i></div><span class="build-tag">V1.9</span>
       <div class="top-actions"><span class="voice-warn" id="voice-warn" hidden>語音無法播放</span>
-      <button type="button" class="start-btn" id="btn-start">開始行車</button><button type="button" class="dh-btn" id="btn-settings">設定</button></div>
+      <button type="button" class="start-btn" id="btn-start">開始行車</button><button type="button" class="dh-btn" id="btn-settings" aria-haspopup="dialog" aria-controls="settings-panel">設定</button></div>
     </header>
-    <div class="car-zone"><button type="button" id="cb-view" title="點按切換視角"><canvas id="car-canvas" aria-label="車輛"></canvas>
-      
+    <div class="car-zone"><button type="button" id="cb-view" title="點按切換視角"><canvas id="car-canvas" aria-hidden="true"></canvas>
     </button>
+    <p class="car-fallback" id="car-fallback" role="status" hidden></p>
       <div class="vehicle-controls" role="group" aria-label="車輛控制">
       <button type="button" class="cb-btn" id="cb-model" title="點按切換車款">${icon('M5 16H3v-4l2-1 2-5h10l2 5 2 1v4h-2m-14 0h2m4 0h2m4 0h2M5 11h14M5 16a2 2 0 1 0 4 0 2 2 0 0 0-4 0zm10 0a2 2 0 1 0 4 0 2 2 0 0 0-4 0z')}<span id="cb-model-name">女武神</span></button>
         <button type="button" class="cb-btn" id="cb-lights" aria-label="車燈" title="車燈" aria-pressed="false">${icon('M14 5c5 0 7 3 7 7s-2 7-7 7h-1V5zM3 6l6 2M3 12h6m-6 6 6-2')}</button>
@@ -54,9 +68,9 @@ export const SHELL_HTML = `
     </div>
     <div class="speed-zone"><span class="meter-label">即時速度</span>
       <div class="speed-line"><div class="speed" id="speed-value" aria-live="off">—</div><span class="speed-unit">km/h</span></div>
-      <div class="speed-meta"><div class="gps" id="gps-status" data-status="SEARCHING"><span class="dot"></span><span class="gps-text">定位中</span></div><span class="heading" id="heading">—</span></div>
+      <div class="speed-meta"><div class="gps" id="gps-status" data-status="IDLE"><span class="dot" aria-hidden="true"></span><span class="gps-text" role="status">GPS 待命</span></div><span class="heading" id="heading">—</span></div>
     </div>
-    <section class="radar-idle"><span class="meter-label">測速雷達</span><strong id="radar-state">等待定位</strong><span id="radar-detail">開始行車後偵測前方測速點</span></section>
+    <section class="radar-idle"><span class="meter-label">測速雷達</span><strong id="radar-state">待機中</strong><span id="radar-detail">開始行車後偵測前方測速點</span></section>
     <section class="approach" id="approach" hidden aria-live="polite">
       <div class="ap-main">
         <div class="ap-limit"><span class="ap-label">速限</span><span class="ap-limit-val" id="limit-value">—</span></div>
@@ -77,7 +91,7 @@ export const SHELL_HTML = `
     <div class="nearby-hint" id="nearby-hint" hidden>附近測速點</div>
     <div class="sim-badge" id="sim-badge" hidden>模擬</div>
   </div>
-  <aside class="settings" id="settings-panel" aria-hidden="true"></aside>
+  <dialog class="settings" id="settings-panel" aria-labelledby="settings-title"></dialog>
 </div>`;
 
 export function createApp({
@@ -104,7 +118,7 @@ export function createApp({
   if (mode === 'sim') { els.badge.hidden = false; els.start.hidden = true; }
 
   const panel = createSettingsPanel({ el: $('#settings-panel'), store, config });
-  $('#btn-settings').addEventListener('click', () => panel.toggle());
+  $('#btn-settings').addEventListener('click', (event) => panel.toggle(event.currentTarget));
 
   // 外觀列：車款、車色、視角、車燈、場景、時段都在畫面下方，不遮住車子；與設定面板共用同一個 store。
   const bar = { model: $('#cb-model'), colors: $('#cb-colors'), view: $('#cb-view'), lights: $('#cb-lights'), doors: $('#cb-doors'), scene: $('#cb-scene'), time: $('#cb-time') };
@@ -131,32 +145,46 @@ export function createApp({
   bar.colors.addEventListener('click', (e) => { const b = e.target.closest('[data-color]'); if (b) store.set({ color: b.dataset.color }); });
   syncBar(store.get());
 
-  const dark = globalThis.matchMedia ? globalThis.matchMedia('(prefers-color-scheme: dark)') : null;
-  const car = createCarView(els.canvas, { ...pick(store.get()), darkMode: !!(dark && dark.matches) });
-  if (dark && dark.addEventListener) dark.addEventListener('change', (e) => car.setDarkMode(e.matches));
+  const dark = globalThis.matchMedia?.('(prefers-color-scheme: dark)');
+  let car = null;
+  const fallback = $('#car-fallback');
+  function initCar() {
+    try {
+      car = createCarView(els.canvas, { ...pick(store.get()), darkMode: !!dark?.matches });
+    } catch (error) {
+      console.warn('3D 車模無法載入', error);
+    }
+    appEl.dataset.renderer = car ? 'ready' : 'unavailable';
+    fallback.hidden = !!car;
+    fallback.textContent = car ? '' : '3D 車模無法顯示，速度與測速提醒仍可使用。';
+  }
+  const onDarkChange = event => car?.setDarkMode(event.matches);
+  dark?.addEventListener('change', onDarkChange);
   const orbitButton = $('#cb-orbit'), jetButton = $('#cb-jet');
   function setOrbit(on) {
+    if (!car) return;
     car.setOrbit(on);
     orbitButton.setAttribute('aria-pressed', String(on));
     orbitButton.title = on ? '停止環繞' : '360° 環繞';
     if (!on && car.jetPreviewActive) store.set({view:'rear'});
     syncVehicleActions();
   }
-  orbitButton.addEventListener('click', () => setOrbit(!car.orbiting));
+  orbitButton.addEventListener('click', () => setOrbit(!car?.orbiting));
   // 車門：只有具備車門動作的車款才顯示；開合狀態不存檔，車速到 5 km/h 就自動關上並鎖定
   function syncVehicleActions() {
-    const jetOn = car.jetPreviewActive;
-    const viewLocked = jetOn && !car.orbiting;
-    jetButton.hidden = !car.canPreviewJet();
+    const jetOn = !!car?.jetPreviewActive;
+    const viewLocked = jetOn && !car?.orbiting;
+    jetButton.hidden = !car?.canPreviewJet();
     jetButton.setAttribute('aria-pressed', String(jetOn));
     jetButton.title = jetOn ? '關閉噴射' : '開啟噴射';
     const currentView = nameOf(CAR_VIEWS, store.get().view);
-    bar.view.disabled = viewLocked;
+    bar.view.disabled = !car || viewLocked;
     bar.view.setAttribute('aria-label', viewLocked
       ? `目前為${currentView}，噴射中鎖定視角`
       : `目前為${currentView}，點按切換視角`);
-    orbitButton.disabled = viewLocked;
-    const has = !!(car.hasDoors && car.hasDoors());
+    orbitButton.disabled = !car || viewLocked;
+    orbitButton.setAttribute('aria-pressed', String(!!car?.orbiting));
+    const has = !!car?.hasDoors();
     bar.doors.hidden = !has;
     const open = has && !!car.doorsOpen;
     const locked = has && !!car.doorsLocked; // 行駛中不能開門：按鈕停用並寫明原因，不要按了沒反應
@@ -167,21 +195,39 @@ export function createApp({
     bar.doors.title = doorStatus;
     bar.doors.setAttribute('aria-pressed', String(open));
   }
-  bar.doors.addEventListener('click', () => { if (car.setDoors) car.setDoors(!car.doorsOpen); syncVehicleActions(); });
+  bar.doors.addEventListener('click', () => { if (car) car.setDoors(!car.doorsOpen); syncVehicleActions(); });
   jetButton.addEventListener('click', () => {
+    if (!car) return;
     const jetOn = car.setJetPreview(!car.jetPreviewActive);
     if (jetOn && !car.orbiting) store.set({view:'rear'});
     syncVehicleActions();
   });
+  initCar();
   syncVehicleActions();
-  if (globalThis.ResizeObserver) new ResizeObserver(() => car.resize()).observe(els.canvas);
+  function onContextLost(event) {
+    event.preventDefault();
+    const lost = car;
+    car = null;
+    appEl.dataset.renderer = 'unavailable';
+    fallback.textContent = '3D 顯示已中斷，速度與測速提醒仍可使用。';
+    fallback.hidden = false;
+    syncVehicleActions();
+    lost?.dispose();
+  }
+  function onContextRestored() {
+    if (car) return;
+    initCar();
+    render();
+  }
+  els.canvas.addEventListener('webglcontextlost', onContextLost);
+  els.canvas.addEventListener('webglcontextrestored', onContextRestored);
 
   let running = mode === 'sim';
   let relocating = false;
-  let adapterStatus = null; // geolocation adapter 回報的狀態（用於 DENIED）
+  let adapterStatus = null;
   let previousCourse = null, turnTimeout;
   function resetTurn() {
-    clearTimeout(turnTimeout); previousCourse = null; car.setTurn(0);
+    clearTimeout(turnTimeout); previousCourse = null; car?.setTurn(0);
   }
   function updateTurn(fix) {
     const state = eng?.getState();
@@ -189,7 +235,7 @@ export function createApp({
       resetTurn(); return;
     }
     const course = { t:fix.t, heading:state.headingDeg, speed:state.speedKmh/3.6 };
-    car.setTurn(estimateTurn(previousCourse,course)); previousCourse=course;
+    car?.setTurn(estimateTurn(previousCourse,course)); previousCourse=course;
     clearTimeout(turnTimeout); turnTimeout=setTimeout(resetTurn,2500);
   }
   let tickTimer = null;
@@ -200,31 +246,36 @@ export function createApp({
   function pick(s) { return { model: s.model, color: s.color, headlights: s.headlights, quality: s.lowQuality ? 'low' : 'high', view: s.view, scene: s.scene, time: s.time }; }
 
   function gpsKey(state) {
-    if (adapterStatus === 'DENIED') return 'DENIED';
+    if (!running) return 'IDLE';
+    if (GPS_ERRORS.has(adapterStatus)) return adapterStatus;
     if (relocating) return 'RELOCATING';
     return (state && state.gps) || 'SEARCHING';
   }
 
   function render() {
-    const state = eng ? eng.getState() : { gps: 'SEARCHING', speedKmh: null, headingDeg: null, focus: null, nearby: [], overspeed: false };
+    const rawState = eng?.getState();
+    const g = gpsKey(rawState);
+    const state = g === 'OK' ? rawState : {
+      ...rawState, speedKmh:null, headingDeg:null, focus:null, nearby:[], overspeed:false,
+    };
     const settings = store.get();
     const layout = computeLayout(state, settings, config);
     appEl.className = `app layout-${layout}`;
     appEl.dataset.layout = layout;
 
-    const g = gpsKey(state);
     els.gps.dataset.status = g;
-    els.gpsText.textContent = running ? GPS_LABEL[g] || g : 'GPS 待命';
-    $('#radar-state').textContent = !running ? '等待定位' : g === 'OK' ? '偵測中' : GPS_LABEL[g] || g;
-    $('#radar-detail').textContent = !running ? '開始行車後偵測前方測速點' : g === 'OK' ? '掃描行進方向的固定測速點' : '等待有效的 GPS 訊號';
+    const label = GPS_LABEL[g] || g;
+    if (els.gpsText.textContent !== label) els.gpsText.textContent = label;
+    $('#radar-state').textContent = g === 'OK' ? '偵測中' : g === 'IDLE' ? '待機中' : label;
+    $('#radar-detail').textContent = RADAR_DETAIL[g] || '等待有效的 GPS 訊號';
 
     els.speed.textContent = state.speedKmh == null ? '—' : String(Math.round(state.speedKmh));
     els.speed.classList.toggle('empty', state.speedKmh == null);
     els.heading.textContent = headingText(state.headingDeg);
-    car.setSpeedKmh(state.speedKmh || 0);
+    car?.setSpeedKmh(state.speedKmh || 0);
     syncVehicleActions();
-    if (layout !== 'normal' && car.orbiting) setOrbit(false);
-    car.setCompact(layout === 'approach');
+    if (layout !== 'normal' && car?.orbiting) setOrbit(false);
+    car?.setCompact(layout === 'approach');
 
     const f = state.focus;
     const approaching = !!(f && f.phase === 'APPROACHING' && f.relation !== 'OPPOSITE');
@@ -282,7 +333,16 @@ export function createApp({
     els.start.textContent = '停止行車';
     if (speech) speech.unlock();
     if (wakeLock) wakeLock.request();
-    if (geo) geo.start(onFix, (s) => { adapterStatus = s; render(); });
+    geo?.start(onFix, (status) => {
+      if (!running) return;
+      if (GPS_ERRORS.has(status) && !GPS_ERRORS.has(adapterStatus)) {
+        eng?.reset();
+        resetTurn();
+        speech?.cancel?.();
+      }
+      adapterStatus = status;
+      render();
+    });
     startTick();
     render();
   }
@@ -305,11 +365,15 @@ export function createApp({
   });
 
   store.subscribe((s) => {
-    car.setModel(s.model); car.setColor(s.color); car.setHeadlights(s.headlights);
-    if (car.setQuality) car.setQuality(s.lowQuality ? 'low' : 'high');
-    if (car.setView) car.setView(s.view);
-    if (car.setScene) car.setScene(s.scene);
-    if (car.setTime) car.setTime(s.time);
+    if (car) {
+      car.setModel(s.model);
+      car.setColor(s.color);
+      car.setHeadlights(s.headlights);
+      car.setQuality(s.lowQuality ? 'low' : 'high');
+      car.setView(s.view);
+      car.setScene(s.scene);
+      car.setTime(s.time);
+    }
     syncBar(s);
     syncVehicleActions();
     render();
@@ -319,11 +383,20 @@ export function createApp({
 
   return {
     el: appEl,
-    start, render, ingest, onFix, panel, car,
+    start, render, ingest, onFix, panel,
+    get car() { return car; },
     setEngine(e) { resetTurn(); eng = e; relocating = false; render(); },
     setLastFix(f) { updateTurn(f); },
     onRender(cb) { renderCbs.push(cb); },
     onEvents(cb) { eventCbs.push(cb); },
-    destroy() { resetTurn(); panel.destroy(); clearInterval(tickTimer); car.dispose(); },
+    destroy() {
+      resetTurn();
+      panel.destroy();
+      clearInterval(tickTimer);
+      dark?.removeEventListener('change', onDarkChange);
+      els.canvas.removeEventListener('webglcontextlost', onContextLost);
+      els.canvas.removeEventListener('webglcontextrestored', onContextRestored);
+      car?.dispose();
+    },
   };
 }

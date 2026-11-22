@@ -178,6 +178,9 @@ test('新版資源與車款圖示在一般畫面及接近提醒時可用', async
     staleAssets.push(route.request().url());
     return route.abort();
   });
+  await page.addInitScript(() => Object.defineProperty(navigator,'geolocation',{value:{
+    watchPosition: () => 1, clearWatch() {},
+  }}));
   await page.goto('/');
   const model = page.locator('#cb-model');
   await expect(page.locator('.build-tag')).toHaveText('V1.9');
@@ -185,7 +188,9 @@ test('新版資源與車款圖示在一般畫面及接近提醒時可用', async
   await model.click();
   await expect(model).toHaveText('黑騎士');
 
+  await page.locator('#btn-start').click();
   await page.evaluate(() => window.__drivehud.app.setEngine({
+    tick: () => [],
     getState: () => ({gps:'OK', speedKmh:45, headingDeg:0, nearby:[], overspeed:false,
       focus:{phase:'APPROACHING', relation:'SAME', distanceM:100, camera:{limit:50}}}),
   }));

@@ -396,12 +396,31 @@ export function createCarView(canvas, opts = {}) {
   const onVis = () => { if (pageVisible()) kick(); };
   document.addEventListener('visibilitychange', onVis);
 
+  function dispose() {
+    disposed = true;
+    clearModelFade();
+    if (raf) cancelAnimationFrame(raf);
+    raf = 0;
+    io?.disconnect();
+    ro?.disconnect();
+    document.removeEventListener('visibilitychange', onVis);
+    if (car) { scene.remove(car.group); disposeObject(car.group); car = null; }
+    stage.dispose();
+    disposeObject(scene);
+    renderer.dispose();
+  }
+
   // ── 初始化 ──
-  applyDarkMode();
-  loadModel(state.modelId);
-  canvas.classList.toggle('car-compact', state.compact);
-  resize();
-  kick();
+  try {
+    applyDarkMode();
+    loadModel(state.modelId);
+    canvas.classList.toggle('car-compact', state.compact);
+    resize();
+    kick();
+  } catch (error) {
+    dispose();
+    throw error;
+  }
 
   function canPreviewJet() { return !!car?.setJetPreview && state.speedMps === 0; }
 
@@ -461,18 +480,6 @@ export function createCarView(canvas, opts = {}) {
         azimuth: state.az, orbiting: state.orbiting, steeringRad: state.turn, models: MODELS.map((m) => m.id), quality: state.quality, view: state.view, scene: state.scene, time: state.time, frames, ...lastStats,
       };
     },
-    dispose() {
-      disposed = true;
-      clearModelFade();
-      if (raf) cancelAnimationFrame(raf);
-      raf = 0;
-      io?.disconnect();
-      ro?.disconnect();
-      document.removeEventListener('visibilitychange', onVis);
-      if (car) { scene.remove(car.group); disposeObject(car.group); car = null; }
-      stage.dispose();
-      disposeObject(scene);
-      renderer.dispose();
-    },
+    dispose,
   };
 }
