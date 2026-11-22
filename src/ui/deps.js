@@ -36,12 +36,17 @@ export const dataServices = {
   onCamerasUpdated(cb) { camerasListeners.push(cb); return () => camerasListeners.splice(camerasListeners.indexOf(cb) >>> 0, 1); },
 };
 
-/** 取得相機清單：先試 IndexedDB（使用者更新過的資料），再退回內建快照。 */
-export async function loadCameras() {
+/** 取得測速資料：先試 IndexedDB（使用者更新過的資料），再退回內建快照。回傳 { cameras, fetchedAt, origin }。 */
+export async function loadCameraDataset() {
   let ds = null;
   try { ds = await store.loadDataset(); } catch (err) { console.warn('讀取 IndexedDB 失敗', err); }
   if (!ds || !Array.isArray(ds.cameras) || ds.cameras.length === 0) {
     ds = await store.loadBundledSnapshot();
   }
-  return (ds && ds.cameras) || [];
+  return { cameras: (ds && ds.cameras) || [], fetchedAt: ds?.fetchedAt ?? null, origin: ds?.origin ?? null };
+}
+
+/** 取得相機清單（相容舊介面）。 */
+export async function loadCameras() {
+  return (await loadCameraDataset()).cameras;
 }

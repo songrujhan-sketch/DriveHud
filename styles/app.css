@@ -42,6 +42,8 @@ body:not(.sim-page) { overflow: hidden; }
 .dh-btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 700; }
 .dh-btn[aria-pressed="true"] { background: var(--tc); border-color: var(--tc); color: var(--on-accent); }
 #btn-settings { --tc: var(--muted); }
+#btn-settings.has-dot { position: relative; }
+#btn-settings.has-dot::after { content: ""; position: absolute; top: 5px; right: 5px; width: 9px; height: 9px; border-radius: 50%; background: var(--warn-fill); box-shadow: 0 0 0 2px var(--panel); }
 #sim-pause { --tc: var(--h-purple); }
 #sim-restart { --tc: var(--h-teal); }
 
@@ -251,6 +253,11 @@ body:not(.sim-page) { overflow: hidden; }
 .sd-result.sd-fail { border-color: var(--bad); color: var(--bad); font-weight: 600; }
 .sd-result.sd-fail::before { content: "✕ "; }
 .sd-result.sd-busy { color: var(--muted); }
+.sd-stale { color: var(--warn); font-weight: 600; }
+@media (prefers-reduced-motion: reduce) {
+  .gps .dot { animation: none !important; }
+  .ap-progress span { transition: none; }
+}
 
 /* ---------- 啟動畫面 ---------- */
 .boot { min-height: 100vh; min-height: 100dvh; display: grid; place-content: center; gap: 8px; padding: 24px; text-align: center; color: var(--muted); font-size: 16px; }

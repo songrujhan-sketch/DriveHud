@@ -3,6 +3,8 @@ import { CONFIG, createCarView } from './deps.js?v=1.10.0';
 import { createSettingsPanel, CAR_MODELS, CAR_COLORS, CAR_VIEWS, CAR_SCENES, CAR_TIMES } from './settings.js?v=1.10.0';
 import { estimateTurn } from '../car/turn.js?v=1.10.0';
 import { VERSION } from '../version.js?v=1.10.0';
+import { rovingRadios } from './a11y.js?v=1.10.0';
+import { isStale } from './settings-data.js?v=1.10.0';
 
 export const VERSION_TAG = `V${VERSION.split('.').slice(0, 2).join('.')}`;
 
@@ -159,7 +161,8 @@ export function createApp({
   if (mode === 'sim') { els.badge.hidden = false; els.start.hidden = true; }
 
   const panel = createSettingsPanel({ el: $('#settings-panel'), store, config });
-  $('#btn-settings').addEventListener('click', (event) => panel.toggle(event.currentTarget));
+  const settingsBtn = $('#btn-settings');
+  settingsBtn.addEventListener('click', (event) => panel.toggle(event.currentTarget));
 
   // 車模區：左下為車款／車燈／車門／噴射／環繞，右上「外觀與場景」開啟浮動面板（車色、場景、時段）；與設定面板共用同一個 store。
   const bar = { model: $('#cb-model'), colors: $('#cb-colors'), view: $('#cb-view'), lights: $('#cb-lights'), doors: $('#cb-doors'), scene: $('#cb-scene'), time: $('#cb-time') };
@@ -174,7 +177,10 @@ export function createApp({
     bar.lights.setAttribute('aria-pressed', String(!!s.headlights));
     bar.colors.querySelectorAll('[data-color]').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.color === s.color)));
     picker.querySelectorAll('[data-model]').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.model === s.model)));
+    colorKeys?.sync();
+    modelKeys?.sync();
   }
+  let colorKeys = null, modelKeys = null;
   // 車款：點按開啟九款車的清單直接選，不必一台一台輪換（每次輪換都要建一次車模）。
   const picker = $('#model-picker');
   function setPicker(open) {
@@ -183,7 +189,11 @@ export function createApp({
     picker.hidden = !open;
     bar.model.setAttribute('aria-expanded', String(open));
   }
-  bar.model.addEventListener('click', () => setPicker(picker.hidden));
+  bar.model.addEventListener('click', () => {
+    const opening = picker.hidden;
+    setPicker(opening);
+    if (opening) picker.querySelector('[tabindex="0"]')?.focus();
+  });
   picker.addEventListener('click', (e) => {
     const b = e.target.closest('[data-model]');
     if (!b) return;
@@ -220,6 +230,9 @@ export function createApp({
   document.addEventListener('pointerdown', onDocPointer, true);
   document.addEventListener('keydown', onDocKey);
   bar.colors.addEventListener('click', (e) => { const b = e.target.closest('[data-color]'); if (b) store.set({ color: b.dataset.color }); });
+  // 鍵盤：車色與車款群組各只佔一個 Tab 停駐點，方向鍵移動（車款按 Enter 才換，避免每按一次就建一台車）
+  colorKeys = rovingRadios(bar.colors);
+  modelKeys = rovingRadios(picker, { selectOnMove: false });
   syncBar(store.get());
 
   const dark = globalThis.matchMedia?.('(prefers-color-scheme: dark)');
@@ -379,6 +392,12 @@ export function createApp({
       setText(els.radarDetail, RADAR_DETAIL[g] || '等待有效的 GPS 訊號');
     }
     els.retry.hidden = !(onRetryData && (dataInfo.state === 'empty' || dataInfo.state === 'error'));
+    // 測速資料超過 90 天：設定鈕加提示點（不打擾行車畫面）
+    const stale = dataInfo.state === 'ready' && isStale(dataInfo.fetchedAt);
+    if (settingsBtn.classList.contains('has-dot') !== stale) {
+      settingsBtn.classList.toggle('has-dot', stale);
+      settingsBtn.setAttribute('aria-label', stale ? '設定（測速資料已超過 90 天，建議更新）' : '設定');
+    }
 
     setText(els.speed, state.speedKmh == null ? '—' : String(Math.round(state.speedKmh)));
     els.speed.classList.toggle('empty', state.speedKmh == null);

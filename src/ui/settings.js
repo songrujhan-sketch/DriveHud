@@ -1,5 +1,6 @@
 // 設定儲存（localStorage，全部 try/catch）與滑入式設定面板。
 import { CONFIG, mountSettingsData, dataServices } from './deps.js?v=1.10.0';
+import { rovingRadios } from './a11y.js?v=1.10.0';
 
 export const CAR_MODELS = [
   { id: 'valkyrie', name: '女武神' },
@@ -199,7 +200,9 @@ export function createSettingsPanel({ el, store, config = CONFIG }) {
     $('#sp-lowq').checked = !!s.lowQuality;
     $('#sp-repeat').checked = !!s.overspeedRepeat;
     el.querySelectorAll('[data-tol]').forEach((b) => b.setAttribute('aria-checked', String(Number(b.dataset.tol) === s.toleranceKmh)));
+    tolKeys?.sync();
   }
+  let tolKeys = null;
   $('#sp-repeat').addEventListener('change', (e) => store.set({ overspeedRepeat: e.target.checked }));
   $('#sp-tolerance').addEventListener('click', (e) => {
     const b = e.target.closest('[data-tol]');
@@ -208,6 +211,7 @@ export function createSettingsPanel({ el, store, config = CONFIG }) {
   $('#sp-minimal').addEventListener('change', (e) => store.set({ minimal: e.target.checked }));
   $('#sp-lowq').addEventListener('change', (e) => store.set({ lowQuality: e.target.checked }));
   $('#sp-close').addEventListener('click', () => close());
+  tolKeys = rovingRadios($('#sp-tolerance'));
   store.subscribe(sync);
   sync(store.get());
 

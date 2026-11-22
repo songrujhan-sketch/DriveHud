@@ -1,6 +1,6 @@
 // 主畫面啟動：index.html 只需 <div id="root"></div> + <script type="module" src="…/main.js">。
 // 先畫出儀表，測速資料在背景載入；載入失敗或 0 筆時畫面與語音都會明說，不會假裝在偵測。
-import { CONFIG, createAlertEngine, loadCameras, dataServices } from './deps.js?v=1.10.0';
+import { CONFIG, createAlertEngine, loadCameraDataset, dataServices } from './deps.js?v=1.10.0';
 import { createApp } from './app.js?v=1.10.0';
 import { createSettingsStore } from './settings.js?v=1.10.0';
 import { createGeoSource } from '../adapters/geolocation.js?v=1.10.0';
@@ -31,9 +31,9 @@ function boot() {
   let app;
   try {
     const engine = createAlertEngine({ cameras: [], config: CONFIG });
-    dataServices.onCamerasUpdated((list) => {
+    dataServices.onCamerasUpdated((list, ds) => {
       engine.setCameras(list);
-      app?.setData({ state: list.length ? 'ready' : 'empty', count: list.length });
+      app?.setData({ state: list.length ? 'ready' : 'empty', count: list.length, fetchedAt: ds?.fetchedAt ?? null });
     });
     app = createApp({
       root,
@@ -50,9 +50,9 @@ function boot() {
     async function loadData() {
       app.setData({ state: 'loading', count: 0 });
       try {
-        const cameras = await loadCameras();
+        const { cameras, fetchedAt } = await loadCameraDataset();
         engine.setCameras(cameras);
-        app.setData({ state: cameras.length ? 'ready' : 'empty', count: cameras.length });
+        app.setData({ state: cameras.length ? 'ready' : 'empty', count: cameras.length, fetchedAt });
       } catch (err) {
         console.warn('載入測速資料失敗', err);
         app.setData({ state: 'error', count: 0 });

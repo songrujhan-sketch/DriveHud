@@ -198,3 +198,41 @@ test('超速提醒設定套用到引擎；通過測速點短暫顯示「已通�
   await expect(page.locator('#radar-state')).toHaveText('已通過測速點');
   await expect(page.locator('#radar-state')).toHaveText('偵測中', { timeout: 5000 });
 });
+
+test('鍵盤：車色群組只佔一個 Tab 停駐點、方向鍵換色；車款清單方向鍵移動、Enter 才換車', async ({ page }) => {
+  await page.goto('/?debug');
+  await page.evaluate(() => localStorage.removeItem('drivehud.settings.v1'));
+  await page.reload();
+  await page.waitForFunction(() => window.__drivehud?.app.car.getInfo().frames > 0);
+  await page.locator('#cb-appearance').click();
+  const tabbable = await page.locator('#cb-colors [role="radio"][tabindex="0"]').count();
+  expect(tabbable).toBe(1);
+  await page.getByRole('radio', { name: '赤紅', exact: true }).focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(page.getByRole('radio', { name: '熔岩橘', exact: true })).toBeFocused();
+  await expect(page.getByRole('radio', { name: '熔岩橘', exact: true })).toHaveAttribute('aria-checked', 'true');
+  await page.keyboard.press('Escape');
+
+  await page.locator('#cb-model').click();
+  await expect(page.locator('#model-picker').getByRole('radio', { name: '女武神' })).toBeFocused();
+  await page.keyboard.press('ArrowRight');
+  await expect(page.locator('#model-picker').getByRole('radio', { name: '黑騎士' })).toBeFocused();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('drivehud.settings.v1')).model)).toBe('valkyrie');
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#cb-model')).toHaveText('黑騎士');
+});
+
+test('測速資料超過 90 天：設定鈕出現提示點，資料區寫明建議更新', async ({ page }) => {
+  await page.route(/\/data\/snapshots\/cameras\.json/, async (route) => {
+    const res = await route.fetch();
+    const json = await res.json();
+    json.fetchedAt = '2025-01-01T00:00:00+08:00';
+    await route.fulfill({ response: res, json });
+  });
+  await page.goto('/?debug');
+  const btn = page.locator('#btn-settings');
+  await expect(btn).toHaveClass(/has-dot/);
+  await expect(btn).toHaveAccessibleName(/超過 90 天/);
+  await btn.click();
+  await expect(page.locator('.sd-row-time .sd-value')).toContainText('建議更新');
+});

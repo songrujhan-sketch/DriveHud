@@ -74,3 +74,21 @@ test('無資料時退回內建快照', async () => {
   assert.match(c.find('sd-row-source').find('sd-value').textContent, /內建快照/);
   assert.match(c.find('sd-row-time').find('sd-value').textContent, /尚未更新/);
 });
+
+test('資料新鮮度：超過 90 天標示建議更新', async () => {
+  const { dataAgeDays, isStale, STALE_DAYS } = await import('../../src/ui/settings-data.js');
+  const now = Date.parse('2026-11-23T00:00:00Z');
+  assert.equal(STALE_DAYS, 90);
+  assert.equal(dataAgeDays('2026-11-20T00:00:00Z', now), 3);
+  assert.equal(isStale('2026-11-20T00:00:00Z', now), false);
+  assert.equal(isStale('2026-08-01T00:00:00Z', now), true);
+  assert.equal(isStale(null, now), false);
+  assert.equal(isStale('不是日期', now), false);
+
+  const c = new El('div', doc);
+  mountSettingsData(c, { store: { loadDataset: async () => ({ ...dataset, fetchedAt: '2025-01-01T00:00:00.000Z' }) }, update: {}, config: {} });
+  await flush();
+  const time = c.find('sd-row-time').find('sd-value');
+  assert.match(time.textContent, /建議更新/);
+  assert.match(time.className, /sd-stale/);
+});
