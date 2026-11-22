@@ -1,7 +1,10 @@
 // DriveHUD UI 外殼：live（真實 GPS）與 sim（模擬）共用同一組元件，差別只在餵資料的來源。
-import { CONFIG, createCarView } from './deps.js?v=1.9.3';
-import { createSettingsPanel, CAR_MODELS, CAR_COLORS, CAR_VIEWS, CAR_SCENES, CAR_TIMES } from './settings.js?v=1.9.3';
-import { estimateTurn } from '../car/turn.js';
+import { CONFIG, createCarView } from './deps.js?v=1.10.0';
+import { createSettingsPanel, CAR_MODELS, CAR_COLORS, CAR_VIEWS, CAR_SCENES, CAR_TIMES } from './settings.js?v=1.10.0';
+import { estimateTurn } from '../car/turn.js?v=1.10.0';
+import { VERSION } from '../version.js?v=1.10.0';
+
+export const VERSION_TAG = `V${VERSION.split('.').slice(0, 2).join('.')}`;
 
 export const GPS_LABEL = {
   IDLE: 'GPS 待命',
@@ -17,6 +20,14 @@ export const GPS_LABEL = {
 };
 
 const GPS_ERRORS = new Set(['DENIED', 'UNAVAILABLE', 'TIMEOUT', 'UNSUPPORTED']);
+/** 測速資料狀態：loading（載入中）／ready（可用）／empty（0 筆）／error（載入失敗）。 */
+const DATA_LABEL = {
+  loading: ['載入測速資料中', '稍候即可開始偵測'],
+  empty: ['測速資料未載入', '目前沒有任何測速點，無法提醒。請重新載入，或到設定匯入官方 CSV'],
+  error: ['測速資料未載入', '讀取失敗，無法提醒。請重新載入，或到設定匯入官方 CSV'],
+};
+export const DATA_MISSING_SPEECH = '測速資料未載入，目前無法提醒測速';
+
 const RADAR_DETAIL = {
   IDLE: '開始行車後偵測前方測速點',
   OK: '掃描行進方向的固定測速點',
@@ -51,8 +62,8 @@ export const SHELL_HTML = `
 <div id="app" class="app layout-normal" data-layout="normal" data-mode="live">
   <div class="frame">
     <header class="topbar">
-      <div class="console-brand"><span class="brand-stripes" aria-hidden="true">///</span> Drive<i>HUD</i></div><span class="build-tag">V1.9</span>
-      <div class="top-actions"><span class="voice-warn" id="voice-warn" hidden>語音無法播放</span>
+      <div class="console-brand"><span class="brand-stripes" aria-hidden="true">///</span> Drive<i>HUD</i></div><span class="build-tag">${VERSION_TAG}</span>
+      <div class="top-actions"><span class="sys-warn" role="status"><span class="voice-warn" id="voice-warn" hidden>語音無法播放</span><span class="voice-warn" id="wake-warn" hidden>螢幕可能自動關閉</span></span>
       <button type="button" class="start-btn" id="btn-start">開始行車</button><button type="button" class="dh-btn" id="btn-settings" aria-haspopup="dialog" aria-controls="settings-panel">設定</button></div>
     </header>
     <div class="car-zone"><button type="button" id="cb-view" title="點按切換視角"><canvas id="car-canvas" aria-hidden="true" tabindex="-1"></canvas>
@@ -70,7 +81,7 @@ export const SHELL_HTML = `
       <div class="speed-line"><div class="speed" id="speed-value" aria-live="off">—</div><span class="speed-unit">km/h</span></div>
       <div class="speed-meta"><div class="gps" id="gps-status" data-status="IDLE"><span class="dot" aria-hidden="true"></span><span class="gps-text" role="status">GPS 待命</span></div><span class="heading" id="heading">—</span></div>
     </div>
-    <section class="radar-idle"><span class="meter-label">測速雷達</span><strong id="radar-state">待機中</strong><span id="radar-detail">開始行車後偵測前方測速點</span></section>
+    <section class="radar-idle"><span class="meter-label">測速雷達</span><strong id="radar-state">待機中</strong><span id="radar-detail">開始行車後偵測前方測速點</span><button type="button" class="dh-btn" id="radar-retry" hidden>重新載入測速資料</button></section>
     <section class="approach" id="approach" hidden aria-live="polite">
       <div class="ap-main">
         <div class="ap-limit"><span class="ap-label">速限</span><span class="ap-limit-val" id="limit-value">—</span></div>
@@ -104,6 +115,8 @@ export function createApp({
   geo,
   autoTick = mode === 'live',
   config = CONFIG,
+  data = { state: 'ready', count: null },
+  onRetryData = null,
 } = {}) {
   root.innerHTML = SHELL_HTML;
   const $ = (s) => root.querySelector(s);
@@ -114,7 +127,18 @@ export function createApp({
     speed: $('#speed-value'), heading: $('#heading'), approach: $('#approach'),
     limit: $('#limit-value'), dist: $('#dist-value'), addr: $('#addr'), over: $('#over-label'),
     nearby: $('#nearby-hint'), start: $('#btn-start'), canvas: $('#car-canvas'), badge: $('#sim-badge'),
+    wakeWarn: $('#wake-warn'), retry: $('#radar-retry'), radarState: $('#radar-state'), radarDetail: $('#radar-detail'),
   };
+  let dataInfo = { ...data };
+  els.retry.addEventListener('click', () => { if (onRetryData) onRetryData(); });
+  // 語音實際播放結果（開始發聲／出錯／逾時）決定「語音無法播放」的顯示。
+  speech?.onStatus?.((ok) => { els.voiceWarn.hidden = !!ok; });
+  // 螢幕常亮：行車中卻沒有取得 → 提醒螢幕可能熄滅（熄滅後定位與語音都會停）。
+  let wakeActive = null;
+  wakeLock?.onChange?.((s) => { wakeActive = s.active; syncWakeWarn(); });
+  function syncWakeWarn() {
+    els.wakeWarn.hidden = !(running && mode === 'live' && wakeLock && wakeActive === false && document.visibilityState !== 'hidden');
+  }
   if (mode === 'sim') { els.badge.hidden = false; els.start.hidden = true; }
 
   const panel = createSettingsPanel({ el: $('#settings-panel'), store, config });
@@ -280,8 +304,16 @@ export function createApp({
     els.gps.dataset.status = g;
     const label = GPS_LABEL[g] || g;
     if (els.gpsText.textContent !== label) els.gpsText.textContent = label;
-    $('#radar-state').textContent = g === 'OK' ? '偵測中' : g === 'IDLE' ? '待機中' : label;
-    $('#radar-detail').textContent = RADAR_DETAIL[g] || '等待有效的 GPS 訊號';
+    const missing = DATA_LABEL[dataInfo.state];
+    appEl.dataset.data = dataInfo.state;
+    if (missing) {
+      els.radarState.textContent = missing[0];
+      els.radarDetail.textContent = missing[1];
+    } else {
+      els.radarState.textContent = g === 'OK' ? '偵測中' : g === 'IDLE' ? '待機中' : label;
+      els.radarDetail.textContent = RADAR_DETAIL[g] || '等待有效的 GPS 訊號';
+    }
+    els.retry.hidden = !(onRetryData && (dataInfo.state === 'empty' || dataInfo.state === 'error'));
 
     els.speed.textContent = state.speedKmh == null ? '—' : String(Math.round(state.speedKmh));
     els.speed.classList.toggle('empty', state.speedKmh == null);
@@ -351,6 +383,8 @@ export function createApp({
     running = true;
     els.start.textContent = '停止行車';
     if (speech) speech.unlock();
+    // 資料缺漏時直接用語音講清楚：駕駛不一定會看畫面。
+    if (speech && (dataInfo.state === 'empty' || dataInfo.state === 'error')) speech.speak(DATA_MISSING_SPEECH);
     if (wakeLock) wakeLock.request();
     geo?.start(onFix, (status) => {
       if (!running) return;
@@ -363,6 +397,7 @@ export function createApp({
       render();
     });
     startTick();
+    syncWakeWarn();
     render();
   }
   function stop() {
@@ -371,6 +406,7 @@ export function createApp({
     clearInterval(tickTimer); tickTimer = null;
     eng?.reset(); adapterStatus = null; resetTurn(); relocating = false;
     els.start.textContent = '開始行車'; els.voiceWarn.hidden = true;
+    syncWakeWarn();
     render();
   }
   els.start.addEventListener('click', () => running ? stop() : start());
@@ -408,6 +444,9 @@ export function createApp({
     start, render, ingest, onFix, panel,
     get car() { return car; },
     setEngine(e) { resetTurn(); eng = e; relocating = false; render(); },
+    /** 測速資料狀態：{ state: 'loading'|'ready'|'empty'|'error', count } */
+    setData(d) { dataInfo = { ...dataInfo, ...d }; render(); },
+    get data() { return { ...dataInfo }; },
     setLastFix(f) { updateTurn(f); },
     onRender(cb) { renderCbs.push(cb); },
     onEvents(cb) { eventCbs.push(cb); },

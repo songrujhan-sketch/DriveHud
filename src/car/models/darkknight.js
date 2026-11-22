@@ -2,7 +2,7 @@
 // （從車頂到門檻整片掀起）、車尾倒三角排列三噴口、加大的後輪與隆起的後葉子板、雙立柱尾翼、
 // 車頭為上下兩片尖葉夾著中央 V 形護板。全部為原創幾何（平面著色的多面體）。
 // 座標：+Z 車頭、X 車寬（+X 為左側）、Y 向上。
-import { makeMaterials, placeWheels, makeHeadSpot, roundBox, mesh, mirrored, merge, shapeOf, extrudeX } from './parts.js';
+import { makeMaterials, placeWheels, makeHeadSpot, roundBox, mesh, mirrored, merge, shapeOf, extrudeX } from './parts.js?v=1.10.0';
 
 export const meta = { id: 'darkknight', displayName: '黑騎士', roofY: 1.24 };
 

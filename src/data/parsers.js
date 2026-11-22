@@ -1,4 +1,4 @@
-import { parseCsv } from './csv.js';
+import { parseCsv } from './csv.js?v=1.10.0';
 
 export const UNSUPPORTED_REASON_100855 =
   '此檔案是警政署 100855（槽化線／雙白線／安全帶等取締項目，無速限），不是測速照相資料，不支援匯入。請改用警政署 7320「固定式測速照相設置點」CSV。';

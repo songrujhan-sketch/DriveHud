@@ -8,7 +8,7 @@ import { UnrealBloomPass } from '../../vendor/three-addons/UnrealBloomPass.js';
 import { OutputPass } from '../../vendor/three-addons/OutputPass.js';
 import { Reflector } from '../../vendor/three-addons/Reflector.js';
 import { FullScreenQuad } from '../../vendor/three-addons/Pass.js';
-import { createScenery } from './scenery.js';
+import { createScenery } from './scenery.js?v=1.10.0';
 
 const FX_LAYER = 1; // 背景／陰影／光斑：不進入反射
 

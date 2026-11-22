@@ -1,5 +1,5 @@
 // GPS adapter：把 GeolocationPosition 轉成契約 Fix，並回報 GpsStatus。
-import { CONFIG } from '../../config.js';
+import { CONFIG } from '../../config.js?v=1.10.0';
 
 /** @returns {import('../contracts/types.js').Fix} */
 export function toFix(pos) {

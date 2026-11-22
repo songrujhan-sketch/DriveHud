@@ -1,12 +1,12 @@
 // 整合點：app.js / main.js / settings.js 只從這裡 import 引擎、車模、資料。
-export { createAlertEngine } from '../engine/alertEngine.js';
-export { createCarView } from '../car/carView.js?v=1.9.3';
-export { mountSettingsData } from './settings-data.js';
-export { CONFIG } from '../../config.js';
+export { createAlertEngine } from '../engine/alertEngine.js?v=1.10.0';
+export { createCarView } from '../car/carView.js?v=1.10.0';
+export { mountSettingsData } from './settings-data.js?v=1.10.0';
+export { CONFIG } from '../../config.js?v=1.10.0';
 
-import { CONFIG } from '../../config.js';
-import { createStore } from '../data/store.js';
-import { updateOnline, importFromFile } from '../data/update.js';
+import { CONFIG } from '../../config.js?v=1.10.0';
+import { createStore } from '../data/store.js?v=1.10.0';
+import { updateOnline, importFromFile } from '../data/update.js?v=1.10.0';
 
 /** 資料服務：IndexedDB store + 更新／匯入；更新成功後通知訂閱者（main.js → engine.setCameras）。 */
 const store = createStore({ config: CONFIG });

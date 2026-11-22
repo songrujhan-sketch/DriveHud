@@ -1,8 +1,8 @@
-import { makePilot } from './pilot.js';
-import { makeMaterials, mesh, roundBox } from './parts.js';
-import { interiorMaterials, cabinInterior } from './kit.js';
-import { makeNozzle } from './nozzle.js';
-import { makePlume } from './plume.js';
+import { makePilot } from './pilot.js?v=1.10.0';
+import { makeMaterials, mesh, roundBox } from './parts.js?v=1.10.0';
+import { interiorMaterials, cabinInterior } from './kit.js?v=1.10.0';
+import { makeNozzle } from './nozzle.js?v=1.10.0';
+import { makePlume } from './plume.js?v=1.10.0';
 
 export const meta = { id:'daystar', displayName:'明日之星', roofY:1.63 };
 

@@ -1,5 +1,5 @@
-import { curve } from './loft.js';
-import {mesh,roundBox,makeMaterials,merge} from './parts.js';
+import { curve } from './loft.js?v=1.10.0';
+import {mesh,roundBox,makeMaterials,merge} from './parts.js?v=1.10.0';
 
 export const meta={id:'carriage',displayName:'馬車',roofY:2.75};
 export function build(T,{color='#304850'}={}){

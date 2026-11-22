@@ -1,6 +1,6 @@
 // DriveHUD V1.6 — 車身／座艙放樣組裝工具（供三款原創車模共用）。
-import { roundBox, mesh } from './parts.js';
-import { loft, bodySection, sampleZ, archZs, endZs, endInset, insetSection, archHeight, curve, clamp01, smooth } from './loft.js';
+import { roundBox, mesh } from './parts.js?v=1.10.0';
+import { loft, bodySection, sampleZ, archZs, endZs, endInset, insetSection, archHeight, curve, clamp01, smooth } from './loft.js?v=1.10.0';
 
 const val = (v, z) => (typeof v === 'function' ? v(z) : v);
 

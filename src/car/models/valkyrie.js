@@ -1,10 +1,10 @@
-import { makeNozzle } from './nozzle.js';
+import { makeNozzle } from './nozzle.js?v=1.10.0';
 // 女武神（valkyrie）— 原創低趴中置引擎 hypercar：
 // 淚滴座艙、前葉子板高於引擎蓋的稜線、門後大型側進氣、長尾擴散器、鵝頸大尾翼。
 // 全部為原創幾何，不參考任何既有車款造型或標誌。
-import { bodyLoft, cabinLoft, loftDoors, loftDoorPreds, interiorMaterials, cabinInterior, regionHelpers, curve, smooth } from './kit.js';
-import { band } from './loft.js';
-import { makeMaterials, multiMesh, placeWheels, makeMirror, makeHeadSpot, roundBox, extrudeX, shapeOf, mesh, mirrored, merge } from './parts.js';
+import { bodyLoft, cabinLoft, loftDoors, loftDoorPreds, interiorMaterials, cabinInterior, regionHelpers, curve, smooth } from './kit.js?v=1.10.0';
+import { band } from './loft.js?v=1.10.0';
+import { makeMaterials, multiMesh, placeWheels, makeMirror, makeHeadSpot, roundBox, extrudeX, shapeOf, mesh, mirrored, merge } from './parts.js?v=1.10.0';
 
 export const meta = { id: 'valkyrie', displayName: '女武神', roofY: 1.13 };
 

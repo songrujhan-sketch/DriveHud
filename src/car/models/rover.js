@@ -1,8 +1,8 @@
-import { interiorMaterials, cabinInterior } from './kit.js';
+import { interiorMaterials, cabinInterior } from './kit.js?v=1.10.0';
 // 豹勇士（rover）— 原創皮卡式豹勇士：折角車身、短座艙加後斗與防滾架、折角葉子板、
 // 車頂燈排、前防撞桿與絞盤、車尾備胎。由平行原型的 DH-03 移植，全部為原創幾何。
 // 座標：+Z 車頭、X 車寬、Y 向上。
-import { makeMaterials, placeWheels, makeMirror, makeHeadSpot, roundBox, mesh, mirrored, merge, shapeOf, extrudeX } from './parts.js';
+import { makeMaterials, placeWheels, makeMirror, makeHeadSpot, roundBox, mesh, mirrored, merge, shapeOf, extrudeX } from './parts.js?v=1.10.0';
 
 export const meta = { id: 'rover', displayName: '豹勇士', roofY: 2.0 };
 

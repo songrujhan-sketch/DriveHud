@@ -113,7 +113,7 @@ test('車門按鈕：九款車都能開關車門，換車後自動關上', async
 });
 
 test('停車噴射持續開啟，固定視角鎖左後，環繞時保留鏡頭', async ({page}) => {
-  await page.goto('/');
+  await page.goto('/?debug');
   const model = page.locator('#cb-model');
   const view = page.locator('#cb-view');
   const orbit = page.locator('#cb-orbit');
@@ -150,7 +150,7 @@ test('停車噴射持續開啟，固定視角鎖左後，環繞時保留鏡頭',
 });
 
 test('圖示列固定，環繞可啟停，外觀只保留車色、場景與時段', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?debug');
   await expect(page.locator('#cb-orbit')).toHaveAttribute('aria-pressed', 'false');
   const oldAngle = await page.evaluate(() => window.__drivehud.app.car.getInfo().azimuth);
   await page.locator('#cb-orbit').click();
@@ -173,17 +173,19 @@ test('圖示列固定，環繞可啟停，外觀只保留車色、場景與時�
 });
 
 test('新版資源與車款圖示在一般畫面及接近提醒時可用', async ({page}) => {
+  // 自家 css/js 一律要帶 ?v=<版號>；沒帶的請求視為舊版快取風險（vendor 的 three.js 例外）。
   const staleAssets = [];
-  await page.route(/\/(?:app\.css|main\.js|app\.js|deps\.js|settings\.js|carView\.js)$/, route => {
-    staleAssets.push(route.request().url());
-    return route.abort();
+  await page.route(/\/(?:src|styles|sim)\/.*\.(?:css|js)(?:\?.*)?$/, route => {
+    const url = new URL(route.request().url());
+    if (!url.searchParams.get('v')) { staleAssets.push(url.pathname); return route.abort(); }
+    return route.continue();
   });
   await page.addInitScript(() => Object.defineProperty(navigator,'geolocation',{value:{
     watchPosition: () => 1, clearWatch() {},
   }}));
-  await page.goto('/');
+  await page.goto('/?debug');
   const model = page.locator('#cb-model');
-  await expect(page.locator('.build-tag')).toHaveText('V1.9');
+  await expect(page.locator('.build-tag')).toHaveText('V1.10');
   await expect(model.locator('svg')).toBeVisible();
   await model.click();
   await expect(model).toHaveText('黑騎士');
@@ -207,7 +209,7 @@ test('窄視窗展開外觀時，速度數值、單位、GPS 與雷達內容仍�
   await page.setViewportSize(info.project.name === 'portrait'
     ? {width: 393, height: 620}
     : {width: 852, height: 310});
-  await page.goto('/');
+  await page.goto('/?debug');
   await expect(page.locator('#gps-status')).toContainText('GPS 待命');
 
   await page.waitForFunction(() => window.__drivehud?.app.car.getInfo().frames > 0);

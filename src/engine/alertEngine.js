@@ -2,8 +2,8 @@
 // 純函式風格：無 DOM、無 timer。真實 GPS 與模擬重播都只透過 pushFix() 與 tick() 餵資料。
 // 規則依契約 docs/prompts-v1.6.md §1.4；所有門檻讀自 config（config.alert / config.fix）。
 
-import { haversineM, bearingDeg, angleDiffDeg, boundingBox, normDeg } from './geo.js';
-import { approachText, overspeedText } from './speech-text.js';
+import { haversineM, bearingDeg, angleDiffDeg, boundingBox, normDeg } from './geo.js?v=1.10.0';
+import { approachText, overspeedText } from './speech-text.js?v=1.10.0';
 
 /** 只對距離 ≤ 此值的相機做細算（先以 bounding box 預篩） */
 export const SCAN_RADIUS_M = 2000;

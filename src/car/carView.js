@@ -1,4 +1,4 @@
-import { CAMOUFLAGE, applyCamouflage } from './models/camouflage.js';
+import { CAMOUFLAGE, applyCamouflage } from './models/camouflage.js?v=1.10.0';
 // DriveHUD V1.6 — 車模視圖（Worker B / B2 展示廳升級）
 // createCarView(canvas, { model, color, headlights, darkMode, compact, quality })
 //   → { setSpeedKmh, setColor, setHeadlights, setModel, setCompact, setDarkMode, resize, dispose, getInfo }
@@ -7,9 +7,9 @@ import { CAMOUFLAGE, applyCamouflage } from './models/camouflage.js';
 // quality 'high'（預設）：反射地板 + 半解析度 Bloom + ACES；'low'：關閉後處理與反射。
 // 背景為展示廳漸層（四邊淡出成透明），compact 時縮成右上角小視窗；pixelRatio 上限 2。
 import * as THREE from '../../vendor/three.module.js';
-import { MODELS, getModel } from './models/index.js?v=1.9.3';
-import { countTriangles } from './models/parts.js';
-import { createStage } from './stage.js';
+import { MODELS, getModel } from './models/index.js?v=1.10.0';
+import { countTriangles } from './models/parts.js?v=1.10.0';
+import { createStage } from './stage.js?v=1.10.0';
 
 const WHEEL_RADIUS_M = 0.33; // 輪徑 0.66 m（以此換算角速度）
 // 視角方位角（由車頭 +Z 起算、朝車身左側 +X 為正）：前 45°、正面、後 45°、正後方、上方（由左側上方俯視）

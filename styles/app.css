@@ -347,3 +347,35 @@ body.sim-page { height: auto; min-height: 100%; }
   display:grid; place-items:center; text-align:center; color:var(--muted); font-size:14px;
 }
 .app[data-renderer="unavailable"] :is(#cb-view,.vehicle-controls,.garage-controls) { display:none; }
+
+/* ---------- V1.10 Phase 1：啟動畫面、系統警示、資料狀態、設定頁資料區 ---------- */
+.boot { min-height: 100vh; min-height: 100dvh; display: grid; place-content: center; gap: 8px; padding: 24px; text-align: center; color: var(--muted); font-size: 16px; }
+.boot p { margin: 0; }
+.boot-title { font: italic 850 30px/1.2 Arial, sans-serif; letter-spacing: -1.5px; color: var(--fg); }
+.boot-title span { color: var(--muted); letter-spacing: -3px; margin-right: 6px; }
+.boot-slow { visibility: hidden; animation: boot-reveal 0s 8s forwards; }
+@keyframes boot-reveal { to { visibility: visible; } }
+.boot-reload { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px; padding: 0 16px; margin-left: 6px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--accent); font-weight: 700; text-decoration: none; }
+
+.sys-warn { display: inline-flex; flex-wrap: wrap; gap: 4px 10px; justify-content: flex-end; }
+.sys-warn:not(:has(:not([hidden]))) { display: none; }
+#radar-retry { --tc: var(--bad); align-self: flex-start; margin-top: 4px; }
+.app[data-data="empty"] #radar-state, .app[data-data="error"] #radar-state { color: var(--bad); }
+
+.sd-root { display: grid; gap: 12px; }
+.sd-info { margin: 0; display: grid; gap: 6px; }
+.sd-row { display: grid; grid-template-columns: 7.5em minmax(0, 1fr); gap: 8px; align-items: baseline; }
+.sd-label { color: var(--muted); font-weight: 600; font-size: 14px; }
+.sd-value { margin: 0; overflow-wrap: anywhere; }
+.sd-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.sd-btn { font: inherit; font-weight: 600; min-height: 44px; min-width: 44px; padding: 8px 16px; border-radius: 8px; cursor: pointer;
+  color: var(--accent); background: color-mix(in srgb, var(--accent) 9%, var(--panel)); border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); }
+.sd-btn:disabled { opacity: .55; cursor: progress; }
+.sd-result { margin: 0; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel-alt); }
+.sd-result.sd-ok { border-color: var(--ok); color: var(--ok); font-weight: 600; }
+.sd-result.sd-ok::before { content: "✓ "; }
+.sd-result.sd-fail { border-color: var(--bad); color: var(--bad); font-weight: 600; }
+.sd-result.sd-fail::before { content: "✕ "; }
+.sd-result.sd-busy { color: var(--muted); }
+.sp-volume { display: flex; align-items: center; gap: 12px; min-height: 44px; font-size: 17px; }
+.sp-volume input { flex: 1; min-height: 44px; margin: 0; }

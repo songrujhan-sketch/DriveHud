@@ -1,4 +1,4 @@
-import { mesh } from './parts.js';
+import { mesh } from './parts.js?v=1.10.0';
 
 // The lip lies at z=0 and the blind bore extends towards +Z.
 export function makeNozzle(T, M, radius, depth, turbine = false) {

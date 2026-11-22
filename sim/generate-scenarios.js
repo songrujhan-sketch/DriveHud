@@ -4,7 +4,7 @@
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { destinationPoint } from '../src/engine/geo.js';
+import { destinationPoint } from '../src/engine/geo.js?v=1.10.0';
 
 const OUT = join(dirname(fileURLToPath(import.meta.url)), 'scenarios');
 const T0 = Date.UTC(2026, 10, 20, 0, 0, 0); // 2026-11-20 08:00 (UTC+8)

@@ -1,8 +1,8 @@
 // 文字 → 統計後的資料集：detectFormat → parse → normalize → dedupe → validate
-import { detectFormatDetail, parseNpa7320 } from './parsers.js';
-import { normalizeRows } from './normalize.js';
-import { dedupe } from './dedupe.js';
-import { validate } from './validate.js';
+import { detectFormatDetail, parseNpa7320 } from './parsers.js?v=1.10.0';
+import { normalizeRows } from './normalize.js?v=1.10.0';
+import { dedupe } from './dedupe.js?v=1.10.0';
+import { validate } from './validate.js?v=1.10.0';
 
 /** @returns {{ok:true, format:string, cameras:object[], stats:object} | {ok:false, reason:string}} */
 export function runPipeline(text, config) {

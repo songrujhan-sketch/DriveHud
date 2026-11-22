@@ -1,5 +1,5 @@
 // 設定儲存（localStorage，全部 try/catch）與滑入式設定面板。
-import { CONFIG, mountSettingsData, dataServices } from './deps.js?v=1.9.3';
+import { CONFIG, mountSettingsData, dataServices } from './deps.js?v=1.10.0';
 
 export const CAR_MODELS = [
   { id: 'valkyrie', name: '女武神' },
@@ -94,7 +94,7 @@ export function createSettingsPanel({ el, store, config = CONFIG }) {
     <div class="sp-body">
       <section class="sp-switches">
         <label class="sp-switch"><input type="checkbox" id="sp-music"><span>背景音樂</span></label>
-        <label>音量 <input id="sp-volume" aria-label="背景音樂音量" type="range" min="0" max="1" step="0.05" value="0.35"></label>
+        <label class="sp-volume">音量 <input id="sp-volume" aria-label="背景音樂音量" type="range" min="0" max="1" step="0.05" value="0.35"></label>
         <small role="status" id="music-status"></small>
         <label class="sp-switch"><input type="checkbox" id="sp-minimal"><span>極簡模式（隱藏車模）</span></label>
         <label class="sp-switch"><input type="checkbox" id="sp-lowq"><span>車模低畫質（卡頓或發熱時開啟）</span></label>
