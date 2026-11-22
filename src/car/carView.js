@@ -7,7 +7,7 @@ import { CAMOUFLAGE, applyCamouflage } from './models/camouflage.js';
 // quality 'high'（預設）：反射地板 + 半解析度 Bloom + ACES；'low'：關閉後處理與反射。
 // 背景為展示廳漸層（四邊淡出成透明），compact 時縮成右上角小視窗；pixelRatio 上限 2。
 import * as THREE from '../../vendor/three.module.js';
-import { MODELS, getModel } from './models/index.js?v=1.9.2';
+import { MODELS, getModel } from './models/index.js?v=1.9.3';
 import { countTriangles } from './models/parts.js';
 import { createStage } from './stage.js';
 
@@ -23,7 +23,9 @@ const COMPACT_SCALE = 0.4;
 const COMPACT_MS = 280;
 const DOOR_MS = 700;
 const DOOR_LOCK_MPS = 5 / 3.6; // 車速到 5 km/h 才鎖門；低於這個值視為停車（GPS 靜止時也會回報零星的小車速）
-const MAX_PIXEL_RATIO = 2;
+const MAX_PIXEL_RATIO_HIGH = 1.5;
+const MAX_PIXEL_RATIO_LOW = 1;
+const FRAME_INTERVAL_MS = 1000 / 30;
 
 function boxCorners(min, max) {
   return [min.x,max.x].flatMap(x=>[min.y,max.y].flatMap(y=>[min.z,max.z].map(z=>new THREE.Vector3(x,y,z))));
@@ -70,17 +72,20 @@ export function createCarView(canvas, opts = {}) {
     doorT: 0, // 0 = 關，1 = 全開
     fx: false, // 車模自己的動畫（例如噴焰）還沒結束
     compactT: opts.compact ? 1 : 0, // 0 = 全尺寸，1 = compact
+    paused: !!opts.paused,
     triangles: 0,
   };
 
-  const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, powerPreference: 'high-performance' });
+  const pixelRatio = () => Math.min(window.devicePixelRatio || 1, state.quality === 'low' ? MAX_PIXEL_RATIO_LOW : MAX_PIXEL_RATIO_HIGH);
+
+  const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, powerPreference: 'default' });
   renderer.setClearColor(0x000000, 0);
   renderer.autoClear = false;
   renderer.shadowMap.enabled = false;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.0;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO));
+  renderer.setPixelRatio(pixelRatio());
   renderer.info.autoReset = false; // 一幀含多個 pass：手動歸零，getInfo 才是整幀統計
 
   const stage = createStage(renderer, { quality: state.quality });
@@ -222,7 +227,7 @@ export function createCarView(canvas, opts = {}) {
     previousFrame=null;
   }
   function holdModelFrame() {
-    if(!inView || !pageVisible() || !canvas.clientWidth || !canvas.clientHeight) return;
+    if(state.paused || !inView || !pageVisible() || !canvas.clientWidth || !canvas.clientHeight) return;
     const shot=document.createElement('canvas');
     shot.width=canvas.width; shot.height=canvas.height;
     const ctx=shot.getContext('2d');
@@ -291,7 +296,7 @@ export function createCarView(canvas, opts = {}) {
   function resize() {
     const w = canvas.clientWidth, h = canvas.clientHeight;
     if (!w || !h) return;
-    const pr = Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO);
+    const pr = pixelRatio();
     renderer.setPixelRatio(pr);
     renderer.setSize(w, h, false);
     cssW = w; cssH = h;
@@ -322,7 +327,11 @@ export function createCarView(canvas, opts = {}) {
 
   function frame(now) {
     raf = 0;
-    if (disposed || !inView || !pageVisible()) { lastT = 0; return; }
+    if (disposed || state.paused || !inView || !pageVisible()) { lastT = 0; return; }
+    if (!dirty && lastT && (now - lastT) < FRAME_INTERVAL_MS) {
+      raf = requestAnimationFrame(frame);
+      return;
+    }
     const dt = lastT ? Math.min(0.1, (now - lastT) / 1000) : 0;
     lastT = now;
 
@@ -377,7 +386,20 @@ export function createCarView(canvas, opts = {}) {
 
   function kick() {
     dirty = true;
-    if (!raf && !disposed && inView && pageVisible()) raf = requestAnimationFrame(frame);
+    if (!raf && !disposed && !state.paused && inView && pageVisible()) raf = requestAnimationFrame(frame);
+  }
+
+  function setPaused(on) {
+    const next = !!on;
+    if (next === state.paused) return;
+    state.paused = next;
+    if (next) {
+      if (raf) { cancelAnimationFrame(raf); raf = 0; }
+      lastT = 0;
+    } else {
+      resize();
+      kick();
+    }
   }
 
   let io = null;
@@ -471,13 +493,15 @@ export function createCarView(canvas, opts = {}) {
       state.quality = next;
       stage.setQuality(state.quality);
       if (car) stage.setCar(car.group, carBox, car.headlights);
+      resize();
       kick();
     },
+    setPaused,
     resize,
     getInfo() {
       return {
         model: state.modelId, triangles: state.triangles, compact: state.compact, speedMps: state.speedMps,
-        azimuth: state.az, orbiting: state.orbiting, steeringRad: state.turn, models: MODELS.map((m) => m.id), quality: state.quality, view: state.view, scene: state.scene, time: state.time, frames, ...lastStats,
+        azimuth: state.az, orbiting: state.orbiting, steeringRad: state.turn, models: MODELS.map((m) => m.id), quality: state.quality, view: state.view, scene: state.scene, time: state.time, paused: state.paused, frames, ...lastStats,
       };
     },
     dispose,

@@ -90,7 +90,7 @@ export function createSettingsStore({ storage } = {}) {
 export function createSettingsPanel({ el, store, config = CONFIG }) {
   const a = config.alert;
   el.innerHTML = `
-    <div class="sp-head"><h2 id="settings-title">設定</h2><button type="button" class="dh-btn" id="sp-close">關閉</button></div>
+    <div class="sp-head"><h2 id="settings-title">設定</h2><button type="button" class="dh-btn" id="sp-close" aria-label="關閉設定">關閉</button></div>
     <div class="sp-body">
       <section class="sp-switches">
         <label class="sp-switch"><input type="checkbox" id="sp-music"><span>背景音樂</span></label>
@@ -110,25 +110,42 @@ export function createSettingsPanel({ el, store, config = CONFIG }) {
     </div>`;
   const $ = (s) => el.querySelector(s);
   // 車款、車色、車燈在首頁下方的外觀列選，這裡不重複
-  let audioContext, gain, source, bufferPromise, duckTimer;
+  let audio = null, duckTimer = null;
   let playRequest = 0;
+  function getMusicSrc() {
+    const probe = audio || new Audio();
+    const canM4a = typeof probe.canPlayType === 'function' && probe.canPlayType('audio/mp4; codecs="mp4a.40.2"') !== '';
+    return new URL(canM4a ? '../../assets/night-drive.m4a' : '../../assets/night-drive.wav', import.meta.url).href;
+  }
+  function ensureAudio() {
+    if (!audio) {
+      audio = new Audio();
+      audio.loop = true;
+      audio.preload = 'none';
+      audio.playsInline = true;
+      audio.src = getMusicSrc();
+    }
+    return audio;
+  }
   function level(duck = false) {
-    if (!gain) return;
-    gain.gain.setTargetAtTime(Number($('#sp-volume').value) * (duck ? .15 : 1), audioContext.currentTime, .08);
+    if (!audio) return;
+    const vol = Math.max(0, Math.min(1, Number($('#sp-volume').value) * (duck ? 0.15 : 1)));
+    try { audio.volume = vol; } catch (_) { /* iOS Safari volume 為唯讀屬性 */ }
   }
   function duckMusic() {
-    if (!source) return;
-    clearTimeout(duckTimer); level(true);
-    const restore = () => { if (globalThis.speechSynthesis?.speaking) duckTimer = setTimeout(restore, 250); else level(); };
+    if (!audio || audio.paused) return;
+    clearTimeout(duckTimer);
+    level(true);
+    const restore = () => { if (globalThis.speechSynthesis?.speaking) duckTimer = setTimeout(restore, 250); else level(false); };
     duckTimer = setTimeout(restore, 3500);
   }
   function stopMusic() {
     playRequest++;
     clearTimeout(duckTimer);
-    if (source) {
-      source.stop();
-      source.disconnect();
-      source = null;
+    duckTimer = null;
+    if (audio) {
+      try { audio.pause(); } catch (_) {}
+      try { audio.currentTime = 0; } catch (_) {}
     }
   }
   $('#sp-volume').oninput = () => level(!!globalThis.speechSynthesis?.speaking);
@@ -137,24 +154,13 @@ export function createSettingsPanel({ el, store, config = CONFIG }) {
     if (!event.target.checked) return;
     const request = playRequest;
     try {
-      if (!audioContext) {
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        gain = audioContext.createGain();
-        gain.connect(audioContext.destination);
-      }
-      const resumed = audioContext.resume();
-      bufferPromise ??= fetch(new URL('../../assets/night-drive.wav', import.meta.url))
-        .then(response => { if (!response.ok) throw Error('audio'); return response.arrayBuffer(); })
-        .then(bytes => audioContext.decodeAudioData(bytes))
-        .catch(error => { bufferPromise = null; throw error; });
-      const [buffer] = await Promise.all([bufferPromise, resumed]);
-      if (request !== playRequest) return;
-      source = audioContext.createBufferSource();
-      source.buffer = buffer;
-      source.loop = true;
-      source.connect(gain);
+      const player = ensureAudio();
       level(!!globalThis.speechSynthesis?.speaking);
-      source.start();
+      await player.play();
+      if (request !== playRequest) {
+        try { player.pause(); } catch (_) {}
+        return;
+      }
       $('#music-status').textContent = '';
     } catch {
       if (request !== playRequest) return;
@@ -168,9 +174,13 @@ export function createSettingsPanel({ el, store, config = CONFIG }) {
   function destroy() {
     close();
     el.removeEventListener('cancel', onCancel);
+    el.removeEventListener('keydown', onKeydown);
     document.removeEventListener('visibilitychange', pauseHidden);
     stopMusic();
-    audioContext?.close();
+    if (audio) {
+      try { audio.removeAttribute?.('src'); } catch (_) {}
+      audio = null;
+    }
   }
   function sync(s) {
     $('#sp-minimal').checked = s.minimal;
@@ -185,9 +195,11 @@ export function createSettingsPanel({ el, store, config = CONFIG }) {
   try { mountSettingsData($('#settings-data'), { store: dataServices.store, update: dataServices.update, config }); } catch (err) { $('#settings-data').textContent = '資料區塊載入失敗'; console.warn(err); }
 
   let trigger = null;
+  el.inert = true;
   function open(invoker = document.activeElement) {
     if (el.open) return;
     trigger = invoker;
+    el.inert = false;
     el.showModal();
     el.classList.add('open');
     $('#sp-close').focus();
@@ -196,6 +208,7 @@ export function createSettingsPanel({ el, store, config = CONFIG }) {
     if (!el.open) return;
     el.close();
     el.classList.remove('open');
+    el.inert = true;
     if (trigger?.isConnected) trigger.focus();
     trigger = null;
   }
@@ -203,6 +216,13 @@ export function createSettingsPanel({ el, store, config = CONFIG }) {
     event.preventDefault();
     close();
   }
+  function onKeydown(event) {
+    if (event.key === 'Escape' && el.open) {
+      event.preventDefault();
+      close();
+    }
+  }
   el.addEventListener('cancel', onCancel);
+  el.addEventListener('keydown', onKeydown);
   return { open, close, duckMusic, destroy, toggle: invoker => el.open ? close() : open(invoker) };
 }

@@ -55,7 +55,7 @@ export const SHELL_HTML = `
       <div class="top-actions"><span class="voice-warn" id="voice-warn" hidden>語音無法播放</span>
       <button type="button" class="start-btn" id="btn-start">開始行車</button><button type="button" class="dh-btn" id="btn-settings" aria-haspopup="dialog" aria-controls="settings-panel">設定</button></div>
     </header>
-    <div class="car-zone"><button type="button" id="cb-view" title="點按切換視角"><canvas id="car-canvas" aria-hidden="true"></canvas>
+    <div class="car-zone"><button type="button" id="cb-view" title="點按切換視角"><canvas id="car-canvas" aria-hidden="true" tabindex="-1"></canvas>
     </button>
     <p class="car-fallback" id="car-fallback" role="status" hidden></p>
       <div class="vehicle-controls" role="group" aria-label="車輛控制">
@@ -146,45 +146,58 @@ export function createApp({
   syncBar(store.get());
 
   const dark = globalThis.matchMedia?.('(prefers-color-scheme: dark)');
-  let car = null;
+  const noop = () => {};
+  const createCarStub = () => ({
+    setTurn: noop, setSpeedKmh: noop, setColor: noop, setHeadlights: noop, setModel: noop,
+    canPreviewJet: () => false, setJetPreview: () => false, jetPreviewActive: false,
+    hasDoors: () => false, doorsOpen: false, doorsLocked: false, setDoors: () => false,
+    setOrbit: noop, orbiting: false, setView: noop, setScene: noop, setTime: noop,
+    setCompact: noop, setDarkMode: noop, setQuality: noop, setPaused: noop, resize: noop,
+    getInfo: () => ({ paused: true, frames: 0 }), dispose: noop,
+  });
+  let car = createCarStub();
+  let carReady = false;
   const fallback = $('#car-fallback');
   function initCar() {
     try {
-      car = createCarView(els.canvas, { ...pick(store.get()), darkMode: !!dark?.matches });
+      car = createCarView(els.canvas, { ...pick(store.get()), darkMode: !!dark?.matches, paused: !!store.get().minimal });
+      carReady = true;
     } catch (error) {
+      car = createCarStub();
+      carReady = false;
       console.warn('3D 車模無法載入', error);
     }
-    appEl.dataset.renderer = car ? 'ready' : 'unavailable';
-    fallback.hidden = !!car;
-    fallback.textContent = car ? '' : '3D 車模無法顯示，速度與測速提醒仍可使用。';
+    appEl.dataset.renderer = carReady ? 'ready' : 'unavailable';
+    fallback.hidden = carReady;
+    fallback.textContent = carReady ? '' : '3D 車模無法載入（儀表與測速功能仍可正常使用）';
   }
-  const onDarkChange = event => car?.setDarkMode(event.matches);
+  const onDarkChange = event => { try { car.setDarkMode(event.matches); } catch (_) {} };
   dark?.addEventListener('change', onDarkChange);
   const orbitButton = $('#cb-orbit'), jetButton = $('#cb-jet');
   function setOrbit(on) {
-    if (!car) return;
+    if (!carReady) return;
     car.setOrbit(on);
     orbitButton.setAttribute('aria-pressed', String(on));
     orbitButton.title = on ? '停止環繞' : '360° 環繞';
     if (!on && car.jetPreviewActive) store.set({view:'rear'});
     syncVehicleActions();
   }
-  orbitButton.addEventListener('click', () => setOrbit(!car?.orbiting));
+  orbitButton.addEventListener('click', () => setOrbit(!car.orbiting));
   // 車門：只有具備車門動作的車款才顯示；開合狀態不存檔，車速到 5 km/h 就自動關上並鎖定
   function syncVehicleActions() {
-    const jetOn = !!car?.jetPreviewActive;
-    const viewLocked = jetOn && !car?.orbiting;
-    jetButton.hidden = !car?.canPreviewJet();
+    const jetOn = carReady && !!car.jetPreviewActive;
+    const viewLocked = jetOn && !car.orbiting;
+    jetButton.hidden = !carReady || !car.canPreviewJet();
     jetButton.setAttribute('aria-pressed', String(jetOn));
     jetButton.title = jetOn ? '關閉噴射' : '開啟噴射';
     const currentView = nameOf(CAR_VIEWS, store.get().view);
-    bar.view.disabled = !car || viewLocked;
+    bar.view.disabled = !carReady || viewLocked;
     bar.view.setAttribute('aria-label', viewLocked
       ? `目前為${currentView}，噴射中鎖定視角`
       : `目前為${currentView}，點按切換視角`);
-    orbitButton.disabled = !car || viewLocked;
-    orbitButton.setAttribute('aria-pressed', String(!!car?.orbiting));
-    const has = !!car?.hasDoors();
+    orbitButton.disabled = !carReady || viewLocked;
+    orbitButton.setAttribute('aria-pressed', String(carReady && !!car.orbiting));
+    const has = carReady && !!car.hasDoors();
     bar.doors.hidden = !has;
     const open = has && !!car.doorsOpen;
     const locked = has && !!car.doorsLocked; // 行駛中不能開門：按鈕停用並寫明原因，不要按了沒反應
@@ -195,9 +208,9 @@ export function createApp({
     bar.doors.title = doorStatus;
     bar.doors.setAttribute('aria-pressed', String(open));
   }
-  bar.doors.addEventListener('click', () => { if (car) car.setDoors(!car.doorsOpen); syncVehicleActions(); });
+  bar.doors.addEventListener('click', () => { if (carReady) car.setDoors(!car.doorsOpen); syncVehicleActions(); });
   jetButton.addEventListener('click', () => {
-    if (!car) return;
+    if (!carReady) return;
     const jetOn = car.setJetPreview(!car.jetPreviewActive);
     if (jetOn && !car.orbiting) store.set({view:'rear'});
     syncVehicleActions();
@@ -206,8 +219,9 @@ export function createApp({
   syncVehicleActions();
   function onContextLost(event) {
     event.preventDefault();
-    const lost = car;
-    car = null;
+    const lost = carReady ? car : null;
+    car = createCarStub();
+    carReady = false;
     appEl.dataset.renderer = 'unavailable';
     fallback.textContent = '3D 顯示已中斷，速度與測速提醒仍可使用。';
     fallback.hidden = false;
@@ -215,7 +229,7 @@ export function createApp({
     lost?.dispose();
   }
   function onContextRestored() {
-    if (car) return;
+    if (carReady) return;
     initCar();
     render();
   }
@@ -272,10 +286,15 @@ export function createApp({
     els.speed.textContent = state.speedKmh == null ? '—' : String(Math.round(state.speedKmh));
     els.speed.classList.toggle('empty', state.speedKmh == null);
     els.heading.textContent = headingText(state.headingDeg);
-    car?.setSpeedKmh(state.speedKmh || 0);
+    try {
+      car.setPaused?.(layout === 'minimal');
+      car.setSpeedKmh(state.speedKmh || 0);
+      if (layout !== 'normal' && car.orbiting) setOrbit(false);
+      car.setCompact(layout === 'approach');
+    } catch (err) {
+      console.warn('3D 車模渲染更新失敗', err);
+    }
     syncVehicleActions();
-    if (layout !== 'normal' && car?.orbiting) setOrbit(false);
-    car?.setCompact(layout === 'approach');
 
     const f = state.focus;
     const approaching = !!(f && f.phase === 'APPROACHING' && f.relation !== 'OPPOSITE');
@@ -365,7 +384,10 @@ export function createApp({
   });
 
   store.subscribe((s) => {
-    if (car) {
+    syncBar(s);
+    render();
+    try {
+      car.setPaused?.(!!s.minimal);
       car.setModel(s.model);
       car.setColor(s.color);
       car.setHeadlights(s.headlights);
@@ -373,10 +395,10 @@ export function createApp({
       car.setView(s.view);
       car.setScene(s.scene);
       car.setTime(s.time);
+      syncVehicleActions();
+    } catch (err) {
+      console.warn('3D 車模更新失敗', err);
     }
-    syncBar(s);
-    syncVehicleActions();
-    render();
   });
 
   render();

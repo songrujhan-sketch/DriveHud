@@ -1,14 +1,14 @@
-import * as motorcycle from './motorcycle.js?v=1.9.2';
+import * as motorcycle from './motorcycle.js?v=1.9.3';
 import * as carriage from './carriage.js';
 import * as family from './family.js';
-import * as daystar from './daystar.js?v=1.9.2';
+import * as daystar from './daystar.js?v=1.9.3';
 // DriveHUD V1.6 — 車模清單（名稱僅為標籤；幾何皆為原創）
 import * as valkyrie from './valkyrie.js';
-import * as darkknight from './darkknight.js?v=1.9.2';
-import * as asurada from './asurada.js?v=1.9.2';
+import * as darkknight from './darkknight.js?v=1.9.3';
+import * as asurada from './asurada.js?v=1.9.3';
 import * as rover from './rover.js';
 
-import * as tumbler from './tumbler.js?v=1.9.2';
+import * as tumbler from './tumbler.js?v=1.9.3';
 
 export const MODELS = [
   { id: 'valkyrie', displayName: '女武神', build: valkyrie.build },
