@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { IDBFactory } from 'fake-indexeddb';
 import { CONFIG } from '../../config.js';
 import { createStore } from '../../src/data/store.js';
-import { updateOnline, importFromFile, CORS_REASON } from '../../src/data/update.js';
+import { updateOnline, importFromFile, CORS_REASON, MAX_IMPORT_BYTES } from '../../src/data/update.js';
 
 const csv = await readFile(new URL('../../data/snapshots/npa7320-taichung.csv', import.meta.url), 'utf8');
 const mk = () => {
@@ -96,6 +96,20 @@ test('importFromFile 無法辨識 / 無檔案 / 亂碼', async () => {
   const r = await importFromFile({ text: async () => '�'.repeat(20) }, { store, config: CONFIG, now });
   assert.match(r.reason, /編碼/);
   assert.equal(await store.loadDataset(), null);
+});
+
+test('importFromFile 拒絕非 .csv 與過大的檔案，且不讀取內容', async () => {
+  const store = mk();
+  let read = 0;
+  const fake = (name, size) => ({ name, size, text: async () => { read++; return csv; } });
+  const wrongType = await importFromFile(fake('cameras.xlsx', 1000), { store, config: CONFIG, now });
+  assert.equal(wrongType.ok, false);
+  assert.match(wrongType.reason, /\.csv/);
+  const tooBig = await importFromFile(fake('npa7320.csv', MAX_IMPORT_BYTES + 1), { store, config: CONFIG, now });
+  assert.equal(tooBig.ok, false);
+  assert.match(tooBig.reason, /過大/);
+  assert.equal(read, 0);
+  assert.equal((await importFromFile(fake('NPA7320.CSV', 1000), { store, config: CONFIG, now })).ok, true);
 });
 
 test('全部座標無效 → 失敗', async () => {

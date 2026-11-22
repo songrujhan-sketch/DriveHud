@@ -1,7 +1,7 @@
-import { makeMaterials, makeWheel, makeHeadSpot, mesh, roundBox } from './parts.js';
-import { makeNozzle } from './nozzle.js';
-import { makePlume } from './plume.js';
-import { makePilot } from './pilot.js';
+import { makeMaterials, makeWheel, makeHeadSpot, mesh, roundBox } from './parts.js?v=1.10.0';
+import { makeNozzle } from './nozzle.js?v=1.10.0';
+import { makePlume } from './plume.js?v=1.10.0';
+import { makePilot } from './pilot.js?v=1.10.0';
 
 export const meta = { id: 'motorcycle', displayName: '重型機車', roofY: 1.88 };
 

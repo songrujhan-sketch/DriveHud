@@ -1,4 +1,4 @@
-import { CAMOUFLAGE, applyCamouflage } from './models/camouflage.js';
+import { CAMOUFLAGE, applyCamouflage } from './models/camouflage.js?v=1.10.0';
 // DriveHUD V1.6 — 車模視圖（Worker B / B2 展示廳升級）
 // createCarView(canvas, { model, color, headlights, darkMode, compact, quality })
 //   → { setSpeedKmh, setColor, setHeadlights, setModel, setCompact, setDarkMode, resize, dispose, getInfo }
@@ -7,9 +7,9 @@ import { CAMOUFLAGE, applyCamouflage } from './models/camouflage.js';
 // quality 'high'（預設）：反射地板 + 半解析度 Bloom + ACES；'low'：關閉後處理與反射。
 // 背景為展示廳漸層（四邊淡出成透明），compact 時縮成右上角小視窗；pixelRatio 上限 2。
 import * as THREE from '../../vendor/three.module.js';
-import { MODELS, getModel } from './models/index.js?v=1.9.3';
-import { countTriangles } from './models/parts.js';
-import { createStage } from './stage.js';
+import { MODELS, getModel } from './models/index.js?v=1.10.0';
+import { countTriangles } from './models/parts.js?v=1.10.0';
+import { createStage } from './stage.js?v=1.10.0';
 
 const WHEEL_RADIUS_M = 0.33; // 輪徑 0.66 m（以此換算角速度）
 // 視角方位角（由車頭 +Z 起算、朝車身左側 +X 為正）：前 45°、正面、後 45°、正後方、上方（由左側上方俯視）
@@ -26,6 +26,7 @@ const DOOR_LOCK_MPS = 5 / 3.6; // 車速到 5 km/h 才鎖門；低於這個值�
 const MAX_PIXEL_RATIO_HIGH = 1.5;
 const MAX_PIXEL_RATIO_LOW = 1;
 const FRAME_INTERVAL_MS = 1000 / 30;
+const MODEL_CACHE_MAX = 4; // 快取的車模數（含目前這台）；馬車最大，約 10 萬三角形
 
 function boxCorners(min, max) {
   return [min.x,max.x].flatMap(x=>[min.y,max.y].flatMap(y=>[min.z,max.z].map(z=>new THREE.Vector3(x,y,z))));
@@ -95,16 +96,16 @@ export function createCarView(canvas, opts = {}) {
 
   // A longitudinal silhouette avoids framing empty corners of a tall antenna or a long horse team.
   let outline=[];
-  function captureOutline() {
+  function captureOutline(c, box) {
     const bins=Array.from({length:20},()=>new THREE.Box3());
-    const v=new THREE.Vector3(),length=Math.max(.01,carBox.max.z-carBox.min.z);
-    car.group.updateMatrixWorld(true);
-    car.group.traverseVisible(m=>{
+    const v=new THREE.Vector3(),length=Math.max(.01,box.max.z-box.min.z);
+    c.group.updateMatrixWorld(true);
+    c.group.traverseVisible(m=>{
       const pos=m.geometry?.attributes.position;
       if(!pos) return;
       for(let i=0;i<pos.count;i++){
         v.fromBufferAttribute(pos,i).applyMatrix4(m.matrixWorld);
-        const bin=Math.min(19,Math.max(0,Math.floor(20*(v.z-carBox.min.z)/length)));
+        const bin=Math.min(19,Math.max(0,Math.floor(20*(v.z-box.min.z)/length)));
         bins[bin].expandByPoint(v);
       }
     });
@@ -220,83 +221,138 @@ export function createCarView(canvas, opts = {}) {
     fitCamera();
   }
 
-  let previousFrame=null, fade=null;
-  function clearModelFade() {
-    if(fade){ fade.onfinish=null; fade.cancel(); fade=null; }
-    previousFrame?.remove();
-    previousFrame=null;
-  }
-  function holdModelFrame() {
-    if(state.paused || !inView || !pageVisible() || !canvas.clientWidth || !canvas.clientHeight) return;
-    const shot=document.createElement('canvas');
-    shot.width=canvas.width; shot.height=canvas.height;
-    const ctx=shot.getContext('2d');
-    if(!ctx) return;
-    // WebGL may discard its drawing buffer after presentation. Capture a fresh render.
-    stage.render(viewportRect());
-    ctx.fillStyle=getComputedStyle(canvas).getPropertyValue('--bg').trim() || '#111';
-    ctx.fillRect(0,0,shot.width,shot.height);
-    ctx.drawImage(canvas,0,0);
-    if(previousFrame){
-      ctx.globalAlpha=Number(getComputedStyle(previousFrame).opacity);
-      ctx.drawImage(previousFrame,0,0,shot.width,shot.height);
-    }
-    clearModelFade();
-    shot.className='model-transition';
-    shot.setAttribute('aria-hidden','true');
-    Object.assign(shot.style,{position:'absolute',inset:'0',width:'100%',height:'100%',pointerEvents:'none'});
-    canvas.after(shot);
-    previousFrame=shot;
-  }
-  function revealModel() {
-    if(!previousFrame || fade) return;
-    const duration=window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 100 : 360;
-    fade=previousFrame.animate([{opacity:1},{opacity:0}],{duration,easing:'ease-in-out',fill:'forwards'});
-    fade.onfinish=clearModelFade;
-  }
+  // ── 車款快取與切換 ──
+  // 建好的車模留在記憶體（最多 MODEL_CACHE_MAX 台，最近使用優先），換回來時不必重建幾何、重編 shader、重烤陰影。
+  // 沒快取的車款：畫布先淡出（合成器執行，不受主執行緒阻塞影響），在看不見時建模並先畫一幀編譯 shader，再淡入。
+  const cache = new Map(); // id → { id, car, carBox, outline, triangles }
+  let switching = false, pendingId = null, swapAnim = null;
+  const onChange = typeof opts.onChange === 'function' ? opts.onChange : () => {};
+  const reducedMotion = () => !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
-  function loadModel(id) {
+  function buildEntry(id) {
     const def = getModel(id);
-    if (car) {
-      scene.remove(car.group);
-      disposeObject(car.group);
-    }
-    state.fx = false;
-    state.jetPreview = false;
-    car = def.build(THREE, { color: state.color });
-    state.doorsOpen = false;
-    state.doorT = 0;
-    state.modelId = def.id;
-    scene.add(car.group);
-    car.group.updateMatrixWorld(true);
-    carBox = new THREE.Box3().setFromObject(car.group, true);
-    outline=captureOutline();
-    for(const d of car.doors || []) d.pivot.quaternion.setFromAxisAngle(d.axis,d.sign*d.max);
-    outline.push(...captureOutline());
-    for(const door of car.doors || []) {
+    const c = def.build(THREE, { color: state.color });
+    c.group.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(c.group, true);
+    const points = captureOutline(c, box);
+    for (const d of c.doors || []) d.pivot.quaternion.setFromAxisAngle(d.axis, d.sign * d.max);
+    points.push(...captureOutline(c, box));
+    for (const door of c.doors || []) {
       // The widest point of a door can be halfway through its sweep.
-      for(const progress of [.25,.5,.75]){
-        door.pivot.quaternion.setFromAxisAngle(door.axis,door.sign*door.max*progress);
-        const bounds=new THREE.Box3().setFromObject(door.pivot);
-        if(!bounds.isEmpty()) outline.push(...boxCorners(bounds.min,bounds.max));
+      for (const progress of [.25, .5, .75]) {
+        door.pivot.quaternion.setFromAxisAngle(door.axis, door.sign * door.max * progress);
+        const bounds = new THREE.Box3().setFromObject(door.pivot);
+        if (!bounds.isEmpty()) points.push(...boxCorners(bounds.min, bounds.max));
       }
     }
-    if(car.framingBounds) outline.push(...boxCorners(car.framingBounds.min,car.framingBounds.max));
+    for (const d of c.doors || []) d.pivot.quaternion.identity();
+    if (c.framingBounds) points.push(...boxCorners(c.framingBounds.min, c.framingBounds.max));
+    c.group.updateMatrixWorld(true);
+    return { id: def.id, car: c, carBox: box, outline: points, triangles: countTriangles(c.group) };
+  }
+
+  function getEntry(id) {
+    const key = getModel(id).id;
+    let e = cache.get(key);
+    if (e) { cache.delete(key); cache.set(key, e); return e; } // 最近使用移到最後
+    e = buildEntry(key);
+    cache.set(key, e);
+    for (const [k, old] of cache) {
+      if (cache.size <= MODEL_CACHE_MAX) break;
+      if (old.car === car || k === key) continue;
+      cache.delete(k);
+      disposeObject(old.car.group);
+      stage.releaseCar(k);
+    }
+    return e;
+  }
+
+  function activate(entry) {
+    if (car && car !== entry.car) {
+      car.setJetPreview?.(false);
+      scene.remove(car.group);
+    }
+    car = entry.car;
+    carBox = entry.carBox;
+    outline = entry.outline;
+    state.fx = false;
+    state.jetPreview = false;
+    car.setJetPreview?.(false);
+    state.doorsOpen = false;
+    state.doorT = 0;
+    state.modelId = entry.id;
+    state.triangles = entry.triangles;
+    if (car.group.parent !== scene) scene.add(car.group);
     applyDoors();
     car.group.updateMatrixWorld(true);
-    state.triangles = countTriangles(car.group);
     applyColor();
     applyHeadlights();
-    stage.setCar(car.group, carBox, car.headlights);
+    stage.setCar(car.group, carBox, car.headlights, entry.id);
     fitCamera();
   }
 
+  function loadModel(id) { activate(getEntry(id)); }
+
+  const canAnimate = () => !state.paused && inView && pageVisible() && canvas.clientWidth > 0 && canvas.clientHeight > 0
+    && typeof canvas.animate === 'function' && !reducedMotion();
+
+  function fadeIn(from = 0) {
+    if (typeof canvas.animate !== 'function') return;
+    swapAnim?.cancel();
+    swapAnim = canvas.animate([{ opacity: from }, { opacity: 1 }], { duration: reducedMotion() ? 0 : 200, easing: 'ease-out' });
+    swapAnim.onfinish = () => { swapAnim = null; };
+  }
+
+  function swapToPending({ warm = false } = {}) {
+    const id = pendingId;
+    pendingId = null;
+    if (id && id !== state.modelId) activate(getEntry(id));
+    if (warm && cssW && cssH && !state.paused) stage.render(viewportRect()); // 畫布透明時先畫一幀：shader 編譯發生在這裡
+    kick();
+  }
+
+  function setModel(id) {
+    const key = getModel(id).id;
+    if (key === (pendingId ?? state.modelId)) return;
+    pendingId = key;
+    if (switching) return; // 進行中的切換結束時會換成最新選擇
+    if (cache.has(key) || !canAnimate()) {
+      swapToPending();
+      if (canAnimate()) fadeIn(.35);
+      onChange();
+      return;
+    }
+    switching = true;
+    onChange();
+    swapAnim?.cancel();
+    const out = canvas.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 140, easing: 'ease-in', fill: 'forwards' });
+    swapAnim = out;
+    let done = false;
+    const finish = () => {
+      if (done || disposed) return;
+      done = true;
+      clearTimeout(guard);
+      try { swapToPending({ warm: true }); } finally {
+        switching = false;
+        if (swapAnim === out) swapAnim = null;
+        out.cancel();
+        fadeIn(0);
+        onChange();
+      }
+    };
+    out.onfinish = finish;
+    const guard = setTimeout(finish, 600); // 畫面被藏起來時動畫可能不會結束
+  }
+
   // ── 尺寸與 compact 視窗 ──
-  let cssW = 0, cssH = 0;
+  let cssW = 0, cssH = 0, cssPr = 0;
   function resize() {
     const w = canvas.clientWidth, h = canvas.clientHeight;
     if (!w || !h) return;
     const pr = pixelRatio();
+    // 尺寸沒變就不重設：canvas.width 一被指定（即使同值）就會清空並重新配置繪圖緩衝。
+    if (w === cssW && h === cssH && pr === cssPr) { kick(); return; }
+    cssPr = pr;
     renderer.setPixelRatio(pr);
     renderer.setSize(w, h, false);
     cssW = w; cssH = h;
@@ -373,7 +429,6 @@ export function createCarView(canvas, opts = {}) {
     if (cssW && cssH) {
       renderer.info.reset();
       stage.render(viewportRect());
-      revealModel();
       lastStats = { drawCalls: renderer.info.render.calls, frameTriangles: renderer.info.render.triangles };
     }
     frames++;
@@ -420,13 +475,16 @@ export function createCarView(canvas, opts = {}) {
 
   function dispose() {
     disposed = true;
-    clearModelFade();
+    swapAnim?.cancel();
     if (raf) cancelAnimationFrame(raf);
     raf = 0;
     io?.disconnect();
     ro?.disconnect();
     document.removeEventListener('visibilitychange', onVis);
-    if (car) { scene.remove(car.group); disposeObject(car.group); car = null; }
+    if (car) scene.remove(car.group);
+    for (const e of cache.values()) disposeObject(e.car.group);
+    cache.clear();
+    car = null;
     stage.dispose();
     disposeObject(scene);
     renderer.dispose();
@@ -464,7 +522,10 @@ export function createCarView(canvas, opts = {}) {
     },
     setColor(hex) { state.color = hex; applyColor(); kick(); },
     setHeadlights(on) { state.headlights = !!on; applyHeadlights(); kick(); },
-    setModel(id) { if (getModel(id).id === state.modelId) return; holdModelFrame(); loadModel(id); kick(); },
+    setModel,
+    /** 正在淡出／建模中：車門、噴射、視角等操作暫停，避免作用在即將被換掉的車上。 */
+    get switching() { return switching; },
+    get modelId() { return pendingId ?? state.modelId; },
     canPreviewJet,
     setJetPreview,
     get jetPreviewActive() { return state.jetPreview; },
@@ -492,7 +553,7 @@ export function createCarView(canvas, opts = {}) {
       if (next === state.quality) return;
       state.quality = next;
       stage.setQuality(state.quality);
-      if (car) stage.setCar(car.group, carBox, car.headlights);
+      if (car) stage.setCar(car.group, carBox, car.headlights, state.modelId);
       resize();
       kick();
     },
@@ -500,7 +561,7 @@ export function createCarView(canvas, opts = {}) {
     resize,
     getInfo() {
       return {
-        model: state.modelId, triangles: state.triangles, compact: state.compact, speedMps: state.speedMps,
+        model: state.modelId, cachedModels: [...cache.keys()], switching, triangles: state.triangles, compact: state.compact, speedMps: state.speedMps,
         azimuth: state.az, orbiting: state.orbiting, steeringRad: state.turn, models: MODELS.map((m) => m.id), quality: state.quality, view: state.view, scene: state.scene, time: state.time, paused: state.paused, frames, ...lastStats,
       };
     },

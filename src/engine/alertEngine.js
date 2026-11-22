@@ -2,8 +2,8 @@
 // 純函式風格：無 DOM、無 timer。真實 GPS 與模擬重播都只透過 pushFix() 與 tick() 餵資料。
 // 規則依契約 docs/prompts-v1.6.md §1.4；所有門檻讀自 config（config.alert / config.fix）。
 
-import { haversineM, bearingDeg, angleDiffDeg, boundingBox, normDeg } from './geo.js';
-import { approachText, overspeedText } from './speech-text.js';
+import { haversineM, bearingDeg, angleDiffDeg, boundingBox, normDeg } from './geo.js?v=1.10.0';
+import { approachText, overspeedText, OVERSPEED_REPEAT_TEXT } from './speech-text.js?v=1.10.0';
 
 /** 只對距離 ≤ 此值的相機做細算（先以 bounding box 預篩） */
 export const SCAN_RADIUS_M = 2000;
@@ -30,18 +30,26 @@ export function classifyRelation(camera, headingDeg, alertCfg) {
   return 'AMBIGUOUS';
 }
 
-/** 依 roadClass 取提醒半徑 */
-export function radiusFor(camera, alertCfg) {
-  if (camera.roadClass === 'expressway') return alertCfg.radiusExpresswayM;
-  if (camera.roadClass === 'urban') return alertCfg.radiusUrbanM;
-  return alertCfg.radiusUnknownM;
+/**
+ * 提醒半徑：依 roadClass 的固定距離，與「依目前車速提前 leadTimeS 秒」取大者（上限 maxRadiusM）。
+ * 例：市區 50 km/h → 200 m；快速道路 110 km/h × 12 s ≈ 367 m（固定 300 m 只剩約 10 秒）。
+ * @param {object} camera
+ * @param {object} alertCfg
+ * @param {number|null} [speedMps]
+ */
+export function radiusFor(camera, alertCfg, speedMps = null) {
+  const base = camera.roadClass === 'expressway' ? alertCfg.radiusExpresswayM
+    : camera.roadClass === 'urban' ? alertCfg.radiusUrbanM : alertCfg.radiusUnknownM;
+  const lead = alertCfg.leadTimeS > 0 && Number.isFinite(speedMps) && speedMps > 0 ? speedMps * alertCfg.leadTimeS : 0;
+  return Math.max(base, Math.min(lead, alertCfg.maxRadiusM ?? Infinity));
 }
 
 /**
  * @param {{cameras: import('../contracts/types.js').Camera[], config: any, now?: () => number}} opts
  */
 export function createAlertEngine({ cameras, config, now = () => Date.now() }) {
-  const A = config.alert;
+  // 可由使用者調整的項目（超速容忍、持續超速提醒）用 setOptions 覆寫；其餘沿用 config。
+  let A = { ...config.alert };
   const F = config.fix;
 
   let cams = Array.isArray(cameras) ? cameras.slice() : [];
@@ -87,6 +95,8 @@ export function createAlertEngine({ cameras, config, now = () => Date.now() }) {
       ahead: false,
       approachAlerted: false,
       overspeedAlerted: false,
+      lastOverspeedT: null,
+      alertRadiusM: null,
       nearbyEmitted: false,
     };
   }
@@ -105,7 +115,7 @@ export function createAlertEngine({ cameras, config, now = () => Date.now() }) {
     const heading = s.headingDeg;
 
     for (const { cam, d } of inBox) {
-      const radius = radiusFor(cam, A);
+      const radius = radiusFor(cam, A, s.speedMps);
       const zone = radius + A.candidateBufferM;
       let st = states.get(cam.id);
       if (!st) {
@@ -142,7 +152,8 @@ export function createAlertEngine({ cameras, config, now = () => Date.now() }) {
             st.phase = 'APPROACHING';
             st.approachAlerted = true;
             st.overCount = 0;
-            events.push(camEvent('APPROACH_ALERT', t, st, { speechText: approachText(d, cam.limit ?? null) }));
+            st.alertRadiusM = radius;
+            events.push(camEvent('APPROACH_ALERT', t, st, { radiusM: radius, speechText: approachText(d, cam.limit ?? null, { interval: !!cam.interval }) }));
           } else if (st.relation === 'AMBIGUOUS' && !st.nearbyEmitted) {
             st.nearbyEmitted = true;
             events.push(camEvent('NEARBY', t, st));
@@ -163,7 +174,13 @@ export function createAlertEngine({ cameras, config, now = () => Date.now() }) {
           else st.overCount = 0;
           if (limit != null && st.overCount >= A.overspeedMinFixes && !st.overspeedAlerted) {
             st.overspeedAlerted = true;
+            st.lastOverspeedT = t;
             events.push(camEvent('OVERSPEED_ALERT', t, st, { speechText: overspeedText(limit) }));
+          } else if (st.overspeedAlerted && st.overCount >= A.overspeedMinFixes && A.overspeedRepeatS > 0
+            && t - st.lastOverspeedT >= A.overspeedRepeatS * 1000) {
+            // 仍在超速：每 overspeedRepeatS 秒短句提醒一次（預設關閉，由設定開啟）
+            st.lastOverspeedT = t;
+            events.push(camEvent('OVERSPEED_REPEAT', t, st, { speechText: OVERSPEED_REPEAT_TEXT }));
           }
         }
       }
@@ -281,7 +298,7 @@ export function createAlertEngine({ cameras, config, now = () => Date.now() }) {
       speedKmh,
       headingDeg: s.headingDeg,
       stationary: s.stationary,
-      focus: f ? { camera: f.camera, distanceM: f.distanceM, relation: f.relation, phase: f.phase } : null,
+      focus: f ? { camera: f.camera, distanceM: f.distanceM, relation: f.relation, phase: f.phase, radiusM: f.alertRadiusM } : null,
       nearby,
       overspeed: !!(s.valid && f && f.camera.limit != null && f.overCount >= A.overspeedMinFixes),
     };
@@ -312,5 +329,14 @@ export function createAlertEngine({ cameras, config, now = () => Date.now() }) {
     }));
   }
 
-  return { pushFix, tick, getState, setCameras, reset, getDebug };
+  /** 使用者設定：{ overspeedToleranceKmh, overspeedRepeatS, leadTimeS }；只接受有限數值。 */
+  function setOptions(patch = {}) {
+    const next = { ...A };
+    for (const k of ['overspeedToleranceKmh', 'overspeedRepeatS', 'leadTimeS']) {
+      if (Number.isFinite(patch[k]) && patch[k] >= 0) next[k] = patch[k];
+    }
+    A = next;
+  }
+
+  return { pushFix, tick, getState, setCameras, reset, getDebug, setOptions, get options() { return { ...A }; } };
 }

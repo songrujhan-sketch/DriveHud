@@ -5,6 +5,16 @@
 
 const SOURCE_NAMES = { npa7320: '內政部警政署 7320 固定式測速照相設置點' };
 
+/** 測速點會增減：資料超過這個天數就提醒更新。 */
+export const STALE_DAYS = 90;
+/** @returns {number|null} 距今天數；無法判斷時為 null */
+export function dataAgeDays(iso, now = Date.now()) {
+  if (!iso) return null;
+  const t = Date.parse(iso);
+  return Number.isFinite(t) ? Math.floor((now - t) / 86_400_000) : null;
+}
+export const isStale = (iso, now = Date.now()) => (dataAgeDays(iso, now) ?? 0) > STALE_DAYS;
+
 function fmtTime(iso) {
   if (!iso) return '尚未更新（使用內建快照）';
   const d = new Date(iso);
@@ -84,6 +94,8 @@ export function mountSettingsData(container, { store, update } = {}) {
     const originNote = ds.origin === 'import' ? '（匯入檔案）' : ds.origin === 'online' ? '（線上更新）' : '（內建快照）';
     fields.source.textContent = (SOURCE_NAMES[ds.source] || ds.source || '—') + originNote;
     fields.time.textContent = fmtTime(ds.fetchedAt);
+    if (isStale(ds.fetchedAt)) fields.time.textContent += `（已超過 ${dataAgeDays(ds.fetchedAt)} 天，建議更新）`;
+    fields.time.className = isStale(ds.fetchedAt) ? 'sd-value sd-stale' : 'sd-value';
     fields.count.textContent = String(s.kept ?? ds.cameras?.length ?? 0);
     fields.limitMissing.textContent = String(s.limitMissing ?? '—');
     fields.dirUnknown.textContent = String(s.directionUnknown ?? '—');

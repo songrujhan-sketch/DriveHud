@@ -42,10 +42,13 @@ function limitPart(limit) {
   return limit == null || !Number.isFinite(limit) ? '速限未知' : `速限${toChineseNumber(limit)}`;
 }
 
-/** 「前方三百公尺有測速照相，速限六十」 */
-export function approachText(distanceM, limit) {
-  return `前方${toChineseNumber(roundDistance50(distanceM))}公尺有測速照相，${limitPart(limit)}`;
+/** 「前方三百公尺有測速照相，速限六十」；區間測速：「前方三百公尺有區間測速，速限六十」 */
+export function approachText(distanceM, limit, { interval = false } = {}) {
+  return `前方${toChineseNumber(roundDistance50(distanceM))}公尺有${interval ? '區間測速' : '測速照相'}，${limitPart(limit)}`;
 }
+
+/** 持續超速時的短句重複提醒 */
+export const OVERSPEED_REPEAT_TEXT = '請減速';
 
 /** 「注意，目前超速，速限六十」 */
 export function overspeedText(limit) {

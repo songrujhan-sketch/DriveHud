@@ -1,9 +1,9 @@
-import { makeNozzle } from './nozzle.js';
-import { makePlume } from './plume.js';
+import { makeNozzle } from './nozzle.js?v=1.10.0';
+import { makePlume } from './plume.js?v=1.10.0';
 // 阿斯拉（asurada）— 原創流線電動雙門跑車：長軸距、單弧 fastback 全景玻璃頂、
 // 前後貫穿式燈條、封閉式前臉、隱藏式門把、空力輪蓋。全部為原創幾何。
-import { bodyLoft, cabinLoft, loftDoors, loftDoorPreds, interiorMaterials, cabinInterior, regionHelpers, curve, smooth } from './kit.js';
-import { makeMaterials, multiMesh, placeWheels, makeMirror, makeHeadSpot, roundBox, mesh, mirrored } from './parts.js';
+import { bodyLoft, cabinLoft, loftDoors, loftDoorPreds, interiorMaterials, cabinInterior, regionHelpers, curve, smooth } from './kit.js?v=1.10.0';
+import { makeMaterials, multiMesh, placeWheels, makeMirror, makeHeadSpot, roundBox, mesh, mirrored } from './parts.js?v=1.10.0';
 
 export const meta = { id: 'asurada', displayName: '阿斯拉', roofY: 1.3 };
 

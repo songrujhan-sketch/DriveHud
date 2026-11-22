@@ -1,7 +1,7 @@
-import { makePlume } from './plume.js';
-import { makeMaterials, makeHeadSpot, mesh, placeWheels, merge, roundBox } from './parts.js';
+import { makePlume } from './plume.js?v=1.10.0';
+import { makeMaterials, makeHeadSpot, mesh, placeWheels, merge, roundBox } from './parts.js?v=1.10.0';
 
-import { cabinInterior, interiorMaterials } from './kit.js';
+import { cabinInterior, interiorMaterials } from './kit.js?v=1.10.0';
 
 export const meta = { id: 'tumbler', displayName: '重騎兵', roofY: 1.17 };
 

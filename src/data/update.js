@@ -1,8 +1,11 @@
 // 線上更新與匯入：下載／讀取 → 偵測格式 → 解析 → 正規化 → 去重 → 驗證 → 筆數檢查 → 儲存。
 // 回傳 { ok, reason, stats, fetchedAt }。任何失敗都不動舊資料。
-import { CONFIG } from '../../config.js';
-import { runPipeline } from './pipeline.js';
-import { createStore } from './store.js';
+import { CONFIG } from '../../config.js?v=1.10.0';
+import { runPipeline } from './pipeline.js?v=1.10.0';
+import { createStore } from './store.js?v=1.10.0';
+
+/** 官方全國 CSV 約 0.25 MB；超過 5 MB 幾乎不可能是正確檔案，也避免在主執行緒解析大檔把畫面卡住。 */
+export const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
 
 export const CORS_REASON = '無法連線或被瀏覽器跨網域限制擋下，請改用匯入 CSV';
 
@@ -76,6 +79,12 @@ export async function importFromFile(file, {
   store = createStore(), config = CONFIG, now = () => Date.now(),
 } = {}) {
   if (!file || typeof file.text !== 'function') return fail('沒有選擇檔案');
+  if (typeof file.name === 'string' && file.name && !/\.csv$/i.test(file.name)) {
+    return fail('請選擇官方下載的 .csv 檔案');
+  }
+  if (typeof file.size === 'number' && file.size > MAX_IMPORT_BYTES) {
+    return fail(`檔案過大（${(file.size / 1048576).toFixed(1)} MB，上限 ${MAX_IMPORT_BYTES / 1048576} MB），請確認是官方 7320 CSV`);
+  }
   let text;
   try { text = await file.text(); } catch { return fail('無法讀取檔案'); }
   if ((text.match(/�/g) || []).length > 5) {

@@ -1,5 +1,6 @@
 // 設定儲存（localStorage，全部 try/catch）與滑入式設定面板。
-import { CONFIG, mountSettingsData, dataServices } from './deps.js?v=1.9.3';
+import { CONFIG, mountSettingsData, dataServices } from './deps.js?v=1.10.0';
+import { rovingRadios } from './a11y.js?v=1.10.0';
 
 export const CAR_MODELS = [
   { id: 'valkyrie', name: '女武神' },
@@ -51,9 +52,12 @@ export const CAR_TIMES = [
   { id: 'day', name: '白天' },
   { id: 'night', name: '夜晚' },
 ];
+/** 超速判定容忍（km/h）：0＝剛超過速限就提醒 */
+export const TOLERANCES = [0, 5, 10];
 export const DEFAULT_SETTINGS = {
   model: 'valkyrie', color: CAR_COLORS[0].hex, headlights: false, minimal: false, lowQuality: false,
   view: 'front', scene: 'studio', time: 'auto',
+  toleranceKmh: 0, overspeedRepeat: true,
 };
 const KEY = 'drivehud.settings.v1';
 
@@ -73,6 +77,8 @@ export function createSettingsStore({ storage } = {}) {
       if (CAR_VIEWS.some((v) => v.id === p.view)) cur.view = p.view;
       if (CAR_SCENES.some((v) => v.id === p.scene)) cur.scene = p.scene;
       if (CAR_TIMES.some((v) => v.id === p.time)) cur.time = p.time;
+      if (TOLERANCES.includes(p.toleranceKmh)) cur.toleranceKmh = p.toleranceKmh;
+      if (typeof p.overspeedRepeat === 'boolean') cur.overspeedRepeat = p.overspeedRepeat;
     }
   } catch (_) { /* 損毀或無法存取：使用預設 */ }
   const subs = [];
@@ -94,7 +100,7 @@ export function createSettingsPanel({ el, store, config = CONFIG }) {
     <div class="sp-body">
       <section class="sp-switches">
         <label class="sp-switch"><input type="checkbox" id="sp-music"><span>背景音樂</span></label>
-        <label>音量 <input id="sp-volume" aria-label="背景音樂音量" type="range" min="0" max="1" step="0.05" value="0.35"></label>
+        <label class="sp-volume">音量 <input id="sp-volume" aria-label="背景音樂音量" type="range" min="0" max="1" step="0.05" value="0.35"></label>
         <small role="status" id="music-status"></small>
         <label class="sp-switch"><input type="checkbox" id="sp-minimal"><span>極簡模式（隱藏車模）</span></label>
         <label class="sp-switch"><input type="checkbox" id="sp-lowq"><span>車模低畫質（卡頓或發熱時開啟）</span></label>
@@ -105,6 +111,13 @@ export function createSettingsPanel({ el, store, config = CONFIG }) {
           <li>快速道路：<b>${a.radiusExpresswayM}</b> m</li>
           <li>道路類型未知：<b>${a.radiusUnknownM}</b> m</li>
         </ul>
+        <p class="sp-note">車速較快時改為依車速提前約 ${a.leadTimeS} 秒提醒（最遠 ${a.maxRadiusM} m）。</p>
+      </section>
+      <section><h3 id="sp-tol-title">超速提醒</h3>
+        <div class="sp-chips" id="sp-tolerance" role="radiogroup" aria-labelledby="sp-tol-title">
+          ${TOLERANCES.map((v) => `<button type="button" role="radio" class="chip" data-tol="${v}" aria-checked="false">${v === 0 ? '剛超過速限' : `超過 ${v} km/h`}</button>`).join('')}
+        </div>
+        <label class="sp-switch"><input type="checkbox" id="sp-repeat"><span>持續超速時每 ${config.ui.overspeedRepeatS} 秒提醒「請減速」</span></label>
       </section>
       <section><h3>測速資料</h3><div id="settings-data"></div></section>
     </div>`;
@@ -185,10 +198,20 @@ export function createSettingsPanel({ el, store, config = CONFIG }) {
   function sync(s) {
     $('#sp-minimal').checked = s.minimal;
     $('#sp-lowq').checked = !!s.lowQuality;
+    $('#sp-repeat').checked = !!s.overspeedRepeat;
+    el.querySelectorAll('[data-tol]').forEach((b) => b.setAttribute('aria-checked', String(Number(b.dataset.tol) === s.toleranceKmh)));
+    tolKeys?.sync();
   }
+  let tolKeys = null;
+  $('#sp-repeat').addEventListener('change', (e) => store.set({ overspeedRepeat: e.target.checked }));
+  $('#sp-tolerance').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-tol]');
+    if (b) store.set({ toleranceKmh: Number(b.dataset.tol) });
+  });
   $('#sp-minimal').addEventListener('change', (e) => store.set({ minimal: e.target.checked }));
   $('#sp-lowq').addEventListener('change', (e) => store.set({ lowQuality: e.target.checked }));
   $('#sp-close').addEventListener('click', () => close());
+  tolKeys = rovingRadios($('#sp-tolerance'));
   store.subscribe(sync);
   sync(store.get());
 

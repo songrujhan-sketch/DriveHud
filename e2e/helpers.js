@@ -39,3 +39,12 @@ export async function playScenario(page, i, { shot } = {}) {
   const pass = await page.locator('#sim-result').getAttribute('data-pass');
   return { expected, seen, logged, speeches, pass };
 }
+
+/** 由車款清單直接選車（V1.10 起車款鍵開啟清單，不再一台一台輪換）。 */
+export async function pickModel(page, name) {
+  const { expect } = await import('@playwright/test');
+  await page.locator('#cb-model').click();
+  await page.locator('#model-picker').getByRole('radio', { name, exact: true }).click();
+  await expect(page.locator('#model-picker')).toBeHidden();
+  await expect(page.locator('#cb-model')).toHaveText(name);
+}

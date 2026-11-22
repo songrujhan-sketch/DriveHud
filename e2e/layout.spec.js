@@ -1,7 +1,7 @@
 // 版面、明暗模式、極簡模式、設定頁。
 import { test, expect } from '@playwright/test';
 import path from 'node:path';
-import { SHOTS, openSim, playScenario } from './helpers.js';
+import { SHOTS, openSim, playScenario, pickModel } from './helpers.js';
 
 for (const scheme of ['light', 'dark']) {
   test.describe(`colorScheme=${scheme}`, () => {
@@ -56,11 +56,13 @@ test('設定頁只留極簡、低畫質、提醒距離與資料；車款、車�
   await page.reload();
   await expect(page.locator('#cb-model')).toBeVisible();
   await expect(page.locator('#cb-colors')).toBeHidden();
-  await page.locator('.appearance summary').click();
+  await pickModel(page, '黑騎士');
+  await page.locator('#cb-appearance').click();
+  await expect(page.locator('#cb-appearance')).toHaveAttribute('aria-expanded', 'true');
   await expect(page.locator('#cb-colors [data-color]')).toHaveCount(16);
-  await page.locator('#cb-model').click();
-  await expect(page.locator('#cb-model')).toHaveText('黑騎士');
   await page.getByRole('radio', {name:'曜黑',exact:true}).click();
+  await page.locator('#cb-appearance').click(); // 收起面板，回到車輛操作
+  await expect(page.locator('#appearance')).toBeHidden();
   await page.locator('#cb-lights').click();
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('drivehud.settings.v1')));
   expect(saved).toMatchObject({ model: 'darkknight', color: '#15171a', headlights: true });
@@ -79,16 +81,17 @@ test('設定頁只留極簡、低畫質、提醒距離與資料；車款、車�
 });
 
 test('車門按鈕：九款車都能開關車門，換車後自動關上', async ({ page }) => {
+  test.setTimeout(240_000); // 九款車各建一次模型；雲端軟體 GPU 較慢
   const errors = await openSim(page);
   await page.evaluate(() => localStorage.removeItem('drivehud.settings.v1'));
   await page.reload();
-  await page.locator('.appearance summary').click();
   const view = page.locator('#cb-view');
   await view.click();
   await view.click();
   await expect(view).toHaveAccessibleName(/正側面/);
   const initialWidth = (await page.locator('#cb-model').boundingBox()).width;
   for (const name of ['女武神', '黑騎士', '阿斯拉', '豹勇士', '重騎兵', '明日之星', '馬車', '休旅車']) {
+    if (name !== '女武神') await pickModel(page, name);
     await expect(page.locator('#cb-model')).toHaveText(name);
     expect((await page.locator('#cb-model').boundingBox()).width).toBe(initialWidth);
     const jet = page.locator('#cb-jet');
@@ -103,9 +106,8 @@ test('車門按鈕：九款車都能開關車門，換車後自動關上', async
     await page.locator('#cb-doors').click();
     await expect(page.locator('#cb-doors')).toHaveAccessibleName(name === '明日之星' ? '艙罩：開' : '車門：開');
     await expect(page.locator('#cb-doors')).toHaveAttribute('aria-pressed', 'true');
-    await page.locator('#cb-model').click();
   }
-  await expect(page.locator('#cb-model')).toHaveText('重型機車');
+  await pickModel(page, '重型機車');
   await expect(page.locator('#cb-doors')).toBeHidden();
   await page.locator('#cb-jet').click();
   await expect(view).toHaveAccessibleName(/後 45°/);
@@ -113,14 +115,12 @@ test('車門按鈕：九款車都能開關車門，換車後自動關上', async
 });
 
 test('停車噴射持續開啟，固定視角鎖左後，環繞時保留鏡頭', async ({page}) => {
-  await page.goto('/');
+  await page.goto('/?debug');
   const model = page.locator('#cb-model');
   const view = page.locator('#cb-view');
   const orbit = page.locator('#cb-orbit');
   const jet = page.locator('#cb-jet');
-  await model.click();
-  await model.click();
-  await expect(model).toHaveText('阿斯拉');
+  await pickModel(page, '阿斯拉');
 
   await jet.click();
   await expect(jet).toHaveAttribute('aria-pressed', 'true');
@@ -150,7 +150,7 @@ test('停車噴射持續開啟，固定視角鎖左後，環繞時保留鏡頭',
 });
 
 test('圖示列固定，環繞可啟停，外觀只保留車色、場景與時段', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?debug');
   await expect(page.locator('#cb-orbit')).toHaveAttribute('aria-pressed', 'false');
   const oldAngle = await page.evaluate(() => window.__drivehud.app.car.getInfo().azimuth);
   await page.locator('#cb-orbit').click();
@@ -164,29 +164,37 @@ test('圖示列固定，環繞可啟停，外觀只保留車色、場景與時�
   const positions = () => page.evaluate(selectors => selectors.map(s => document.querySelector(s).getBoundingClientRect().x), ids);
   const before = await positions();
   await expect(page.locator('#cb-jet')).toBeHidden();
-  await page.locator('#cb-model').click();
+  await pickModel(page, '黑騎士');
   await expect(page.locator('#cb-jet')).toBeVisible();
   expect(await positions()).toEqual(before);
-  await page.locator('.appearance summary').click();
+  await page.locator('#cb-appearance').click();
   await expect(page.locator('#carbar > *')).toHaveCount(3);
   expect(await positions()).toEqual(before);
+  // 點面板外收起；Esc 也能收起
+  await page.locator('#speed-value').click();
+  await expect(page.locator('#appearance')).toBeHidden();
+  await page.locator('#cb-appearance').click();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#appearance')).toBeHidden();
+  await expect(page.locator('#cb-appearance')).toBeFocused();
 });
 
 test('新版資源與車款圖示在一般畫面及接近提醒時可用', async ({page}) => {
+  // 自家 css/js 一律要帶 ?v=<版號>；沒帶的請求視為舊版快取風險（vendor 的 three.js 例外）。
   const staleAssets = [];
-  await page.route(/\/(?:app\.css|main\.js|app\.js|deps\.js|settings\.js|carView\.js)$/, route => {
-    staleAssets.push(route.request().url());
-    return route.abort();
+  await page.route(/\/(?:src|styles|sim)\/.*\.(?:css|js)(?:\?.*)?$/, route => {
+    const url = new URL(route.request().url());
+    if (!url.searchParams.get('v')) { staleAssets.push(url.pathname); return route.abort(); }
+    return route.continue();
   });
   await page.addInitScript(() => Object.defineProperty(navigator,'geolocation',{value:{
     watchPosition: () => 1, clearWatch() {},
   }}));
-  await page.goto('/');
+  await page.goto('/?debug');
   const model = page.locator('#cb-model');
-  await expect(page.locator('.build-tag')).toHaveText('V1.9');
+  await expect(page.locator('.build-tag')).toHaveText('V1.10');
   await expect(model.locator('svg')).toBeVisible();
-  await model.click();
-  await expect(model).toHaveText('黑騎士');
+  await pickModel(page, '黑騎士');
 
   await page.locator('#btn-start').click();
   await page.evaluate(() => window.__drivehud.app.setEngine({
@@ -197,43 +205,53 @@ test('新版資源與車款圖示在一般畫面及接近提醒時可用', async
   await expect(page.locator('#app')).toHaveClass(/layout-approach/);
   await expect(page.locator('#speed-value')).toHaveText('45');
   await expect(page.locator('#limit-value')).toHaveText('50');
+  // 接近提醒時雷達面板蓋住車模區，車輛操作暫時收起、3D 暫停
+  await expect(model).toBeHidden();
+  await expect.poll(() => page.evaluate(() => window.__drivehud.app.car.getInfo().paused)).toBe(true);
+  await page.evaluate(() => window.__drivehud.app.setEngine({
+    tick: () => [], getState: () => ({gps:'OK', speedKmh:45, headingDeg:0, nearby:[], overspeed:false, focus:null}),
+  }));
+  await expect(page.locator('#app')).toHaveClass(/layout-normal/);
   await expect(model.locator('svg')).toBeVisible();
-  await model.click();
-  await expect(model).toHaveText('阿斯拉');
+  await pickModel(page, '阿斯拉');
   expect(staleAssets).toEqual([]);
 });
 
-test('窄視窗展開外觀時，速度數值、單位、GPS 與雷達內容仍完整可見', async ({ page }, info) => {
+test('窄視窗展開外觀時，速度數值、單位、GPS 與雷達內容不移動也不被遮住', async ({ page }, info) => {
   await page.setViewportSize(info.project.name === 'portrait'
     ? {width: 393, height: 620}
     : {width: 852, height: 310});
-  await page.goto('/');
+  await page.goto('/?debug');
   await expect(page.locator('#gps-status')).toContainText('GPS 待命');
 
   await page.waitForFunction(() => window.__drivehud?.app.car.getInfo().frames > 0);
-  const readouts = ['#speed-value', '.speed-unit', '#gps-status', '#radar-state', '#radar-detail'];
+  const readouts = ['#speed-value', '#gps-status', '#radar-state', '#radar-detail', '#heading'];
   const positions = () => page.locator('.frame').evaluate((frame, selectors) => {
     const viewport = frame.getBoundingClientRect();
     return selectors.map(selector => {
       const el = frame.querySelector(selector);
       const rect = el.getBoundingClientRect();
       const hit = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
-      return { top: rect.top, bottom: rect.bottom, visible: viewport.top <= rect.top &&
+      return { top: rect.top, left: rect.left, width: rect.width, visible: viewport.top <= rect.top &&
         viewport.bottom >= rect.bottom && el.contains(hit) };
     });
   }, readouts);
 
   const before = await positions();
-  await page.locator('.appearance summary').click();
+  await page.locator('#cb-appearance').click();
   await expect(page.locator('#cb-colors')).toBeVisible();
   const after = await positions();
-  const menu = await page.locator('.appearance').boundingBox();
-
   for (const [index, rect] of after.entries()) {
     expect(rect.visible, readouts[index]).toBe(true);
-    expect(rect.bottom, readouts[index]).toBeLessThanOrEqual(menu.y);
-    expect(Math.abs(rect.top - before[index].top), readouts[index]).toBeLessThanOrEqual(2);
+    expect(rect, readouts[index]).toEqual(before[index]);
   }
+  // 面板本身完整落在車模區內，色票可點
+  const zone = await page.locator('.car-zone').boundingBox();
+  const sheet = await page.locator('#appearance').boundingBox();
+  expect(sheet.y).toBeGreaterThanOrEqual(zone.y);
+  expect(sheet.y + sheet.height).toBeLessThanOrEqual(zone.y + zone.height + 1);
+  await page.getByRole('radio', { name: '深藍', exact: true }).click();
+  await expect(page.getByRole('radio', { name: '深藍', exact: true })).toHaveAttribute('aria-checked', 'true');
 });
 
 test('主畫面模板可載入且無 console error（開始行車按鈕存在）', async ({ page }) => {

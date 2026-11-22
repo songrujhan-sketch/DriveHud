@@ -10,7 +10,7 @@ async function mockGPS(page) {
 
 test('定位失效即隱藏舊讀數及提醒，取得有效定位後才恢復', async ({page}) => {
   await mockGPS(page);
-  await page.goto('/');
+  await page.goto('/?debug');
   const gps = page.locator('#gps-status');
   const speed = page.locator('#speed-value');
   const approach = page.locator('#approach');
@@ -74,7 +74,7 @@ test('定位 API 不可用與無 WebGL 時，儀表及設定仍能操作', async
       return getContext.call(this,type,...args);
     };
   });
-  await page.goto('/');
+  await page.goto('/?debug');
   await expect(page.locator('#car-fallback')).toBeVisible();
   await expect(page.locator('#cb-model')).toBeHidden();
   await page.locator('#btn-start').click();
@@ -98,7 +98,7 @@ test('定位 API 不可用與無 WebGL 時，儀表及設定仍能操作', async
 
 test('WebGL 中斷與恢復時，行車儀表持續運作', async ({page}) => {
   await mockGPS(page);
-  await page.goto('/');
+  await page.goto('/?debug');
   await expect(page.locator('#app')).toHaveAttribute('data-renderer','ready');
   const extension = await page.evaluate(()=>{
     window.testContext = document.querySelector('#car-canvas').getContext('webgl2')?.getExtension('WEBGL_lose_context');

@@ -1,4 +1,4 @@
-import { mesh } from './parts.js';
+import { mesh } from './parts.js?v=1.10.0';
 
 export function makePilot(T, M, {x=.40, grip=.14, handY=1.12, handZ=.32, footY=.94, footZ=.09, motorcycle=false}={}) {
   const pilot=new T.Group();

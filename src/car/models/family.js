@@ -1,5 +1,5 @@
-import {bodyLoft,cabinLoft,loftDoorPreds,loftDoors,regionHelpers,cabinInterior,interiorMaterials,curve} from './kit.js';
-import {mesh,makeMaterials,multiMesh,roundBox,placeWheels,makeMirror,makeHeadSpot} from './parts.js';
+import {bodyLoft,cabinLoft,loftDoorPreds,loftDoors,regionHelpers,cabinInterior,interiorMaterials,curve} from './kit.js?v=1.10.0';
+import {mesh,makeMaterials,multiMesh,roundBox,placeWheels,makeMirror,makeHeadSpot} from './parts.js?v=1.10.0';
 
 export const meta={id:'family',displayName:'休旅車',roofY:1.70};
 

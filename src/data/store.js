@@ -1,5 +1,5 @@
 // IndexedDB：db 'drivehud'、store 'dataset'、key 'current'。indexedDB 可注入（測試用 fake-indexeddb）。
-import { runPipeline } from './pipeline.js';
+import { runPipeline } from './pipeline.js?v=1.10.0';
 
 export const DB_NAME = 'drivehud';
 export const STORE_NAME = 'dataset';

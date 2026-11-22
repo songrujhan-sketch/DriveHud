@@ -1,4 +1,4 @@
-import { parseDirect } from './direct.js';
+import { parseDirect } from './direct.js?v=1.10.0';
 
 export const TAIWAN_BOUNDS = { latMin: 21, latMax: 26.5, lonMin: 118, lonMax: 122.5 };
 

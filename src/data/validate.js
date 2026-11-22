@@ -1,4 +1,4 @@
-import { validCoord } from './normalize.js';
+import { validCoord } from './normalize.js?v=1.10.0';
 
 /**
  * 最終驗證並產生統計。
