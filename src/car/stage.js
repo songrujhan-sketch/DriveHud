@@ -500,6 +500,8 @@ export function createStage(renderer, { quality = 'high' } = {}) {
   let scroll = 0; // 展示間地面與牆面的流動量（公尺），以 12 m 為週期
   let floor = null;
   let shadow = null;
+  const shadowCache = new Map(); // 車款 id → 已烘好的接觸陰影（換車時直接沿用，不再每次重烤）
+  const disposeShadow = (m) => { m.geometry.dispose(); m.material.dispose(); m.userData.rt.dispose(); };
   let projector = null;
   const beamOrigin = new THREE.Vector3();
   const beamAxis = new THREE.Vector3();
@@ -660,9 +662,17 @@ export function createStage(renderer, { quality = 'high' } = {}) {
       }
       if (scenery) scenery.update(dt, speedMps);
     },
-    setCar(group, box, headlights) {
-      if (shadow) { scene.remove(shadow); shadow.geometry.dispose(); shadow.material.dispose(); shadow.userData.rt.dispose(); }
-      shadow = bakeContactShadow(renderer, group, box);
+    /** key：車款 id；有 key 時陰影會快取，之後換回同一台車不必重烤。 */
+    setCar(group, box, headlights, key = null) {
+      if (shadow) {
+        scene.remove(shadow);
+        if (!shadow.userData.cacheKey) disposeShadow(shadow);
+      }
+      shadow = key ? shadowCache.get(key) : null;
+      if (!shadow) {
+        shadow = bakeContactShadow(renderer, group, box);
+        if (key) { shadow.userData.cacheKey = key; shadowCache.set(key, shadow); }
+      }
       shadow.material.uniforms.uOpacity.value = theme.shadow;
       scene.add(shadow);
       const c = box.getCenter(new THREE.Vector3());
@@ -684,6 +694,14 @@ export function createStage(renderer, { quality = 'high' } = {}) {
       pool.position.set(c.x, 0.006, box.max.z + 2.2);
     },
     setHeadlights(on) { pool.visible = on; },
+    /** 車款被移出快取時釋放它的陰影。 */
+    releaseCar(key) {
+      const m = shadowCache.get(key);
+      if (!m) return;
+      shadowCache.delete(key);
+      if (m === shadow) { scene.remove(m); shadow = null; }
+      disposeShadow(m);
+    },
     setSize,
     /** viewport：CSS 像素（原點左下）；畫面上其餘部分保持透明。 */
     render(vp) {
@@ -708,7 +726,9 @@ export function createStage(renderer, { quality = 'high' } = {}) {
     },
     dispose() {
       if (scenery) { scene.remove(scenery.group); scenery.dispose(); }
-      if (shadow) { shadow.geometry.dispose(); shadow.material.dispose(); shadow.userData.rt.dispose(); }
+      if (shadow && !shadow.userData.cacheKey) disposeShadow(shadow);
+      shadowCache.forEach(disposeShadow);
+      shadowCache.clear();
       if (floor) { floor.geometry.dispose(); floor.material.dispose(); floor.getRenderTarget?.().dispose(); }
       composer?.dispose(); rt?.dispose(); bloom?.dispose();
       backdrop.geometry.dispose(); backdrop.material.dispose();

@@ -99,8 +99,9 @@ export const SHELL_HTML = `
           <button type="button" class="cb-btn" id="cb-time">時段</button>
         </div>
       </div>
+      <div class="model-picker" id="model-picker" role="radiogroup" aria-label="車款" hidden>${CAR_MODELS.map((m) => `<button type="button" role="radio" class="cb-btn" data-model="${m.id}" aria-checked="false">${m.name}</button>`).join('')}</div>
       <div class="vehicle-controls" role="group" aria-label="車輛控制">
-        <button type="button" class="cb-btn" id="cb-model" title="點按切換車款">${icon('M5 16H3v-4l2-1 2-5h10l2 5 2 1v4h-2m-14 0h2m4 0h2m4 0h2M5 11h14M5 16a2 2 0 1 0 4 0 2 2 0 0 0-4 0zm10 0a2 2 0 1 0 4 0 2 2 0 0 0-4 0z')}<span id="cb-model-name">女武神</span></button>
+        <button type="button" class="cb-btn" id="cb-model" title="選擇車款" aria-haspopup="true" aria-expanded="false" aria-controls="model-picker">${icon('M5 16H3v-4l2-1 2-5h10l2 5 2 1v4h-2m-14 0h2m4 0h2m4 0h2M5 11h14M5 16a2 2 0 1 0 4 0 2 2 0 0 0-4 0zm10 0a2 2 0 1 0 4 0 2 2 0 0 0-4 0z')}<span id="cb-model-name">女武神</span></button>
         <button type="button" class="cb-btn" id="cb-lights" aria-label="車燈" title="車燈" aria-pressed="false">${icon('M14 5c5 0 7 3 7 7s-2 7-7 7h-1V5zM3 6l6 2M3 12h6m-6 6 6-2')}</button>
         <button type="button" class="cb-btn" id="cb-doors" aria-label="車門" title="車門" aria-pressed="false" hidden>${icon('M4 19V9l6-5h9l1 15H4zm2-9h12m-4 4h3')}</button>
         <button type="button" class="cb-btn" id="cb-jet" aria-label="噴射" title="開啟噴射" aria-pressed="false" hidden>${icon('M17 3c1 5-1 8-5 11l-4 1-2-2 1-4c3-4 6-6 10-6zM8 8l-4 1-1 4 3-1m6 1-1 4-4 1 1-3m-3 2-3 4m7-3-3 3M12 8h.01')}</button>
@@ -163,8 +164,24 @@ export function createApp({
     bar.time.textContent = `時段：${nameOf(CAR_TIMES, s.time)}`;
     bar.lights.setAttribute('aria-pressed', String(!!s.headlights));
     bar.colors.querySelectorAll('[data-color]').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.color === s.color)));
+    picker.querySelectorAll('[data-model]').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.model === s.model)));
   }
-  bar.model.addEventListener('click', () => store.set({ model: nextOf(CAR_MODELS, store.get().model) }));
+  // 車款：點按開啟九款車的清單直接選，不必一台一台輪換（每次輪換都要建一次車模）。
+  const picker = $('#model-picker');
+  function setPicker(open) {
+    if (picker.hidden === !open) return;
+    if (open) setAppearance(false);
+    picker.hidden = !open;
+    bar.model.setAttribute('aria-expanded', String(open));
+  }
+  bar.model.addEventListener('click', () => setPicker(picker.hidden));
+  picker.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-model]');
+    if (!b) return;
+    setPicker(false);
+    bar.model.focus();
+    if (b.dataset.model !== store.get().model) store.set({ model: b.dataset.model });
+  });
   bar.view.addEventListener('click', () => {
     if (bar.view.disabled) return;
     setOrbit(false);
@@ -177,15 +194,19 @@ export function createApp({
   const appearanceBtn = $('#cb-appearance'), appearanceSheet = $('#appearance');
   function setAppearance(open) {
     if (appearanceSheet.hidden === !open) return;
+    if (open) setPicker(false);
     appearanceSheet.hidden = !open;
     appearanceBtn.setAttribute('aria-expanded', String(open));
   }
   appearanceBtn.addEventListener('click', () => setAppearance(appearanceSheet.hidden));
   const onDocPointer = (e) => {
     if (!appearanceSheet.hidden && !appearanceSheet.contains(e.target) && !appearanceBtn.contains(e.target)) setAppearance(false);
+    if (!picker.hidden && !picker.contains(e.target) && !bar.model.contains(e.target)) setPicker(false);
   };
   const onDocKey = (e) => {
-    if (e.key === 'Escape' && !appearanceSheet.hidden) { setAppearance(false); appearanceBtn.focus(); }
+    if (e.key !== 'Escape') return;
+    if (!appearanceSheet.hidden) { setAppearance(false); appearanceBtn.focus(); }
+    if (!picker.hidden) { setPicker(false); bar.model.focus(); }
   };
   document.addEventListener('pointerdown', onDocPointer, true);
   document.addEventListener('keydown', onDocKey);
@@ -198,7 +219,7 @@ export function createApp({
     setTurn: noop, setSpeedKmh: noop, setColor: noop, setHeadlights: noop, setModel: noop,
     canPreviewJet: () => false, setJetPreview: () => false, jetPreviewActive: false,
     hasDoors: () => false, doorsOpen: false, doorsLocked: false, setDoors: () => false,
-    setOrbit: noop, orbiting: false, setView: noop, setScene: noop, setTime: noop,
+    setOrbit: noop, orbiting: false, setView: noop, setScene: noop, setTime: noop, switching: false,
     setCompact: noop, setDarkMode: noop, setQuality: noop, setPaused: noop, resize: noop,
     getInfo: () => ({ paused: true, frames: 0 }), dispose: noop,
   });
@@ -207,7 +228,8 @@ export function createApp({
   const fallback = $('#car-fallback');
   function initCar() {
     try {
-      car = createCarView(els.canvas, { ...pick(store.get()), darkMode: !!dark?.matches, paused: !!store.get().minimal });
+      car = createCarView(els.canvas, { ...pick(store.get()), darkMode: !!dark?.matches, paused: !!store.get().minimal,
+        onChange: () => syncVehicleActions() });
       carReady = true;
     } catch (error) {
       car = createCarStub();
@@ -234,21 +256,23 @@ export function createApp({
   function syncVehicleActions() {
     const jetOn = carReady && !!car.jetPreviewActive;
     const viewLocked = jetOn && !car.orbiting;
+    const busy = carReady && !!car.switching; // 換車淡出中：操作會作用在即將被換掉的車上，先暫停
     jetButton.hidden = !carReady || !car.canPreviewJet();
     jetButton.setAttribute('aria-pressed', String(jetOn));
     jetButton.title = jetOn ? '關閉噴射' : '開啟噴射';
     const currentView = nameOf(CAR_VIEWS, store.get().view);
-    bar.view.disabled = !carReady || viewLocked;
+    jetButton.disabled = busy;
+    bar.view.disabled = !carReady || viewLocked || busy;
     bar.view.setAttribute('aria-label', viewLocked
       ? `目前為${currentView}，噴射中鎖定視角`
       : `目前為${currentView}，點按切換視角`);
-    orbitButton.disabled = !carReady || viewLocked;
+    orbitButton.disabled = !carReady || viewLocked || busy;
     orbitButton.setAttribute('aria-pressed', String(carReady && !!car.orbiting));
     const has = carReady && !!car.hasDoors();
     bar.doors.hidden = !has;
     const open = has && !!car.doorsOpen;
     const locked = has && !!car.doorsLocked; // 行駛中不能開門：按鈕停用並寫明原因，不要按了沒反應
-    bar.doors.disabled = locked;
+    bar.doors.disabled = locked || busy;
     const label = store.get().model === 'daystar' ? '艙罩' : '車門';
     const doorStatus = `${label}：${locked ? '行駛中鎖定' : open ? '開' : '關'}`;
     bar.doors.setAttribute('aria-label', doorStatus);
@@ -328,7 +352,7 @@ export function createApp({
       appEl.classList.add(`layout-${layout}`);
       appEl.dataset.layout = layout;
       lastLayout = layout;
-      if (layout !== 'normal') setAppearance(false);
+      if (layout !== 'normal') { setAppearance(false); setPicker(false); }
     }
 
     els.gps.dataset.status = g;
@@ -452,17 +476,21 @@ export function createApp({
     }
   });
 
+  // 設定變動只更新有改的項目（換色不會重設車款、場景等）。
+  let prevSettings = store.get();
   store.subscribe((s) => {
+    const p = prevSettings;
+    prevSettings = s;
     syncBar(s);
     render();
     try {
-      car.setModel(s.model);
-      car.setColor(s.color);
-      car.setHeadlights(s.headlights);
-      car.setQuality(s.lowQuality ? 'low' : 'high');
-      car.setView(s.view);
-      car.setScene(s.scene);
-      car.setTime(s.time);
+      if (s.model !== p.model) car.setModel(s.model);
+      if (s.color !== p.color) car.setColor(s.color);
+      if (s.headlights !== p.headlights) car.setHeadlights(s.headlights);
+      if (s.lowQuality !== p.lowQuality) car.setQuality(s.lowQuality ? 'low' : 'high');
+      if (s.view !== p.view) car.setView(s.view);
+      if (s.scene !== p.scene) car.setScene(s.scene);
+      if (s.time !== p.time) car.setTime(s.time);
       syncVehicleActions();
     } catch (err) {
       console.warn('3D 車模更新失敗', err);

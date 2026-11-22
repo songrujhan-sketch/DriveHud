@@ -105,3 +105,65 @@ test('設定頁資料區：匯入按鈕與連結至少 44px，結果有成功／
   await expect(page.locator('.sd-result')).toHaveClass(/sd-fail/);
   await expect(page.locator('.sd-result')).toContainText('.csv');
 });
+
+test('車款清單：九款直接選、目前車款打勾、Esc 收起；切回已建過的車款不重建', async ({ page }) => {
+  await page.goto('/?debug');
+  await page.evaluate(() => localStorage.removeItem('drivehud.settings.v1'));
+  await page.reload();
+  await page.waitForFunction(() => window.__drivehud?.app.car.getInfo().frames > 0);
+  const model = page.locator('#cb-model');
+  await model.click();
+  await expect(model).toHaveAttribute('aria-expanded', 'true');
+  const radios = page.locator('#model-picker').getByRole('radio');
+  await expect(radios).toHaveCount(9);
+  await expect(page.locator('#model-picker').getByRole('radio', { name: '女武神' })).toHaveAttribute('aria-checked', 'true');
+  for (const r of await radios.all()) expect((await r.boundingBox()).height).toBeGreaterThanOrEqual(44);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#model-picker')).toBeHidden();
+  await expect(model).toBeFocused();
+
+  await model.click();
+  await page.locator('#model-picker').getByRole('radio', { name: '馬車' }).click();
+  await expect(model).toHaveText('馬車');
+  await page.waitForFunction(() => window.__drivehud.app.car.getInfo().model === 'carriage' && !window.__drivehud.app.car.switching);
+  await model.click();
+  await page.locator('#model-picker').getByRole('radio', { name: '女武神' }).click();
+  // 已快取：同步切換，沒有淡出等待
+  expect(await page.evaluate(() => window.__drivehud.app.car.getInfo().model)).toBe('valkyrie');
+  expect(await page.evaluate(() => window.__drivehud.app.car.getInfo().cachedModels)).toEqual(expect.arrayContaining(['valkyrie', 'carriage']));
+});
+
+test('只改車色時不重設車款、場景等其他 3D 狀態', async ({ page }) => {
+  await page.goto('/?debug');
+  await page.waitForFunction(() => window.__drivehud?.app.car.getInfo().frames > 0);
+  await page.evaluate(() => {
+    window.__calls = [];
+    const car = window.__drivehud.app.car;
+    for (const k of ['setModel', 'setScene', 'setTime', 'setQuality', 'setView', 'setColor']) {
+      const f = car[k].bind(car);
+      car[k] = (...a) => { window.__calls.push(k); return f(...a); };
+    }
+  });
+  await page.locator('#cb-appearance').click();
+  await page.getByRole('radio', { name: '深藍', exact: true }).click();
+  expect(await page.evaluate(() => window.__calls)).toEqual(['setColor']);
+});
+
+test('接近提醒時 3D 畫布尺寸不變（不重新配置）且暫停繪製，結束後恢復', async ({ page }) => {
+  await page.addInitScript(() => Object.defineProperty(navigator, 'geolocation', { value: { watchPosition: () => 1, clearWatch() {} } }));
+  await page.goto('/?debug');
+  await page.waitForFunction(() => window.__drivehud?.app.car.getInfo().frames > 0);
+  const size = () => page.evaluate(() => { const c = document.querySelector('#car-canvas'); return [c.width, c.height]; });
+  const before = await size();
+  await page.locator('#btn-start').click();
+  const set = (focus) => page.evaluate((focus) => window.__drivehud.app.setEngine({ tick: () => [],
+    getState: () => ({ gps: 'OK', speedKmh: 52, headingDeg: 0, nearby: [], overspeed: false, focus }) }), focus);
+  await set({ phase: 'APPROACHING', relation: 'SAME', distanceM: 150, camera: { limit: 50 } });
+  await expect(page.locator('#approach')).toBeVisible();
+  expect(await size()).toEqual(before);
+  expect(await page.evaluate(() => window.__drivehud.app.car.getInfo().paused)).toBe(true);
+  await set(null);
+  await expect(page.locator('#approach')).toBeHidden();
+  expect(await page.evaluate(() => window.__drivehud.app.car.getInfo().paused)).toBe(false);
+  expect(await size()).toEqual(before);
+});

@@ -1,7 +1,7 @@
 // 版面、明暗模式、極簡模式、設定頁。
 import { test, expect } from '@playwright/test';
 import path from 'node:path';
-import { SHOTS, openSim, playScenario } from './helpers.js';
+import { SHOTS, openSim, playScenario, pickModel } from './helpers.js';
 
 for (const scheme of ['light', 'dark']) {
   test.describe(`colorScheme=${scheme}`, () => {
@@ -56,8 +56,7 @@ test('設定頁只留極簡、低畫質、提醒距離與資料；車款、車�
   await page.reload();
   await expect(page.locator('#cb-model')).toBeVisible();
   await expect(page.locator('#cb-colors')).toBeHidden();
-  await page.locator('#cb-model').click();
-  await expect(page.locator('#cb-model')).toHaveText('黑騎士');
+  await pickModel(page, '黑騎士');
   await page.locator('#cb-appearance').click();
   await expect(page.locator('#cb-appearance')).toHaveAttribute('aria-expanded', 'true');
   await expect(page.locator('#cb-colors [data-color]')).toHaveCount(16);
@@ -82,6 +81,7 @@ test('設定頁只留極簡、低畫質、提醒距離與資料；車款、車�
 });
 
 test('車門按鈕：九款車都能開關車門，換車後自動關上', async ({ page }) => {
+  test.setTimeout(240_000); // 九款車各建一次模型；雲端軟體 GPU 較慢
   const errors = await openSim(page);
   await page.evaluate(() => localStorage.removeItem('drivehud.settings.v1'));
   await page.reload();
@@ -91,6 +91,7 @@ test('車門按鈕：九款車都能開關車門，換車後自動關上', async
   await expect(view).toHaveAccessibleName(/正側面/);
   const initialWidth = (await page.locator('#cb-model').boundingBox()).width;
   for (const name of ['女武神', '黑騎士', '阿斯拉', '豹勇士', '重騎兵', '明日之星', '馬車', '休旅車']) {
+    if (name !== '女武神') await pickModel(page, name);
     await expect(page.locator('#cb-model')).toHaveText(name);
     expect((await page.locator('#cb-model').boundingBox()).width).toBe(initialWidth);
     const jet = page.locator('#cb-jet');
@@ -105,9 +106,8 @@ test('車門按鈕：九款車都能開關車門，換車後自動關上', async
     await page.locator('#cb-doors').click();
     await expect(page.locator('#cb-doors')).toHaveAccessibleName(name === '明日之星' ? '艙罩：開' : '車門：開');
     await expect(page.locator('#cb-doors')).toHaveAttribute('aria-pressed', 'true');
-    await page.locator('#cb-model').click();
   }
-  await expect(page.locator('#cb-model')).toHaveText('重型機車');
+  await pickModel(page, '重型機車');
   await expect(page.locator('#cb-doors')).toBeHidden();
   await page.locator('#cb-jet').click();
   await expect(view).toHaveAccessibleName(/後 45°/);
@@ -120,9 +120,7 @@ test('停車噴射持續開啟，固定視角鎖左後，環繞時保留鏡頭',
   const view = page.locator('#cb-view');
   const orbit = page.locator('#cb-orbit');
   const jet = page.locator('#cb-jet');
-  await model.click();
-  await model.click();
-  await expect(model).toHaveText('阿斯拉');
+  await pickModel(page, '阿斯拉');
 
   await jet.click();
   await expect(jet).toHaveAttribute('aria-pressed', 'true');
@@ -166,7 +164,7 @@ test('圖示列固定，環繞可啟停，外觀只保留車色、場景與時�
   const positions = () => page.evaluate(selectors => selectors.map(s => document.querySelector(s).getBoundingClientRect().x), ids);
   const before = await positions();
   await expect(page.locator('#cb-jet')).toBeHidden();
-  await page.locator('#cb-model').click();
+  await pickModel(page, '黑騎士');
   await expect(page.locator('#cb-jet')).toBeVisible();
   expect(await positions()).toEqual(before);
   await page.locator('#cb-appearance').click();
@@ -196,8 +194,7 @@ test('新版資源與車款圖示在一般畫面及接近提醒時可用', async
   const model = page.locator('#cb-model');
   await expect(page.locator('.build-tag')).toHaveText('V1.10');
   await expect(model.locator('svg')).toBeVisible();
-  await model.click();
-  await expect(model).toHaveText('黑騎士');
+  await pickModel(page, '黑騎士');
 
   await page.locator('#btn-start').click();
   await page.evaluate(() => window.__drivehud.app.setEngine({
@@ -216,8 +213,7 @@ test('新版資源與車款圖示在一般畫面及接近提醒時可用', async
   }));
   await expect(page.locator('#app')).toHaveClass(/layout-normal/);
   await expect(model.locator('svg')).toBeVisible();
-  await model.click();
-  await expect(model).toHaveText('阿斯拉');
+  await pickModel(page, '阿斯拉');
   expect(staleAssets).toEqual([]);
 });
 
