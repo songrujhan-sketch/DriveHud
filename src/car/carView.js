@@ -292,11 +292,14 @@ export function createCarView(canvas, opts = {}) {
   }
 
   // ── 尺寸與 compact 視窗 ──
-  let cssW = 0, cssH = 0;
+  let cssW = 0, cssH = 0, cssPr = 0;
   function resize() {
     const w = canvas.clientWidth, h = canvas.clientHeight;
     if (!w || !h) return;
     const pr = pixelRatio();
+    // 尺寸沒變就不重設：canvas.width 一被指定（即使同值）就會清空並重新配置繪圖緩衝。
+    if (w === cssW && h === cssH && pr === cssPr) { kick(); return; }
+    cssPr = pr;
     renderer.setPixelRatio(pr);
     renderer.setSize(w, h, false);
     cssW = w; cssH = h;

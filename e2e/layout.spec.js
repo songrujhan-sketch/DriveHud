@@ -56,11 +56,14 @@ test('設定頁只留極簡、低畫質、提醒距離與資料；車款、車�
   await page.reload();
   await expect(page.locator('#cb-model')).toBeVisible();
   await expect(page.locator('#cb-colors')).toBeHidden();
-  await page.locator('.appearance summary').click();
-  await expect(page.locator('#cb-colors [data-color]')).toHaveCount(16);
   await page.locator('#cb-model').click();
   await expect(page.locator('#cb-model')).toHaveText('黑騎士');
+  await page.locator('#cb-appearance').click();
+  await expect(page.locator('#cb-appearance')).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.locator('#cb-colors [data-color]')).toHaveCount(16);
   await page.getByRole('radio', {name:'曜黑',exact:true}).click();
+  await page.locator('#cb-appearance').click(); // 收起面板，回到車輛操作
+  await expect(page.locator('#appearance')).toBeHidden();
   await page.locator('#cb-lights').click();
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('drivehud.settings.v1')));
   expect(saved).toMatchObject({ model: 'darkknight', color: '#15171a', headlights: true });
@@ -82,7 +85,6 @@ test('車門按鈕：九款車都能開關車門，換車後自動關上', async
   const errors = await openSim(page);
   await page.evaluate(() => localStorage.removeItem('drivehud.settings.v1'));
   await page.reload();
-  await page.locator('.appearance summary').click();
   const view = page.locator('#cb-view');
   await view.click();
   await view.click();
@@ -167,9 +169,16 @@ test('圖示列固定，環繞可啟停，外觀只保留車色、場景與時�
   await page.locator('#cb-model').click();
   await expect(page.locator('#cb-jet')).toBeVisible();
   expect(await positions()).toEqual(before);
-  await page.locator('.appearance summary').click();
+  await page.locator('#cb-appearance').click();
   await expect(page.locator('#carbar > *')).toHaveCount(3);
   expect(await positions()).toEqual(before);
+  // 點面板外收起；Esc 也能收起
+  await page.locator('#speed-value').click();
+  await expect(page.locator('#appearance')).toBeHidden();
+  await page.locator('#cb-appearance').click();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#appearance')).toBeHidden();
+  await expect(page.locator('#cb-appearance')).toBeFocused();
 });
 
 test('新版資源與車款圖示在一般畫面及接近提醒時可用', async ({page}) => {
@@ -199,13 +208,20 @@ test('新版資源與車款圖示在一般畫面及接近提醒時可用', async
   await expect(page.locator('#app')).toHaveClass(/layout-approach/);
   await expect(page.locator('#speed-value')).toHaveText('45');
   await expect(page.locator('#limit-value')).toHaveText('50');
+  // 接近提醒時雷達面板蓋住車模區，車輛操作暫時收起、3D 暫停
+  await expect(model).toBeHidden();
+  await expect.poll(() => page.evaluate(() => window.__drivehud.app.car.getInfo().paused)).toBe(true);
+  await page.evaluate(() => window.__drivehud.app.setEngine({
+    tick: () => [], getState: () => ({gps:'OK', speedKmh:45, headingDeg:0, nearby:[], overspeed:false, focus:null}),
+  }));
+  await expect(page.locator('#app')).toHaveClass(/layout-normal/);
   await expect(model.locator('svg')).toBeVisible();
   await model.click();
   await expect(model).toHaveText('阿斯拉');
   expect(staleAssets).toEqual([]);
 });
 
-test('窄視窗展開外觀時，速度數值、單位、GPS 與雷達內容仍完整可見', async ({ page }, info) => {
+test('窄視窗展開外觀時，速度數值、單位、GPS 與雷達內容不移動也不被遮住', async ({ page }, info) => {
   await page.setViewportSize(info.project.name === 'portrait'
     ? {width: 393, height: 620}
     : {width: 852, height: 310});
@@ -213,29 +229,33 @@ test('窄視窗展開外觀時，速度數值、單位、GPS 與雷達內容仍�
   await expect(page.locator('#gps-status')).toContainText('GPS 待命');
 
   await page.waitForFunction(() => window.__drivehud?.app.car.getInfo().frames > 0);
-  const readouts = ['#speed-value', '.speed-unit', '#gps-status', '#radar-state', '#radar-detail'];
+  const readouts = ['#speed-value', '#gps-status', '#radar-state', '#radar-detail', '#heading'];
   const positions = () => page.locator('.frame').evaluate((frame, selectors) => {
     const viewport = frame.getBoundingClientRect();
     return selectors.map(selector => {
       const el = frame.querySelector(selector);
       const rect = el.getBoundingClientRect();
       const hit = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
-      return { top: rect.top, bottom: rect.bottom, visible: viewport.top <= rect.top &&
+      return { top: rect.top, left: rect.left, width: rect.width, visible: viewport.top <= rect.top &&
         viewport.bottom >= rect.bottom && el.contains(hit) };
     });
   }, readouts);
 
   const before = await positions();
-  await page.locator('.appearance summary').click();
+  await page.locator('#cb-appearance').click();
   await expect(page.locator('#cb-colors')).toBeVisible();
   const after = await positions();
-  const menu = await page.locator('.appearance').boundingBox();
-
   for (const [index, rect] of after.entries()) {
     expect(rect.visible, readouts[index]).toBe(true);
-    expect(rect.bottom, readouts[index]).toBeLessThanOrEqual(menu.y);
-    expect(Math.abs(rect.top - before[index].top), readouts[index]).toBeLessThanOrEqual(2);
+    expect(rect, readouts[index]).toEqual(before[index]);
   }
+  // 面板本身完整落在車模區內，色票可點
+  const zone = await page.locator('.car-zone').boundingBox();
+  const sheet = await page.locator('#appearance').boundingBox();
+  expect(sheet.y).toBeGreaterThanOrEqual(zone.y);
+  expect(sheet.y + sheet.height).toBeLessThanOrEqual(zone.y + zone.height + 1);
+  await page.getByRole('radio', { name: '深藍', exact: true }).click();
+  await expect(page.getByRole('radio', { name: '深藍', exact: true })).toHaveAttribute('aria-checked', 'true');
 });
 
 test('主畫面模板可載入且無 console error（開始行車按鈕存在）', async ({ page }) => {
