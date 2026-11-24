@@ -1,20 +1,53 @@
 // V1.10 Phase 1：失敗狀態一定要讓駕駛知道（資料、語音、螢幕常亮），以及啟動與安全設定。
 import { test, expect } from '@playwright/test';
+import { readFileSync } from 'node:fs';
 
 /** 假語音：記錄要講的句子；started=false 時模擬 iOS 沒有真的發聲。 */
-async function fakeSpeech(page, { started = true } = {}) {
-  await page.addInitScript((started) => {
+async function fakeSpeech(page, { started = true, throws = false } = {}) {
+  await page.addInitScript(({ started, throws }) => {
     window.testSpoken = [];
     class U { constructor(text) { this.text = text; } }
     const synth = {
       speaking: false, pending: false,
-      speak(u) { if (u.text.trim()) { window.testSpoken.push(u.text); if (started) setTimeout(() => u.onstart?.(), 10); } },
+      speak(u) {
+        if (!u.text.trim()) return;                 // unlock 用的空白句
+        if (throws) throw new Error('synth.speak failed'); // 模擬 iOS 同步丟例外
+        window.testSpoken.push(u.text);
+        if (started) setTimeout(() => u.onstart?.(), 10);
+      },
       cancel() {}, getVoices: () => [], addEventListener() {},
     };
     Object.defineProperty(window, 'speechSynthesis', { value: synth, configurable: true });
     Object.defineProperty(window, 'SpeechSynthesisUtterance', { value: U, configurable: true });
-  }, started);
+  }, { started, throws });
 }
+
+const DATA_MISSING = '測速資料未載入，目前無法提醒測速';
+
+/**
+ * 扣住內建測速快照的請求，直到測試呼叫 release(action)；action: 'continue' | 'abort' | '404'。
+ * passNew() 之後新發出的請求照常放行（例如匯入時比對舊筆數），先前扣住的仍等 release；
+ * release 之後的請求一律套用同一個 action（例如舊載入接著讀備援 CSV）。
+ */
+async function holdSnapshots(page) {
+  let open, released = null, holding = true;
+  const gate = new Promise((r) => { open = r; });
+  const apply = (route, action) => (action === 'continue' ? route.continue()
+    : action === '404' ? route.fulfill({ status: 404, body: '' }) : route.abort());
+  await page.route(/\/data\/snapshots\//, async (route) => {
+    if (released) return apply(route, released);
+    if (holding) return apply(route, await gate);
+    return route.continue();
+  });
+  return { release(action) { released = action; open(action); }, passNew() { holding = false; } };
+}
+
+/** 官方 CSV 的前 rows 筆，當作使用者匯入的檔案（匯入要求不少於現有筆數的一半）。 */
+function officialCsv(rows) {
+  const lines = readFileSync(new URL('../data/snapshots/npa7320.csv', import.meta.url), 'utf8').split(/\r?\n/);
+  return Buffer.from(lines.slice(0, 2 + rows).join('\n') + '\n', 'utf8');
+}
+const spokenCount = (page, text) => page.evaluate((t) => window.testSpoken.filter((x) => x === t).length, text);
 
 async function mockGeo(page) {
   await page.addInitScript(() => Object.defineProperty(navigator, 'geolocation', { value: {
@@ -43,6 +76,112 @@ test('測速資料載入失敗：雷達明說未載入、開始行車時語音�
   await expect(retry).toBeHidden();
   await expect(state).not.toHaveText('測速資料未載入');
   expect(await page.evaluate(() => window.__drivehud.app.data.count)).toBeGreaterThan(1000);
+});
+
+// 回歸（PR #8 審查 P1-01）：資料在背景載入期間就開始行車，之後才確定沒有資料時也要用語音告知，且同一段缺漏只講一次。
+test('先開始行車、資料隨後確認為 0 筆：語音告知一次，重複更新同一異常不再播報，恢復後再失敗會重新告知', async ({ page }) => {
+  await fakeSpeech(page);
+  await mockGeo(page);
+  const snap = await holdSnapshots(page);
+  await page.goto('/?debug');
+  await expect(page.locator('#app')).toHaveAttribute('data-data', 'loading');
+  await page.locator('#btn-start').click();
+  await page.waitForTimeout(300);
+  expect(await spokenCount(page, DATA_MISSING)).toBe(0); // 載入中不誤報
+
+  snap.release('404'); // 所有內建快照都不存在 → 0 筆
+  await expect(page.locator('#app')).toHaveAttribute('data-data', 'empty');
+  await expect.poll(() => spokenCount(page, DATA_MISSING)).toBe(1);
+
+  // 同一段缺漏反覆更新（含 empty ↔ error）：不重複播報
+  await page.evaluate(() => {
+    const app = window.__drivehud.app;
+    app.setData({ state: 'empty', count: 0 });
+    app.setData({ state: 'error', count: 0 });
+    app.setData({ state: 'error', count: 0 });
+  });
+  await page.waitForTimeout(300);
+  expect(await spokenCount(page, DATA_MISSING)).toBe(1);
+
+  // 資料恢復後又失敗：是新的一段缺漏，要再講
+  await page.evaluate(() => window.__drivehud.app.setData({ state: 'ready', count: 10 }));
+  await page.evaluate(() => window.__drivehud.app.setData({ state: 'error', count: 0 }));
+  await expect.poll(() => spokenCount(page, DATA_MISSING)).toBe(2);
+});
+
+test('先開始行車、資料隨後載入失敗（error）：語音告知', async ({ page }) => {
+  await fakeSpeech(page);
+  await mockGeo(page);
+  const snap = await holdSnapshots(page);
+  await page.goto('/?debug');
+  await page.locator('#btn-start').click();
+  // 內建快照讀取在 store 內會吞掉網路錯誤（結果是 0 筆）；讀取本身丟例外時 main.js 才標 error，這裡直接送出 error 狀態。
+  await page.evaluate(() => window.__drivehud.app.setData({ state: 'error', count: 0 }));
+  await expect.poll(() => spokenCount(page, DATA_MISSING)).toBe(1);
+  snap.release('continue');
+  await expect(page.locator('#app')).toHaveAttribute('data-data', 'ready');
+  expect(await spokenCount(page, DATA_MISSING)).toBe(1);
+});
+
+test('先開始行車、資料隨後正常載入：不誤觸資料缺漏語音', async ({ page }) => {
+  await fakeSpeech(page);
+  await mockGeo(page);
+  const snap = await holdSnapshots(page);
+  await page.goto('/?debug');
+  await page.locator('#btn-start').click();
+  snap.release('continue');
+  await expect(page.locator('#app')).toHaveAttribute('data-data', 'ready');
+  await page.waitForTimeout(500);
+  expect(await spokenCount(page, DATA_MISSING)).toBe(0);
+  await expect(page.locator('#voice-warn')).toBeHidden();
+});
+
+// 回歸（PR #8 審查 P2-01）：初始載入還沒回來時使用者先匯入；舊請求之後成功或失敗都不能覆蓋匯入的資料。
+for (const late of ['continue', 'abort']) {
+  test(`初始載入晚於匯入完成（舊請求${late === 'continue' ? '成功' : '失敗'}）：保留匯入的資料與 ready 狀態`, async ({ page }) => {
+    await mockGeo(page);
+    const snap = await holdSnapshots(page);
+    await page.goto('/?debug');
+    await expect(page.locator('#app')).toHaveAttribute('data-data', 'loading');
+    await page.locator('#btn-settings').click();
+    snap.passNew(); // 初始載入仍被扣住；匯入自己的比對請求放行
+    await page.locator('.sd-file').setInputFiles({ name: 'npa7320.csv', mimeType: 'text/csv', buffer: officialCsv(1500) });
+    await expect(page.locator('.sd-result')).toHaveClass(/sd-ok/, { timeout: 20_000 });
+    await expect.poll(() => page.evaluate(() => window.__drivehud.app.data.state)).toBe('ready');
+    const imported = await page.evaluate(() => window.__drivehud.app.data.count);
+    expect(imported).toBeGreaterThan(1000);
+    expect(imported).toBeLessThan(1600); // 與內建快照（約 1,900 筆）可以分辨
+
+    snap.release(late); // 內建快照這時才回來（成功）或讀不到（0 筆）
+    await page.waitForTimeout(1500);
+    expect(await page.evaluate(() => window.__drivehud.app.data)).toMatchObject({ state: 'ready', count: imported });
+    await expect(page.locator('#app')).toHaveAttribute('data-data', 'ready');
+  });
+}
+
+// 回歸（PR #8 審查 P2-03）：synth.speak() 同步丟例外時，「語音無法播放」要留著，不能被 speak() 的回傳值收起。
+test('synth.speak 同步丟例外時保留「語音無法播放」警告', async ({ page }) => {
+  await fakeSpeech(page, { throws: true });
+  await mockGeo(page);
+  await page.goto('/?debug');
+  await expect(page.locator('#app')).toHaveAttribute('data-data', 'ready');
+  await page.locator('#btn-start').click();
+  await page.evaluate(() => window.__drivehud.app.ingest([{ type: 'APPROACH_ALERT', speechText: '前方一百公尺有測速照相，速限五十' }]));
+  await expect(page.locator('#voice-warn')).toBeVisible();
+  await page.waitForTimeout(500);
+  await expect(page.locator('#voice-warn')).toBeVisible();
+});
+
+test('語音正常播放時不顯示「語音無法播放」', async ({ page }) => {
+  await fakeSpeech(page);
+  await mockGeo(page);
+  await page.goto('/?debug');
+  await expect(page.locator('#app')).toHaveAttribute('data-data', 'ready');
+  await page.locator('#btn-start').click();
+  await page.evaluate(() => window.__drivehud.app.ingest([{ type: 'APPROACH_ALERT', speechText: '前方一百公尺有測速照相，速限五十' }]));
+  await expect.poll(() => page.evaluate(() => window.testSpoken)).toContain('前方一百公尺有測速照相，速限五十');
+  await page.waitForTimeout(500);
+  await expect(page.locator('#voice-warn')).toBeHidden();
 });
 
 test('語音沒有真的發聲時顯示「語音無法播放」', async ({ page }) => {

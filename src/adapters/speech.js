@@ -82,18 +82,20 @@ export function createSpeech({
         const reason = e && e.error ? e.error : 'error';
         if (!BENIGN_ERRORS.has(reason)) report(false, reason);
       };
+      // 回傳是否成功交給系統；閒置時同步呼叫，失敗要反映在 speak() 的回傳值，
+      // 否則呼叫端會拿到 true 而把剛由 report(false) 顯示的警告又收起來。
       const go = () => {
         pendingStart = null;
-        if (gen !== generation) return;
-        try { synth.speak(u); } catch (_) { report(false, 'speak-threw'); return; }
+        if (gen !== generation) return false;
+        try { synth.speak(u); } catch (_) { report(false, 'speak-threw'); return false; }
         watch = setTimer(() => {
           watch = null;
           if (gen === generation && !started) report(false, 'timeout');
         }, START_TIMEOUT_MS);
+        return true;
       };
-      if (busy) pendingStart = setTimer(go, SPEAK_AFTER_CANCEL_MS);
-      else go();
-      return true;
+      if (busy) { pendingStart = setTimer(go, SPEAK_AFTER_CANCEL_MS); return true; } // 延後播放的結果由 onStatus 回報
+      return go();
     } catch (_) {
       report(false, 'speak-threw');
       return false;

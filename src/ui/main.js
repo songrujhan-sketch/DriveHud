@@ -3,6 +3,7 @@
 import { CONFIG, createAlertEngine, loadCameraDataset, dataServices } from './deps.js?v=1.10.0';
 import { createApp } from './app.js?v=1.10.0';
 import { createSettingsStore } from './settings.js?v=1.10.0';
+import { createDataLoader } from './data-loader.js?v=1.10.0';
 import { createGeoSource } from '../adapters/geolocation.js?v=1.10.0';
 import { createSpeech } from '../adapters/speech.js?v=1.10.0';
 import { createWakeLock } from '../adapters/wakelock.js?v=1.10.0';
@@ -31,10 +32,20 @@ function boot() {
   let app;
   try {
     const engine = createAlertEngine({ cameras: [], config: CONFIG });
-    dataServices.onCamerasUpdated((list, ds) => {
-      engine.setCameras(list);
-      app?.setData({ state: list.length ? 'ready' : 'empty', count: list.length, fetchedAt: ds?.fetchedAt ?? null });
+    // 初始載入、重新載入與匯入共用一個時序：較舊的載入晚完成時直接丟棄。
+    const loader = createDataLoader({
+      load: loadCameraDataset,
+      onLoading: () => app?.setData({ state: 'loading', count: 0 }),
+      onData: ({ cameras, fetchedAt }) => {
+        engine.setCameras(cameras);
+        app?.setData({ state: cameras.length ? 'ready' : 'empty', count: cameras.length, fetchedAt: fetchedAt ?? null });
+      },
+      onError: (err) => {
+        console.warn('載入測速資料失敗', err);
+        app?.setData({ state: 'error', count: 0 });
+      },
     });
+    dataServices.onCamerasUpdated((list, ds) => loader.push({ cameras: list, fetchedAt: ds?.fetchedAt ?? null }));
     app = createApp({
       root,
       mode: 'live',
@@ -44,21 +55,9 @@ function boot() {
       wakeLock: createWakeLock(),
       geo: createGeoSource(),
       data: { state: 'loading', count: 0 },
-      onRetryData: () => loadData(),
+      onRetryData: () => loader.reload(),
     });
-
-    async function loadData() {
-      app.setData({ state: 'loading', count: 0 });
-      try {
-        const { cameras, fetchedAt } = await loadCameraDataset();
-        engine.setCameras(cameras);
-        app.setData({ state: cameras.length ? 'ready' : 'empty', count: cameras.length, fetchedAt });
-      } catch (err) {
-        console.warn('載入測速資料失敗', err);
-        app.setData({ state: 'error', count: 0 });
-      }
-    }
-    loadData();
+    loader.reload();
 
     // 除錯／e2e 用的全域入口只在網址帶 ?debug 時掛上。
     if (new URLSearchParams(location.search).has('debug')) window.__drivehud = { app, engine };

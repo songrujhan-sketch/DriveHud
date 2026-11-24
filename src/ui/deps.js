@@ -12,9 +12,12 @@ import { updateOnline, importFromFile } from '../data/update.js?v=1.10.0';
 const store = createStore({ config: CONFIG });
 const camerasListeners = [];
 
+let notifyGen = 0;
 async function notifyCamerasUpdated() {
+  const g = ++notifyGen;
   try {
     const ds = await store.loadDataset();
+    if (g !== notifyGen) return; // 之後又有更新：讓最新的那次通知
     if (ds && Array.isArray(ds.cameras)) for (const cb of camerasListeners) cb(ds.cameras, ds);
   } catch (err) { console.warn('重新載入測速資料失敗', err); }
 }
