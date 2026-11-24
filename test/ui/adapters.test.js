@@ -77,6 +77,42 @@ test('語音：系統回報錯誤 → 失敗；不支援時 speak 回傳 false',
   assert.equal(createSpeech({ synth: null, Utterance: null }).speak('x'), false);
 });
 
+// 回歸（PR #8 審查 P2-03）：閒置時 synth.speak() 同步丟例外，speak() 必須回傳 false，
+// 否則呼叫端會用 true 把 onStatus 剛顯示的「語音無法播放」收起來。
+test('語音：閒置時 synth.speak 同步丟例外 → speak 回傳 false，且只回報一次失敗', () => {
+  const t = fakeTimers(), synth = fakeSynth();
+  synth.speak = () => { throw new Error('boom'); };
+  const sp = createSpeech({ synth, Utterance: Utt, setTimer: t.set, clearTimer: t.clear });
+  const seen = [];
+  sp.onStatus((ok, reason) => seen.push([ok, reason]));
+  assert.equal(sp.speak('前方一百公尺有測速照相'), false);
+  assert.deepEqual(seen, [[false, 'speak-threw']]);
+  t.advance(START_TIMEOUT_MS + 10); // 沒有交給系統，就不該再啟動逾時檢查
+  assert.deepEqual(seen, [[false, 'speak-threw']]);
+});
+
+test('語音：播報中延後播放時丟例外 → speak 先回傳 true（已排程），稍後由 onStatus 回報失敗', () => {
+  const t = fakeTimers(), synth = fakeSynth();
+  const sp = createSpeech({ synth, Utterance: Utt, setTimer: t.set, clearTimer: t.clear });
+  const seen = [];
+  sp.onStatus((ok, reason) => seen.push([ok, reason]));
+  assert.equal(sp.speak('第一句'), true);
+  synth.speak = () => { throw new Error('boom'); };
+  assert.equal(sp.speak('第二句'), true);
+  t.advance(SPEAK_AFTER_CANCEL_MS + 1);
+  assert.deepEqual(seen, [[true, undefined], [false, 'speak-threw']]);
+});
+
+test('語音：正常播放回傳 true，不回報失敗', () => {
+  const t = fakeTimers(), synth = fakeSynth();
+  const sp = createSpeech({ synth, Utterance: Utt, setTimer: t.set, clearTimer: t.clear });
+  const seen = [];
+  sp.onStatus((ok) => seen.push(ok));
+  assert.equal(sp.speak('前方一百公尺有測速照相'), true);
+  t.advance(START_TIMEOUT_MS + 10);
+  assert.deepEqual(seen, [true]);
+});
+
 function fakeWakeNavigator({ fail = false } = {}) {
   const sentinels = [];
   return {

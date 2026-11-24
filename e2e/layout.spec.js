@@ -254,6 +254,58 @@ test('窄視窗展開外觀時，速度數值、單位、GPS 與雷達內容不�
   await expect(page.getByRole('radio', { name: '深藍', exact: true })).toHaveAttribute('aria-checked', 'true');
 });
 
+// 回歸（PR #8 審查 P2-02）：矮的橫向畫面（852×310）車款清單不能被車模區裁掉。
+// 用實際點擊與 elementFromPoint 確認每一款都點得到，而不是只檢查元素存在。
+test.describe('矮橫向畫面 852×310', () => {
+  test.use({ viewport: { width: 852, height: 310 } });
+  test('車款清單九款都能點選，選單留在車模區內、不被其他控制項遮住', async ({ page }, info) => {
+    test.skip(info.project.name !== 'landscape', '只需在橫向專案跑一次');
+    await page.goto('/?debug');
+    await page.evaluate(() => localStorage.removeItem('drivehud.settings.v1'));
+    await page.reload();
+    const model = page.locator('#cb-model');
+    const picker = page.locator('#model-picker');
+    const names = await page.evaluate(() => [...document.querySelectorAll('#model-picker [data-model]')].map((b) => b.textContent.trim()));
+    expect(names).toHaveLength(9);
+    for (const name of names) {
+      await model.click();
+      await expect(picker).toBeVisible();
+      // 選單在車模區內
+      const [zone, box] = await Promise.all([page.locator('.car-zone').boundingBox(), picker.boundingBox()]);
+      expect(box.y).toBeGreaterThanOrEqual(zone.y - 0.5);
+      expect(box.y + box.height).toBeLessThanOrEqual(zone.y + zone.height + 0.5);
+      const radio = picker.getByRole('radio', { name, exact: true });
+      await radio.scrollIntoViewIfNeeded();
+      const hit = await radio.evaluate((el) => {
+        const r = el.getBoundingClientRect();
+        const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+        return !!top && (top === el || el.contains(top));
+      });
+      expect(hit, `${name} 被遮住或裁掉`).toBe(true);
+      expect((await radio.boundingBox()).height).toBeGreaterThanOrEqual(44);
+      await radio.click({ trial: false });
+      await expect(picker).toBeHidden();
+      await expect(model).toHaveText(name);
+    }
+  });
+});
+
+test('一般手機畫面：車款清單九款都在可點的位置', async ({ page }) => {
+  await page.goto('/?debug');
+  await page.locator('#cb-model').click();
+  const radios = page.locator('#model-picker').getByRole('radio');
+  await expect(radios).toHaveCount(9);
+  for (const r of await radios.all()) {
+    await r.scrollIntoViewIfNeeded();
+    const hit = await r.evaluate((el) => {
+      const b = el.getBoundingClientRect();
+      const top = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
+      return !!top && (top === el || el.contains(top));
+    });
+    expect(hit, await r.textContent()).toBe(true);
+  }
+});
+
 test('主畫面模板可載入且無 console error（開始行車按鈕存在）', async ({ page }) => {
   const errors = [];
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });

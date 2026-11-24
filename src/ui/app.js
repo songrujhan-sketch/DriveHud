@@ -330,6 +330,15 @@ export function createApp({
   els.canvas.addEventListener('webglcontextrestored', onContextRestored);
 
   let running = mode === 'sim';
+  // 本次行車是否已用語音告知「測速資料未載入」。資料恢復 ready 或停止行車時重設，
+  // 所以同一段缺漏（empty／error 之間切換、重複更新同一狀態）只講一次。
+  let dataWarned = false;
+  function warnMissingData() {
+    if (!running || !speech || dataWarned) return;
+    if (dataInfo.state !== 'empty' && dataInfo.state !== 'error') return;
+    dataWarned = true;
+    if (speech.speak(DATA_MISSING_SPEECH) === false) els.voiceWarn.hidden = false;
+  }
   let relocating = false;
   let adapterStatus = null;
   let previousCourse = null, turnTimeout;
@@ -482,8 +491,8 @@ export function createApp({
     els.start.textContent = '停止行車';
     els.start.setAttribute('aria-pressed', 'true');
     if (speech) speech.unlock();
-    // 資料缺漏時直接用語音講清楚：駕駛不一定會看畫面。
-    if (speech && (dataInfo.state === 'empty' || dataInfo.state === 'error')) speech.speak(DATA_MISSING_SPEECH);
+    // 資料缺漏時直接用語音講清楚：駕駛不一定會看畫面。資料之後才載入失敗時由 setData 補講。
+    warnMissingData();
     if (wakeLock) wakeLock.request();
     geo?.start(onFix, (status) => {
       if (!running) return;
@@ -501,6 +510,7 @@ export function createApp({
   }
   function stop() {
     running = false;
+    dataWarned = false;
     geo?.stop(); wakeLock?.release(); speech?.cancel?.();
     clearInterval(tickTimer); tickTimer = null;
     eng?.reset(); adapterStatus = null; resetTurn(); relocating = false;
@@ -550,7 +560,12 @@ export function createApp({
     get car() { return car; },
     setEngine(e) { resetTurn(); eng = e; relocating = false; applyAlertOptions(); render(); },
     /** 測速資料狀態：{ state: 'loading'|'ready'|'empty'|'error', count } */
-    setData(d) { dataInfo = { ...dataInfo, ...d }; render(); },
+    setData(d) {
+      dataInfo = { ...dataInfo, ...d };
+      if (dataInfo.state === 'ready') dataWarned = false;
+      render();
+      warnMissingData();
+    },
     get data() { return { ...dataInfo }; },
     setLastFix(f) { updateTurn(f); },
     onRender(cb) { renderCbs.push(cb); },
